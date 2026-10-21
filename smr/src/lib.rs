@@ -163,6 +163,36 @@ impl Channel {
     }
 }
 
+/// Remove the local mean from a signal with a centred boxcar of `window` samples.
+///
+/// This is the operation Spike2 calls *DC Remove*: each sample loses the mean of the
+/// window around it, so the baseline is flattened while the waveform rides on top. Near
+/// the ends the window shrinks rather than wrapping, which keeps the edges from jumping.
+pub fn dc_remove(samples: &mut [f32], window: usize) {
+    let n = samples.len();
+    if n == 0 || window < 2 {
+        return;
+    }
+    let half = (window / 2).max(1);
+
+    // Prefix sums keep the boxcar linear in the sample count.
+    let mut prefix = Vec::with_capacity(n + 1);
+    prefix.push(0.0f64);
+    for v in samples.iter() {
+        let last = *prefix.last().unwrap();
+        prefix.push(last + f64::from(*v));
+    }
+
+    let mut out = vec![0.0f32; n];
+    for i in 0..n {
+        let lo = i.saturating_sub(half);
+        let hi = (i + half + 1).min(n);
+        let mean = (prefix[hi] - prefix[lo]) / (hi - lo) as f64;
+        out[i] = samples[i] - mean as f32;
+    }
+    samples.copy_from_slice(&out);
+}
+
 /// An event or marker timestamp.
 #[derive(Debug, Clone)]
 pub struct Event {
@@ -644,5 +674,51 @@ impl SonFile {
             .first()
             .map(|b| f64::from(b.start_tick) * self.time_factor)
             .unwrap_or(0.0)
+    }
+}
+
+#[cfg(test)]
+mod process_tests {
+    use super::dc_remove;
+
+    #[test]
+    fn constant_signal_becomes_flat() {
+        let mut data = vec![1.25f32; 512];
+        dc_remove(&mut data, 201);
+        assert!(data.iter().all(|v| v.abs() < 1e-6), "residual {:?}", &data[..4]);
+    }
+
+    #[test]
+    fn slow_drift_is_removed_but_a_spike_survives() {
+        // Ramp drift plus one sharp excursion in the middle.
+        let mut data: Vec<f32> = (0..2000).map(|i| i as f32 * 0.01).collect();
+        data[1000] += 5.0;
+        let mut processed = data.clone();
+        dc_remove(&mut processed, 201);
+
+        // The drift is gone: the far ends are near zero.
+        assert!(processed[0].abs() < 0.6, "start {}", processed[0]);
+        assert!(processed[1999].abs() < 0.6, "end {}", processed[1999]);
+
+        // The excursion is still there, close to its original height above the drift.
+        let peak = processed.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        assert!(peak > 4.5, "peak {peak}");
+    }
+
+    #[test]
+    fn short_and_degenerate_inputs_are_ignored() {
+        let mut empty: Vec<f32> = Vec::new();
+        dc_remove(&mut empty, 101);
+        let mut one = vec![3.0f32];
+        dc_remove(&mut one, 101);
+        assert_eq!(one, vec![0.0], "a single sample loses its own mean");
+    }
+
+    #[test]
+    fn window_of_one_is_a_no_op() {
+        let mut data = vec![1.0f32, 2.0, 3.0, 4.0];
+        let copy = data.clone();
+        dc_remove(&mut data, 1);
+        assert_eq!(data, copy);
     }
 }

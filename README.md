@@ -16,8 +16,9 @@ cargo run -p sharar -- path/to/recording.smr
 ```
 
 Drag the window on a file, or use `File → Open…`. Keyboard: `F` fits the recording to the
-window, `+`/`-` change the selected channel's gain, `0` resets it. Mouse: wheel zooms about
-the pointer, middle-drag pans, dragging near a cursor moves it.
+window, `+`/`-` change the selected channel's gain, `0` resets it, `D` toggles DC remove on
+the selected channel. Mouse: wheel zooms about the pointer, middle-drag pans, dragging near
+a cursor moves it.
 
 ## What works
 
@@ -34,7 +35,9 @@ the pointer, middle-drag pans, dragging near a cursor moves it.
   line.
 - Channel list with visibility toggles and selection.
 - Measurements between the cursors: sample count, mean, RMS, minimum, maximum and
-  peak-to-peak per waveform channel.
+  peak-to-peak per waveform channel, computed on the processed signal.
+- DC remove (a centred boxcar mean subtraction) per channel, off by default:
+  Analysis → DC remove, or `D`, or `--dc` on the command line.
 
 ![a spike train and a text mark](docs/shot_spikes.png)
 
@@ -46,8 +49,8 @@ This is an early slice of a large program, not a finished replacement for Spike2
 |---|---|
 | Acquisition from a CED 1401 | the `ced1401` device crate exists separately, not wired to the GUI |
 | Sampling configuration | none |
-| Channel processing (DC remove, filters, rectification) | none |
-| Measurements, averaging, peri-stimulus analysis | Analysis menu is a stub |
+| Channel processing | DC remove only; no filters, rectification or other processes |
+| Averaging, peri-stimulus analysis | none; measurements between cursors work |
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only |

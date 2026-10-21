@@ -44,6 +44,7 @@ struct Cache {
     from_sample: u64,
     to_sample: u64,
     width: usize,
+    dc_window: usize,
     env: Envelope,
 }
 
@@ -78,6 +79,8 @@ struct App {
     caches: Vec<Option<Cache>>,
     /// Value at cursor 1 and cursor 2, per channel.
     readouts: Vec<Option<(f32, f32)>>,
+    /// DC-remove window in samples per channel; 0 means the process is off.
+    dc_window: Vec<usize>,
     /// Statistics between the cursors, per channel.
     stats: Vec<Option<WindowStats>>,
     /// Cursor pair the statistics were computed for, so they are not recomputed per frame.
@@ -103,6 +106,7 @@ impl App {
             dragging: None,
             caches: Vec::new(),
             readouts: Vec::new(),
+            dc_window: Vec::new(),
             stats: Vec::new(),
             stats_key: None,
             status: "No file open".to_string(),
@@ -128,6 +132,7 @@ impl App {
                 self.readouts = vec![None; n];
                 self.stats = vec![None; n];
                 self.stats_key = None;
+                self.dc_window = vec![0; n];
                 self.selected = f.channels.iter().position(|c| c.kind.is_waveform());
                 self.t_start = 0.0;
                 self.t_end = duration;
@@ -211,9 +216,13 @@ impl App {
             }
             // Cap the work: a cursor pair spanning a long recording should not freeze the UI.
             let count = ((b - a) as usize).min(4_000_000);
-            let Ok(data) = son.read_waveform(i, a, count) else {
+            let Ok(mut data) = son.read_waveform(i, a, count) else {
                 continue;
             };
+            let dc = self.dc_window.get(i).copied().unwrap_or(0);
+            if dc > 1 {
+                smr::dc_remove(&mut data, dc);
+            }
 
             let mut n = 0u64;
             let mut sum = 0f64;
@@ -260,13 +269,56 @@ impl App {
         let frac = ((anchor - self.t_start) / span).clamp(0.0, 1.0);
         self.t_start = anchor - new_span * frac;
         self.t_end = self.t_start + new_span;
+        self.clamp_view();
         self.caches.iter_mut().for_each(|c| *c = None);
     }
 
     fn pan(&mut self, seconds: f64) {
         self.t_start += seconds;
         self.t_end += seconds;
+        self.clamp_view();
         self.caches.iter_mut().for_each(|c| *c = None);
+    }
+
+    /// Keep the view inside the recording: Spike2 never shows time before the first
+    /// sample or past the last one.
+    fn clamp_view(&mut self) {
+        let duration = self.son.as_ref().map(|s| s.duration()).unwrap_or(0.0);
+        if duration <= 0.0 {
+            return;
+        }
+        let mut span = (self.t_end - self.t_start).max(1e-9).min(duration);
+        if self.t_start < 0.0 {
+            self.t_start = 0.0;
+            self.t_end = span;
+        }
+        if self.t_end > duration {
+            self.t_end = duration;
+            self.t_start = (duration - span).max(0.0);
+        }
+        span = self.t_end - self.t_start;
+        if span <= 0.0 {
+            self.t_start = 0.0;
+            self.t_end = duration;
+        }
+    }
+
+    /// Turn DC remove on for the selected channel, with a 0.2 s window.
+    fn enable_dc(&mut self) {
+        let Some(i) = self.selected else { return };
+        let rate = self
+            .son
+            .as_ref()
+            .and_then(|s| s.channels.get(i).map(|c| c.sample_rate()))
+            .unwrap_or(0.0);
+        if rate <= 0.0 {
+            return;
+        }
+        if let Some(w) = self.dc_window.get_mut(i) {
+            *w = ((rate * 0.2).round() as usize).max(3) | 1;
+        }
+        self.caches[i] = None;
+        self.stats_key = None;
     }
 
     fn set_gain(&mut self, factor: f32) {
@@ -285,19 +337,30 @@ impl App {
             return false;
         }
 
+        let dc = self.dc_window.get(channel).copied().unwrap_or(0);
         let hit = self.caches[channel]
             .as_ref()
-            .map(|c| c.from_sample == from && c.to_sample == to && c.width == width)
+            .map(|c| {
+                c.from_sample == from
+                    && c.to_sample == to
+                    && c.width == width
+                    && c.dc_window == dc
+            })
             .unwrap_or(false);
         if hit {
             return true;
         }
 
         let n = (to - from) as usize;
-        let data = match son.read_waveform(channel, from, n) {
+        let mut data = match son.read_waveform(channel, from, n) {
             Ok(d) => d,
             Err(_) => return false,
         };
+        if dc > 1 {
+            // Edge windows are truncated to the visible range, so the very first and last
+            // few pixels of a processed trace can differ slightly from Spike2's.
+            smr::dc_remove(&mut data, dc);
+        }
 
         let mut low = vec![f32::INFINITY; width];
         let mut high = vec![f32::NEG_INFINITY; width];
@@ -324,6 +387,7 @@ impl App {
             from_sample: from,
             to_sample: to,
             width,
+            dc_window: dc,
             env: Envelope { low, high },
         });
         true
@@ -436,11 +500,43 @@ impl eframe::App for App {
                 ui.menu_button("Analysis", |ui| {
                     ui.checkbox(&mut self.show_measure, "Show measurements");
                     ui.separator();
+                    if let Some(i) = self.selected {
+                        let rate = self
+                            .son
+                            .as_ref()
+                            .and_then(|s| s.channels.get(i).map(|c| c.sample_rate()))
+                            .unwrap_or(0.0);
+                        let mut on = self.dc_window.get(i).copied().unwrap_or(0) > 1;
+                        if ui.checkbox(&mut on, "DC remove on selected channel").changed() {
+                            let window = if on {
+                                ((rate * 0.2).round() as usize).max(3) | 1
+                            } else {
+                                0
+                            };
+                            if let Some(w) = self.dc_window.get_mut(i) {
+                                *w = window;
+                            }
+                            self.caches[i] = None;
+                            self.stats_key = None;
+                        }
+                        if on && rate > 0.0 {
+                            let w = self.dc_window.get(i).copied().unwrap_or(0);
+                            ui.label(
+                                egui::RichText::new(format!(
+                                    "window {w} samples ({:.1} ms)",
+                                    w as f64 / rate * 1000.0
+                                ))
+                                .small()
+                                .weak(),
+                            );
+                        }
+                    }
+                    ui.separator();
                     ui.label("Averaging and peri-stimulus analysis are not built yet.");
                 });
                 ui.menu_button("Help", |ui| {
                     ui.label("Sharar — read and display CED Spike2 .smr files.");
-                    ui.label("Wheel zooms, middle-drag pans, F fits, +/- channel gain.");
+                    ui.label("Wheel zooms, middle-drag pans, F fits, +/- gain, D DC remove.");
                 });
                 ui.separator();
                 ui.label(
@@ -481,6 +577,11 @@ impl eframe::App for App {
                     ui.separator();
                     let g = self.gain.get(i).copied().unwrap_or(1.0);
                     ui.label(format!("ch {} gain ×{g:.2}", i + 1));
+                    let w = self.dc_window.get(i).copied().unwrap_or(0);
+                    if w > 1 {
+                        ui.separator();
+                        ui.label(format!("DC remove {w} samples"));
+                    }
                 }
             });
         });
@@ -1132,12 +1233,13 @@ impl eframe::App for App {
                 self.pan(-f64::from(dx) / f64::from(plot.width().max(1.0)) * span);
             }
 
-            let (fit, up, down, reset) = ui.input(|i| {
+            let (fit, up, down, reset, dc) = ui.input(|i| {
                 (
                     i.key_pressed(egui::Key::F),
                     i.key_pressed(egui::Key::Plus) || i.key_pressed(egui::Key::Equals),
                     i.key_pressed(egui::Key::Minus),
                     i.key_pressed(egui::Key::Num0),
+                    i.key_pressed(egui::Key::D),
                 )
             });
             if fit {
@@ -1153,6 +1255,27 @@ impl eframe::App for App {
                 if let Some(i) = self.selected {
                     if let Some(g) = self.gain.get_mut(i) {
                         *g = 1.0;
+                    }
+                }
+            }
+            if dc {
+                if let Some(i) = self.selected {
+                    let rate = self
+                        .son
+                        .as_ref()
+                        .and_then(|s| s.channels.get(i).map(|c| c.sample_rate()))
+                        .unwrap_or(0.0);
+                    if rate > 0.0 {
+                        let on = self.dc_window.get(i).copied().unwrap_or(0) > 1;
+                        if let Some(w) = self.dc_window.get_mut(i) {
+                            *w = if on {
+                                0
+                            } else {
+                                ((rate * 0.2).round() as usize).max(3) | 1
+                            };
+                        }
+                        self.caches[i] = None;
+                        self.stats_key = None;
                     }
                 }
             }
@@ -1221,7 +1344,15 @@ impl eframe::App for App {
 }
 
 fn main() -> eframe::Result {
-    let path = std::env::args().nth(1).map(PathBuf::from);
+    let mut path: Option<PathBuf> = None;
+    let mut dc_on_start = false;
+    for arg in std::env::args().skip(1) {
+        match arg.as_str() {
+            // Start with DC remove applied to the first waveform channel.
+            "--dc" => dc_on_start = true,
+            _ => path = Some(PathBuf::from(arg)),
+        }
+    }
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -1234,6 +1365,12 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Sharar",
         options,
-        Box::new(|_cc| Ok(Box::new(App::new(path)))),
+        Box::new(move |_cc| {
+            let mut app = App::new(path.clone());
+            if dc_on_start {
+                app.enable_dc();
+            }
+            Ok(Box::new(app))
+        }),
     )
 }
