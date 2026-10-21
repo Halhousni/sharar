@@ -193,6 +193,191 @@ pub fn dc_remove(samples: &mut [f32], window: usize) {
     samples.copy_from_slice(&out);
 }
 
+/// Which side of the spectrum a filter keeps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterKind {
+    LowPass,
+    HighPass,
+}
+
+/// A filter request, in the units the caller works in.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FilterSpec {
+    pub kind: FilterKind,
+    /// Corner (-6 dB) frequency in Hz.
+    pub cutoff: f64,
+    /// Number of FIR coefficients. Ignored by the IIR path.
+    pub taps: usize,
+    /// True for the two-pole IIR, false for the windowed-sinc FIR.
+    pub iir: bool,
+}
+
+impl FilterSpec {
+    /// An identity tag, so caches can tell one filter setting from another.
+    ///
+    /// The cutoff is quantised to 0.1 Hz rather than hashed from its f64 bits: round
+    /// values like 100.0 and 200.0 share their low mantissa bits, so the raw bits would
+    /// collide.
+    pub fn tag(&self) -> u64 {
+        let kind = match self.kind {
+            FilterKind::LowPass => 1u64,
+            FilterKind::HighPass => 2u64,
+        };
+        let cutoff = ((self.cutoff.max(0.0) * 10.0).round() as u64) & 0x3f_ffff;
+        kind | (cutoff << 2) | ((self.taps as u64 & 0xfff) << 24) | ((self.iir as u64) << 36)
+    }
+}
+
+/// Windowed-sinc low-pass coefficients with unity gain at DC.
+///
+/// `cutoff` is normalised to the sample rate (0.5 = Nyquist). The Hamming window trades
+/// a wider transition for lower ripple than a rectangular one.
+pub fn fir_lowpass(cutoff: f64, taps: usize) -> Vec<f64> {
+    let n = taps.max(3) | 1; // odd, so the filter is symmetric about a sample
+    let fc = cutoff.clamp(1e-6, 0.4999);
+    let m = (n - 1) as f64;
+    let mid = m / 2.0;
+
+    let mut h = Vec::with_capacity(n);
+    for i in 0..n {
+        let k = i as f64 - mid;
+        let sinc = if k.abs() < 1e-12 {
+            2.0 * fc
+        } else {
+            (2.0 * std::f64::consts::PI * fc * k).sin() / (std::f64::consts::PI * k)
+        };
+        // Hamming window
+        let w = 0.54 - 0.46 * (2.0 * std::f64::consts::PI * i as f64 / m).cos();
+        h.push(sinc * w);
+    }
+
+    let sum: f64 = h.iter().sum();
+    if sum.abs() > 1e-12 {
+        for c in h.iter_mut() {
+            *c /= sum;
+        }
+    }
+    h
+}
+
+/// High-pass by spectral inversion of a low-pass, offsetting the centre tap so the sum
+/// of coefficients stays zero.
+pub fn fir_highpass(cutoff: f64, taps: usize) -> Vec<f64> {
+    let mut h = fir_lowpass(cutoff, taps);
+    let mid = h.len() / 2;
+    for c in h.iter_mut() {
+        *c = -*c;
+    }
+    h[mid] += 1.0;
+    h
+}
+
+/// One biquad section (direct form 1).
+#[derive(Debug, Clone, Copy)]
+pub struct Biquad {
+    b0: f64,
+    b1: f64,
+    b2: f64,
+    a1: f64,
+    a2: f64,
+}
+
+impl Biquad {
+    /// Two-pole (Butterworth, Q = 1/sqrt 2) low-pass at `cutoff` normalised to the rate.
+    pub fn lowpass(cutoff: f64) -> Self {
+        let fc = cutoff.clamp(1e-6, 0.4999);
+        let w0 = 2.0 * std::f64::consts::PI * fc;
+        let (sin, cos) = w0.sin_cos();
+        let alpha = sin / (2.0 * std::f64::consts::FRAC_1_SQRT_2);
+        let a0 = 1.0 + alpha;
+
+        Self {
+            b0: (1.0 - cos) / 2.0 / a0,
+            b1: (1.0 - cos) / a0,
+            b2: (1.0 - cos) / 2.0 / a0,
+            a1: -2.0 * cos / a0,
+            a2: (1.0 - alpha) / a0,
+        }
+    }
+
+    /// Two-pole high-pass at `cutoff` normalised to the rate.
+    pub fn highpass(cutoff: f64) -> Self {
+        let fc = cutoff.clamp(1e-6, 0.4999);
+        let w0 = 2.0 * std::f64::consts::PI * fc;
+        let (sin, cos) = w0.sin_cos();
+        let alpha = sin / (2.0 * std::f64::consts::FRAC_1_SQRT_2);
+        let a0 = 1.0 + alpha;
+
+        Self {
+            b0: (1.0 + cos) / 2.0 / a0,
+            b1: -(1.0 + cos) / a0,
+            b2: (1.0 + cos) / 2.0 / a0,
+            a1: -2.0 * cos / a0,
+            a2: (1.0 - alpha) / a0,
+        }
+    }
+
+    pub fn apply(&self, samples: &mut [f32]) {
+        let (mut x1, mut x2, mut y1, mut y2) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+        for v in samples.iter_mut() {
+            let x0 = f64::from(*v);
+            let y0 = self.b0 * x0 + self.b1 * x1 + self.b2 * x2 - self.a1 * y1 - self.a2 * y2;
+            x2 = x1;
+            x1 = x0;
+            y2 = y1;
+            y1 = y0;
+            *v = y0 as f32;
+        }
+    }
+}
+
+/// Apply a filter in place. FIR runs as a centred convolution, so the output is not
+/// delayed relative to the input; the IIR is causal, as Spike2's own filters are.
+pub fn apply_filter(samples: &mut [f32], spec: &FilterSpec, sample_rate: f64) {
+    if samples.is_empty() || sample_rate <= 0.0 || spec.cutoff <= 0.0 {
+        return;
+    }
+    let nyquist = sample_rate / 2.0;
+    if spec.cutoff >= nyquist {
+        // Nothing to remove: a low pass above Nyquist is the identity, and a high pass
+        // above Nyquist would delete the signal.
+        if spec.kind == FilterKind::HighPass {
+            for v in samples.iter_mut() {
+                *v = 0.0;
+            }
+        }
+        return;
+    }
+    let norm = spec.cutoff / sample_rate;
+
+    if spec.iir {
+        let bq = match spec.kind {
+            FilterKind::LowPass => Biquad::lowpass(norm),
+            FilterKind::HighPass => Biquad::highpass(norm),
+        };
+        bq.apply(samples);
+        return;
+    }
+
+    let coeffs = match spec.kind {
+        FilterKind::LowPass => fir_lowpass(norm, spec.taps),
+        FilterKind::HighPass => fir_highpass(norm, spec.taps),
+    };
+    let mid = coeffs.len() / 2;
+    let input: Vec<f32> = samples.to_vec();
+    let n = input.len();
+    for i in 0..n {
+        let mut acc = 0.0f64;
+        for (k, c) in coeffs.iter().enumerate() {
+            let idx = i as isize + k as isize - mid as isize;
+            if idx >= 0 && (idx as usize) < n {
+                acc += c * f64::from(input[idx as usize]);
+            }
+        }
+        samples[i] = acc as f32;
+    }
+}
+
 /// Peri-stimulus average of a waveform around a set of event times.
 ///
 /// Each event contributes one sample per bin, taken at the bin centre; bins with no
@@ -836,5 +1021,80 @@ mod average_tests {
         let samples = vec![1.0f32; 100];
         let avg = peri_stimulus_average(&samples, 0.0, 0.001, &[], 0.01, 0.01, 5);
         assert!(avg.bins.iter().all(|v| v.is_nan()));
+    }
+}
+
+#[cfg(test)]
+mod filter_tests {
+    use super::*;
+
+    /// Amplitude of a sinusoid at `freq` after filtering, measured by peak of the middle
+    /// third (away from the FIR edges).
+    fn gain(spec: &FilterSpec, freq: f64, rate: f64) -> f64 {
+        let n = 4000usize;
+        let mut data: Vec<f32> = (0..n)
+            .map(|i| {
+                let t = i as f64 / rate;
+                (2.0 * std::f64::consts::PI * freq * t).sin() as f32
+            })
+            .collect();
+        apply_filter(&mut data, spec, rate);
+        let third = n / 3;
+        let peak = data[third..2 * third]
+            .iter()
+            .cloned()
+            .fold(0.0f32, |a, v| a.max(v.abs()));
+        f64::from(peak)
+    }
+
+    #[test]
+    fn fir_lowpass_keeps_low_and_rejects_high() {
+        let spec = FilterSpec { kind: FilterKind::LowPass, cutoff: 100.0, taps: 129, iir: false };
+        let rate = 1000.0;
+        assert!(gain(&spec, 10.0, rate) > 0.98, "passband gain {}", gain(&spec, 10.0, rate));
+        assert!(gain(&spec, 400.0, rate) < 0.05, "stopband gain {}", gain(&spec, 400.0, rate));
+    }
+
+    #[test]
+    fn fir_highpass_rejects_low_and_keeps_high() {
+        let spec = FilterSpec { kind: FilterKind::HighPass, cutoff: 100.0, taps: 129, iir: false };
+        let rate = 1000.0;
+        assert!(gain(&spec, 10.0, rate) < 0.05, "stopband gain {}", gain(&spec, 10.0, rate));
+        assert!(gain(&spec, 400.0, rate) > 0.9, "passband gain {}", gain(&spec, 400.0, rate));
+    }
+
+    #[test]
+    fn iir_lowpass_rolls_off_high_frequencies() {
+        let spec = FilterSpec { kind: FilterKind::LowPass, cutoff: 100.0, taps: 0, iir: true };
+        let rate = 1000.0;
+        let low = gain(&spec, 20.0, rate);
+        let high = gain(&spec, 400.0, rate);
+        assert!(low > 0.95, "passband {low}");
+        assert!(high < 0.25, "stopband {high}");
+    }
+
+    #[test]
+    fn fir_lowpass_has_unity_dc_gain() {
+        let h = fir_lowpass(0.1, 129);
+        let sum: f64 = h.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-9, "sum {sum}");
+        // High-pass must remove a constant.
+        let mut flat = vec![1.0f32; 500];
+        apply_filter(
+            &mut flat,
+            &FilterSpec { kind: FilterKind::HighPass, cutoff: 100.0, taps: 129, iir: false },
+            1000.0,
+        );
+        assert!(flat[250].abs() < 1e-6, "residual {}", flat[250]);
+    }
+
+    #[test]
+    fn tags_distinguish_settings() {
+        let a = FilterSpec { kind: FilterKind::LowPass, cutoff: 100.0, taps: 129, iir: false };
+        let b = FilterSpec { kind: FilterKind::HighPass, cutoff: 100.0, taps: 129, iir: false };
+        let c = FilterSpec { kind: FilterKind::LowPass, cutoff: 200.0, taps: 129, iir: false };
+        assert_ne!(a.tag(), b.tag());
+        assert_ne!(a.tag(), c.tag());
+        assert_eq!(a.tag(), a.tag());
     }
 }

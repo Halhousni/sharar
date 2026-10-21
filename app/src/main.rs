@@ -45,6 +45,7 @@ struct Cache {
     to_sample: u64,
     width: usize,
     dc_window: usize,
+    filter_tag: u64,
     env: Envelope,
 }
 
@@ -81,6 +82,13 @@ struct App {
     readouts: Vec<Option<(f32, f32)>>,
     /// DC-remove window in samples per channel; 0 means the process is off.
     dc_window: Vec<usize>,
+    /// Digital filter per channel, applied after DC remove.
+    filters: Vec<Option<smr::FilterSpec>>,
+    filter_dialog: bool,
+    f_kind: smr::FilterKind,
+    f_cutoff: f64,
+    f_taps: usize,
+    f_iir: bool,
     /// Statistics between the cursors, per channel.
     stats: Vec<Option<WindowStats>>,
     /// Cursor pair the statistics were computed for, so they are not recomputed per frame.
@@ -115,6 +123,12 @@ impl App {
             caches: Vec::new(),
             readouts: Vec::new(),
             dc_window: Vec::new(),
+            filters: Vec::new(),
+            filter_dialog: false,
+            f_kind: smr::FilterKind::LowPass,
+            f_cutoff: 150.0,
+            f_taps: 129,
+            f_iir: false,
             stats: Vec::new(),
             stats_key: None,
             status: "No file open".to_string(),
@@ -148,6 +162,10 @@ impl App {
                 self.stats = vec![None; n];
                 self.stats_key = None;
                 self.dc_window = vec![0; n];
+                self.filters = vec![None; n];
+                self.f_cutoff = (f.channels.iter().map(|c| c.sample_rate()).fold(0.0, f64::max)
+                    / 8.0)
+                    .max(1.0);
                 self.avg = None;
                 self.avg_label.clear();
                 self.avg_event_ch = f
@@ -245,6 +263,14 @@ impl App {
             if dc > 1 {
                 smr::dc_remove(&mut data, dc);
             }
+            if let Some(spec) = self.filters.get(i).copied().flatten() {
+                let rate = self
+                    .son
+                    .as_ref()
+                    .and_then(|s| s.channels.get(i).map(|c| c.sample_rate()))
+                    .unwrap_or(0.0);
+                smr::apply_filter(&mut data, &spec, rate);
+            }
 
             let mut n = 0u64;
             let mut sum = 0f64;
@@ -322,6 +348,24 @@ impl App {
         if span <= 0.0 {
             self.t_start = 0.0;
             self.t_end = duration;
+        }
+    }
+
+    /// Open the digital-filter dialog (used by the launch flag).
+    fn open_filter_dialog(&mut self) {
+        if self.son.is_some() {
+            self.filter_dialog = true;
+        }
+    }
+
+    /// Apply a filter to the selected channel (used by the launch flag).
+    fn apply_filter_to_selected(&mut self, spec: smr::FilterSpec) {
+        if let Some(i) = self.selected {
+            if let Some(f) = self.filters.get_mut(i) {
+                *f = Some(spec);
+            }
+            self.caches[i] = None;
+            self.stats_key = None;
         }
     }
 
@@ -464,6 +508,8 @@ impl App {
         }
 
         let dc = self.dc_window.get(channel).copied().unwrap_or(0);
+        let filter = self.filters.get(channel).copied().flatten();
+        let filter_tag = filter.map(|f| f.tag()).unwrap_or(0);
         let hit = self.caches[channel]
             .as_ref()
             .map(|c| {
@@ -471,6 +517,7 @@ impl App {
                     && c.to_sample == to
                     && c.width == width
                     && c.dc_window == dc
+                    && c.filter_tag == filter_tag
             })
             .unwrap_or(false);
         if hit {
@@ -486,6 +533,14 @@ impl App {
             // Edge windows are truncated to the visible range, so the very first and last
             // few pixels of a processed trace can differ slightly from Spike2's.
             smr::dc_remove(&mut data, dc);
+        }
+        if let Some(spec) = filter {
+            let rate = son
+                .channels
+                .get(channel)
+                .map(|c| c.sample_rate())
+                .unwrap_or(0.0);
+            smr::apply_filter(&mut data, &spec, rate);
         }
 
         let mut low = vec![f32::INFINITY; width];
@@ -514,6 +569,7 @@ impl App {
             to_sample: to,
             width,
             dc_window: dc,
+            filter_tag,
             env: Envelope { low, high },
         });
         true
@@ -662,6 +718,9 @@ impl eframe::App for App {
                         }
                     }
                     ui.separator();
+                    if ui.button("Digital filters…").clicked() {
+                        self.filter_dialog = true;
+                    }
                     if ui
                         .button("Average around events…")
                         .clicked()
@@ -716,6 +775,18 @@ impl eframe::App for App {
                     if w > 1 {
                         ui.separator();
                         ui.label(format!("DC remove {w} samples"));
+                    }
+                    if let Some(spec) = self.filters.get(i).copied().flatten() {
+                        ui.separator();
+                        ui.label(format!(
+                            "{} {:.0} Hz {}",
+                            match spec.kind {
+                                smr::FilterKind::LowPass => "low pass",
+                                smr::FilterKind::HighPass => "high pass",
+                            },
+                            spec.cutoff,
+                            if spec.iir { "IIR" } else { "FIR" }
+                        ));
                     }
                 }
             });
@@ -1423,6 +1494,91 @@ impl eframe::App for App {
             );
         });
 
+        // ── filter dialog ───────────────────────────────────────────────────
+        if self.filter_dialog {
+            let mut open = self.filter_dialog;
+            egui::Window::new("Digital filters")
+                .collapsible(false)
+                .resizable(false)
+                .default_width(360.0)
+                .open(&mut open)
+                .show(ctx, |ui| {
+                    let rate = self
+                        .selected
+                        .and_then(|i| self.son.as_ref().and_then(|s| s.channels.get(i)))
+                        .map(|c| c.sample_rate())
+                        .unwrap_or(0.0);
+
+                    ui.horizontal(|ui| {
+                        ui.label("Type");
+                        ui.selectable_value(&mut self.f_kind, smr::FilterKind::LowPass, "Low pass");
+                        ui.selectable_value(&mut self.f_kind, smr::FilterKind::HighPass, "High pass");
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Cutoff (Hz)");
+                        ui.add(egui::DragValue::new(&mut self.f_cutoff).speed(1.0).range(0.01..=1.0e6));
+                        ui.label(if rate > 0.0 {
+                            format!("Nyquist {:.0} Hz", rate / 2.0)
+                        } else {
+                            String::new()
+                        });
+                    });
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut self.f_iir, "IIR (two-pole Butterworth)");
+                        if !self.f_iir {
+                            ui.add_enabled(
+                                true,
+                                egui::DragValue::new(&mut self.f_taps).speed(1).range(3..=2001),
+                            );
+                            ui.label("taps");
+                        }
+                    });
+
+                    if rate > 0.0 && self.f_cutoff >= rate / 2.0 {
+                        ui.colored_label(
+                            Color32::from_rgb(170, 90, 0),
+                            "Cutoff is at or above Nyquist for this channel.",
+                        );
+                    }
+
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("Apply to selected channel").clicked() {
+                            if let Some(i) = self.selected {
+                                let spec = smr::FilterSpec {
+                                    kind: self.f_kind,
+                                    cutoff: self.f_cutoff,
+                                    taps: self.f_taps,
+                                    iir: self.f_iir,
+                                };
+                                if let Some(f) = self.filters.get_mut(i) {
+                                    *f = Some(spec);
+                                }
+                                self.caches[i] = None;
+                                self.stats_key = None;
+                            }
+                        }
+                        if ui.button("Remove").clicked() {
+                            if let Some(i) = self.selected {
+                                if let Some(f) = self.filters.get_mut(i) {
+                                    *f = None;
+                                }
+                                self.caches[i] = None;
+                                self.stats_key = None;
+                            }
+                        }
+                    });
+                    ui.label(
+                        egui::RichText::new(
+                            "FIR is a Hamming-windowed sinc, applied as a centred convolution.                              IIR is a two-pole Butterworth section, causal.",
+                        )
+                        .small()
+                        .weak(),
+                    );
+                });
+            self.filter_dialog = open;
+        }
+
         // ── average dialog ──────────────────────────────────────────────────
         if self.avg_dialog {
             let events: Vec<(usize, String)> = self
@@ -1640,12 +1796,22 @@ fn main() -> eframe::Result {
     let mut dc_on_start = false;
     let mut avg_on_start = false;
     let mut export_on_start = false;
+    let mut lowpass_on_start: Option<f64> = None;
+    let mut filter_dialog_on_start = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
             "--dc" => dc_on_start = true,
             // Open the peri-stimulus average for the first event channel.
             "--average" => avg_on_start = true,
+            // Open the digital-filter dialog at startup.
+            "--filters" => filter_dialog_on_start = true,
+            // --lowpass=<hz> applies a FIR low pass to the selected channel at startup.
+            other if other.starts_with("--lowpass=") => {
+                if let Ok(hz) = other["--lowpass=".len()..].parse::<f64>() {
+                    lowpass_on_start = Some(hz);
+                }
+            }
             // Write the visible window of the selected channel to CSV, then keep running.
             "--export" => export_on_start = true,
             _ => path = Some(PathBuf::from(arg)),
@@ -1670,6 +1836,17 @@ fn main() -> eframe::Result {
             }
             if avg_on_start {
                 app.enable_average();
+            }
+            if filter_dialog_on_start {
+                app.open_filter_dialog();
+            }
+            if let Some(hz) = lowpass_on_start {
+                app.apply_filter_to_selected(smr::FilterSpec {
+                    kind: smr::FilterKind::LowPass,
+                    cutoff: hz,
+                    taps: 129,
+                    iir: false,
+                });
             }
             if export_on_start {
                 app.export_csv();

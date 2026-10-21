@@ -15,8 +15,9 @@ natively on Linux, reading the files directly rather than through CED's Windows 
 cargo run -p sharar -- path/to/recording.smr
 ```
 
-Command-line flags: `--dc` starts with DC remove on, `--average` opens the average dialog
-with a result computed, `--export` writes the visible window to CSV and reports the path.
+Command-line flags: `--dc` starts with DC remove on, `--filters` opens the filter dialog,
+`--lowpass=<hz>` applies a FIR low pass at startup, `--average` opens the average dialog with
+a result computed, `--export` writes the visible window to CSV and reports the path.
 
 Drag the window on a file, or use `File → Open…`. Keyboard: `F` fits the recording to the
 window, `+`/`-` change the selected channel's gain, `0` resets it, `D` toggles DC remove on
@@ -45,6 +46,9 @@ a cursor moves it.
   window, then plots the mean waveform with the trial count.
 - CSV export of the selected channel over the visible window: `File → Export channel…`,
   or `--export` on the command line.
+- Digital filters: `Analysis → Digital filters…` applies a low-pass or high-pass to the
+  selected channel, either as a Hamming-windowed sinc FIR (odd tap count, centred
+  convolution so there is no time shift) or as a two-pole Butterworth IIR section.
 
 ![a spike train and a text mark](docs/shot_spikes.png)
 
@@ -61,7 +65,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only; CSV export works |
-| Digital filters (FIR/IIR dialogs) | none |
+| Filter design | low/high pass only; no band pass, stop bands, differentiators or scripts |
 
 ## Layout
 
@@ -89,7 +93,11 @@ Recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO
   NUL-terminated C strings.
 - Files reserve 32 channel headers and mark unused ones `kind = 0`; they must be filtered or
   the channel list is mostly empty slots.
-- ADC samples convert to units as `count * scale / 65536 + offset`. Note that `neo` applies
+- Filters follow the arrangement the CD's manual describes: the FIR type is set by a pass
+band edge and a transition gap, and the number of coefficients follows from the narrower of
+the bands. This implementation exposes the tap count directly instead of deriving it.
+
+ADC samples convert to units as `count * scale / 65536 + offset`. Note that `neo` applies
   an extra factor of ten (`gain = scale / 6553.6`), which is a neo convention rather than
   the file's.
 - `neo` reports one marker where the EMG example's "Memory" channel holds twelve, evenly
