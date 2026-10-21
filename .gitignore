@@ -1,0 +1,7 @@
+/target
+**/target
+/testdata
+*.png
+!docs/*.png
+/shot1.png
+/shot2.png

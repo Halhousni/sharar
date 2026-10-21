@@ -1,0 +1,15 @@
+[package]
+name = "sharar"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sharar - read and display CED Spike2 .smr files"
+
+[dependencies]
+smr = { path = "../smr" }
+eframe = "0.32"
+egui = "0.32"
+
+[[bin]]
+name = "sharar"
+path = "src/main.rs"

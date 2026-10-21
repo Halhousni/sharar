@@ -1,0 +1,83 @@
+# Sharar
+
+An application to read CED Spike2 `.smr` files.
+
+Sharar opens a recording from CED's Spike2 (the acquisition program Spike2 ships with the
+1401 interface) and displays it: waveform channels, event channels and markers on a shared
+time axis, with cursors, per-channel gain and scale bars. It is written in Rust and runs
+natively on Linux, reading the files directly rather than through CED's Windows DLLs.
+
+![the EMG example open in Sharar](docs/screenshot.png)
+
+## Build and run
+
+```sh
+cargo run -p sharar -- path/to/recording.smr
+```
+
+Drag the window on a file, or use `File → Open…`. Keyboard: `F` fits the recording to the
+window, `+`/`-` change the selected channel's gain, `0` resets it. Mouse: wheel zooms about
+the pointer, middle-drag pans, dragging near a cursor moves it.
+
+## What works
+
+- Reads SON-format `.smr` files: file header, up to 32 channel headers, chained data blocks.
+- Waveform channels (16-bit ADC and 32-bit float), drawn as a min/max envelope so a
+  12,000-sample trace reads correctly in 500 pixels.
+- Event and marker channels drawn as tick rows; marker codes shown as characters.
+- Two draggable cursors, with the value at each cursor shown per channel and `Δt` and its
+  reciprocal in the status bar.
+- Per-channel vertical gain, an automatic amplitude fit, a labelled scale bar, grid and zero
+  line.
+- Channel list with visibility toggles and selection.
+
+## What is not built yet
+
+This is an early slice of a large program, not a finished replacement for Spike2.
+
+| Area | State |
+|---|---|
+| Acquisition from a CED 1401 | the `ced1401` device crate exists separately, not wired to the GUI |
+| Sampling configuration | none |
+| Channel processing (DC remove, filters, rectification) | none |
+| Measurements, averaging, peri-stimulus analysis | Analysis menu is a stub |
+| Spike sorting, waveform marks | waveform-mark channels are not decoded |
+| `.s2s` scripting | none |
+| Writing `.smr` | read-only |
+
+## Layout
+
+```
+smr/      .smr reader — no dependencies
+app/      the egui/eframe application
+tools/    inventory.py, the reference reader used to validate smr/
+docs/     screenshots
+```
+
+```sh
+cargo test     # parser tests
+```
+
+The tests check the reader against known values from CED's own example recordings: channel
+inventories, sample rates, units, event counts and durations. Those recordings ship on the
+Spike2 CD and are not redistributed here, so the tests skip when they are absent — extract
+`data2.cab` from the CD to `testdata/` to run them fully.
+
+## Notes on the format
+
+Recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO`:
+
+- Channel titles, comments and units are **Pascal strings** (length byte first), not
+  NUL-terminated C strings.
+- Files reserve 32 channel headers and mark unused ones `kind = 0`; they must be filtered or
+  the channel list is mostly empty slots.
+- ADC samples convert to units as `count * scale / 65536 + offset`. Note that `neo` applies
+  an extra factor of ten (`gain = scale / 6553.6`), which is a neo convention rather than
+  the file's.
+- `neo` reports one marker where the EMG example's "Memory" channel holds twelve, evenly
+  spaced every 6 s. The block payload is authoritative; `smr` reads all twelve.
+
+## Legal
+
+Sharar is an independent reader. It contains no CED code. Spike2 and the 1401 are CED
+products; the example recordings used for testing remain CED's and are not included.

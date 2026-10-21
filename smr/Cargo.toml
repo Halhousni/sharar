@@ -1,0 +1,8 @@
+[package]
+name = "smr"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Reader for CED Spike2 .smr (SON) files"
+
+[dependencies]
