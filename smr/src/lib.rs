@@ -232,6 +232,12 @@ impl FilterSpec {
 ///
 /// `cutoff` is normalised to the sample rate (0.5 = Nyquist). The Hamming window trades
 /// a wider transition for lower ripple than a rectangular one.
+///
+/// **This is not how Spike2 designs its filters.** CED's designer is `FIRWin.s2l`, whose
+/// symbols are the Parks-McClellan exchange (`CFIR::fircalc` with a `CBand`, 
+/// `CFIR::GetExtremal`, `CFIR::InIteration`), so its filters are equiripple against a
+/// requested deviation rather than windowed. Results here agree in broad behaviour and
+/// will differ in detail; treat this as a working approximation, not a match.
 pub fn fir_lowpass(cutoff: f64, taps: usize) -> Vec<f64> {
     let n = taps.max(3) | 1; // odd, so the filter is symmetric about a sample
     let fc = cutoff.clamp(1e-6, 0.4999);

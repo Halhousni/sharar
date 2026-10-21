@@ -50,6 +50,11 @@ a cursor moves it.
   selected channel, either as a Hamming-windowed sinc FIR (odd tap count, centred
   convolution so there is no time shift) or as a two-pole Butterworth IIR section.
 
+  These are approximations, not ports. Spike2 designs FIR filters in `FIRWin.s2l` with
+  the Parks-McClellan exchange — `CFIR::fircalc` takes a band table (`CBand`) and an
+  attained deviation, and the class exposes `GetExtremal` and `InIteration` — so its
+  filters are equiripple against a requested ripple, where these are windowed.
+
 ![a spike train and a text mark](docs/shot_spikes.png)
 
 ## What is not built yet
