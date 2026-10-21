@@ -24,12 +24,19 @@ the pointer, middle-drag pans, dragging near a cursor moves it.
 - Reads SON-format `.smr` files: file header, up to 32 channel headers, chained data blocks.
 - Waveform channels (16-bit ADC and 32-bit float), drawn as a min/max envelope so a
   12,000-sample trace reads correctly in 500 pixels.
-- Event and marker channels drawn as tick rows; marker codes shown as characters.
+- Event and marker channels drawn as tick rows; marker codes shown as characters and text
+  marks shown as their label.
+- Waveform-mark channels (spike trains with a snippet per event): tick raster plus the mean
+  snippet, e.g. 646 spikes of 100 points each.
 - Two draggable cursors, with the value at each cursor shown per channel and `Δt` and its
   reciprocal in the status bar.
 - Per-channel vertical gain, an automatic amplitude fit, a labelled scale bar, grid and zero
   line.
 - Channel list with visibility toggles and selection.
+- Measurements between the cursors: sample count, mean, RMS, minimum, maximum and
+  peak-to-peak per waveform channel.
+
+![a spike train and a text mark](docs/shot_spikes.png)
 
 ## What is not built yet
 
@@ -41,7 +48,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Sampling configuration | none |
 | Channel processing (DC remove, filters, rectification) | none |
 | Measurements, averaging, peri-stimulus analysis | Analysis menu is a stub |
-| Spike sorting, waveform marks | waveform-mark channels are not decoded |
+| Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only |
 

@@ -82,3 +82,34 @@ fn duration_matches_last_block() {
     let d = f.duration();
     assert!((d - 120.921).abs() < 0.001, "duration {d}");
 }
+
+#[test]
+fn wavemarks_and_text_marks_load() {
+    let Some(path) = sample("../testdata/Example_Data_Files/Extracellular Spikes.smr") else {
+        return;
+    };
+    let mut f = SonFile::open(&path).unwrap();
+    assert_eq!(f.channels.len(), 2);
+
+    let spikes = &f.channels[0];
+    assert_eq!(spikes.kind, smr::Kind::AdcMark);
+    assert_eq!(spikes.title, "Spikes");
+    // Five blocks: four of 150 events and a final partial block of 46.
+    assert_eq!(spikes.items, 646);
+    assert_eq!(spikes.item_bytes(), 8 + 200);
+
+    let marks = f.read_wavemarks(0).unwrap();
+    assert_eq!(marks.len(), 646);
+    assert_eq!(marks[0].samples.len(), 100, "200 bytes of int16 is 100 points");
+    assert!(marks[0].samples.iter().all(|v| v.is_finite()));
+    assert!(marks.windows(2).all(|w| w[1].time >= w[0].time));
+
+    let drug = &f.channels[1];
+    assert_eq!(drug.kind, smr::Kind::TextMark);
+    assert_eq!(drug.item_bytes(), 8 + 36);
+    let texts = f.read_events(1).unwrap();
+    assert_eq!(texts.len(), 1);
+    assert_eq!(texts[0].code, Some(6));
+    let label = texts[0].text.as_deref().unwrap_or("");
+    assert!(label.starts_with("Drug"), "label was {label:?}");
+}

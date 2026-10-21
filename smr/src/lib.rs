@@ -76,6 +76,10 @@ impl Kind {
         matches!(self, Kind::Adc | Kind::RealWave)
     }
 
+    pub fn is_wavemark(self) -> bool {
+        matches!(self, Kind::AdcMark | Kind::RealMark)
+    }
+
     pub fn is_event(self) -> bool {
         matches!(
             self,
@@ -132,6 +136,24 @@ pub struct Channel {
 }
 
 impl Channel {
+    /// Bytes per payload element, including any per-event waveform or text payload.
+    pub fn item_bytes(&self) -> usize {
+        match self.kind {
+            Kind::Adc => 2,
+            Kind::RealWave => 4,
+            Kind::EventFall | Kind::EventRise | Kind::EventBoth => 4,
+            Kind::Marker => 8,
+            Kind::AdcMark | Kind::RealMark | Kind::TextMark => {
+                8 + self.n_extra.max(0) as usize
+            }
+            Kind::Empty => 1,
+        }
+    }
+
+    pub fn is_wavemark(&self) -> bool {
+        matches!(self.kind, Kind::AdcMark | Kind::RealMark)
+    }
+
     pub fn sample_rate(&self) -> f64 {
         if self.sample_interval > 0.0 {
             1.0 / self.sample_interval
@@ -148,6 +170,19 @@ pub struct Event {
     pub time: f64,
     /// Marker or text code, when the channel carries one.
     pub code: Option<i32>,
+    /// Text label for text-mark channels.
+    pub text: Option<String>,
+}
+
+/// One event carrying a waveform snippet (`AdcMark` or `RealMark` channel).
+#[derive(Debug, Clone)]
+pub struct WaveMark {
+    /// Seconds from the start of the file.
+    pub time: f64,
+    /// Sort or marker code attached to the event.
+    pub code: i32,
+    /// The snippet, in channel units.
+    pub samples: Vec<f32>,
 }
 
 pub struct SonFile {
@@ -446,7 +481,6 @@ impl SonFile {
         let offset = channel.offset;
 
         // Locate the block holding `first`.
-        let mut base = 0u64;
         let mut cursor = first;
         let mut out_pos = 0usize;
 
@@ -454,7 +488,6 @@ impl SonFile {
             let n = block.items.max(0) as u64;
             if cursor >= n {
                 cursor -= n;
-                base += n;
                 continue;
             }
 
@@ -478,7 +511,6 @@ impl SonFile {
             if out_pos >= count {
                 break;
             }
-            base += n;
             cursor = 0;
         }
 
@@ -491,7 +523,7 @@ impl SonFile {
         if !channel.kind.is_event() {
             return Ok(Vec::new());
         }
-        let stride = channel.kind.item_bytes();
+        let stride = channel.item_bytes();
         let mut out = Vec::with_capacity(channel.items as usize);
         let tf = self.time_factor;
 
@@ -503,14 +535,82 @@ impl SonFile {
 
             for chunk in raw.chunks_exact(stride) {
                 let tick = i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-                let code = if stride == 8 {
-                    Some(i32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]))
+                let (code, text) = if stride >= 8 {
+                    let code = i32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+                    let label = if channel.kind == Kind::TextMark && stride > 8 {
+                        let raw = &chunk[8..];
+                        let end = raw.iter().position(|b| *b == 0).unwrap_or(raw.len());
+                        let s: String = raw[..end]
+                            .iter()
+                            .map(|b| if (0x20..0x7f).contains(b) { *b as char } else { ' ' })
+                            .collect();
+                        let s = s.trim().to_string();
+                        if s.is_empty() { None } else { Some(s) }
+                    } else {
+                        None
+                    };
+                    (Some(code), label)
                 } else {
-                    None
+                    (None, None)
                 };
                 out.push(Event {
                     time: f64::from(tick) * tf,
                     code,
+                    text,
+                });
+            }
+        }
+
+        Ok(out)
+    }
+
+    /// Read every waveform-mark event on an `AdcMark` or `RealMark` channel.
+    pub fn read_wavemarks(&mut self, ch: usize) -> io::Result<Vec<WaveMark>> {
+        let channel = &self.channels[ch];
+        if !channel.is_wavemark() {
+            return Ok(Vec::new());
+        }
+        let stride = channel.item_bytes();
+        let is_adc = channel.kind == Kind::AdcMark;
+        let width = channel.n_extra.max(0) as usize;
+        let elem = if is_adc { 2 } else { 4 };
+        let points = width / elem;
+        let scale = channel.scale;
+        let offset = channel.offset;
+        let tf = self.time_factor;
+
+        let mut out = Vec::with_capacity(channel.items as usize);
+        for block in &channel.blocks {
+            let n = block.items.max(0) as usize;
+            let mut raw = vec![0u8; n * stride];
+            self.file.seek(SeekFrom::Start(block.data_pos))?;
+            self.file.read_exact(&mut raw)?;
+
+            for chunk in raw.chunks_exact(stride) {
+                let tick = i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                let code = i32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+                let mut samples = Vec::with_capacity(points);
+                for p in 0..points {
+                    let at = 8 + p * elem;
+                    if at + elem > chunk.len() {
+                        break;
+                    }
+                    samples.push(if is_adc {
+                        let c = i16::from_le_bytes([chunk[at], chunk[at + 1]]);
+                        f32::from(c) * scale / 65536.0 + offset
+                    } else {
+                        f32::from_bits(u32::from_le_bytes([
+                            chunk[at],
+                            chunk[at + 1],
+                            chunk[at + 2],
+                            chunk[at + 3],
+                        ]))
+                    });
+                }
+                out.push(WaveMark {
+                    time: f64::from(tick) * tf,
+                    code,
+                    samples,
                 });
             }
         }

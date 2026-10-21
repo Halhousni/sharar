@@ -47,6 +47,16 @@ struct Cache {
     env: Envelope,
 }
 
+/// Window statistics between the two cursors.
+#[derive(Clone, Copy)]
+struct WindowStats {
+    n: u64,
+    mean: f64,
+    rms: f64,
+    min: f32,
+    max: f32,
+}
+
 /// Channel facts the view needs, cloned so drawing can take `&mut self` for caching.
 struct ChanMeta {
     title: String,
@@ -68,7 +78,13 @@ struct App {
     caches: Vec<Option<Cache>>,
     /// Value at cursor 1 and cursor 2, per channel.
     readouts: Vec<Option<(f32, f32)>>,
+    /// Statistics between the cursors, per channel.
+    stats: Vec<Option<WindowStats>>,
+    /// Cursor pair the statistics were computed for, so they are not recomputed per frame.
+    stats_key: Option<(u64, u64)>,
     status: String,
+    /// Whether the measurements panel is open.
+    show_measure: bool,
     open_dialog: bool,
     path_input: String,
     error: Option<String>,
@@ -87,7 +103,10 @@ impl App {
             dragging: None,
             caches: Vec::new(),
             readouts: Vec::new(),
+            stats: Vec::new(),
+            stats_key: None,
             status: "No file open".to_string(),
+            show_measure: true,
             open_dialog: false,
             path_input: String::new(),
             error: None,
@@ -107,6 +126,8 @@ impl App {
                 self.gain = vec![1.0; n];
                 self.caches = (0..n).map(|_| None).collect();
                 self.readouts = vec![None; n];
+                self.stats = vec![None; n];
+                self.stats_key = None;
                 self.selected = f.channels.iter().position(|c| c.kind.is_waveform());
                 self.t_start = 0.0;
                 self.t_end = duration;
@@ -157,6 +178,69 @@ impl App {
         }
 
         self.readouts = out;
+    }
+
+    /// Mean, RMS and extremes between the cursors, per waveform channel.
+    fn refresh_stats(&mut self) {
+        let Some(son) = self.son.as_ref() else {
+            return;
+        };
+        let key = (self.cursors[0].to_bits(), self.cursors[1].to_bits());
+        if self.stats_key == Some(key) && self.stats.len() == son.channels.len() {
+            return;
+        }
+
+        let n_channels = son.channels.len();
+        let waveform: Vec<bool> = son.channels.iter().map(|c| c.kind.is_waveform()).collect();
+        let (lo_t, hi_t) = if self.cursors[0] <= self.cursors[1] {
+            (self.cursors[0], self.cursors[1])
+        } else {
+            (self.cursors[1], self.cursors[0])
+        };
+
+        let mut out = vec![None; n_channels];
+        for i in 0..n_channels {
+            if !waveform[i] {
+                continue;
+            }
+            let son = self.son.as_mut().unwrap();
+            let a = son.sample_at(i, lo_t);
+            let b = son.sample_at(i, hi_t);
+            if b <= a {
+                continue;
+            }
+            // Cap the work: a cursor pair spanning a long recording should not freeze the UI.
+            let count = ((b - a) as usize).min(4_000_000);
+            let Ok(data) = son.read_waveform(i, a, count) else {
+                continue;
+            };
+
+            let mut n = 0u64;
+            let mut sum = 0f64;
+            let mut sumsq = 0f64;
+            let mut mn = f32::INFINITY;
+            let mut mx = f32::NEG_INFINITY;
+            for v in data.iter().filter(|v| v.is_finite()) {
+                n += 1;
+                sum += f64::from(*v);
+                sumsq += f64::from(*v) * f64::from(*v);
+                mn = mn.min(*v);
+                mx = mx.max(*v);
+            }
+            if n > 0 {
+                let mean = sum / n as f64;
+                out[i] = Some(WindowStats {
+                    n,
+                    mean,
+                    rms: (sumsq / n as f64).sqrt(),
+                    min: mn,
+                    max: mx,
+                });
+            }
+        }
+
+        self.stats = out;
+        self.stats_key = Some(key);
     }
 
     fn fit(&mut self) {
@@ -298,6 +382,7 @@ fn format_value(v: f32) -> String {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.refresh_readouts();
+        self.refresh_stats();
 
         // ── menu bar ────────────────────────────────────────────────────────
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
@@ -349,7 +434,9 @@ impl eframe::App for App {
                     }
                 });
                 ui.menu_button("Analysis", |ui| {
-                    ui.label("Measurements and averaging are not built yet.");
+                    ui.checkbox(&mut self.show_measure, "Show measurements");
+                    ui.separator();
+                    ui.label("Averaging and peri-stimulus analysis are not built yet.");
                 });
                 ui.menu_button("Help", |ui| {
                     ui.label("Sharar — read and display CED Spike2 .smr files.");
@@ -430,7 +517,7 @@ impl eframe::App for App {
                     for (i, ch) in son.channels.iter().enumerate() {
                         let color = CHANNEL_COLORS[i % CHANNEL_COLORS.len()];
                         let is_sel = self.selected == Some(i);
-                        egui::Frame::none()
+                        egui::Frame::NONE
                             .fill(if is_sel { SELECT_TINT } else { Color32::TRANSPARENT })
                             .show(ui, |ui| {
                                 ui.horizontal(|ui| {
@@ -496,6 +583,75 @@ impl eframe::App for App {
             self.selected = Some(i);
         }
 
+        // ── measurements between the cursors ────────────────────────────────
+        if self.show_measure && self.son.is_some() {
+            egui::SidePanel::right("measure")
+                .default_width(230.0)
+                .show(ctx, |ui| {
+                    ui.heading("Measurements");
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "cursors {:.4} – {:.4} s ({:.4} s)",
+                            self.cursors[0].min(self.cursors[1]),
+                            self.cursors[0].max(self.cursors[1]),
+                            (self.cursors[1] - self.cursors[0]).abs()
+                        ))
+                        .small()
+                        .weak(),
+                    );
+                    ui.separator();
+
+                    let Some(son) = &self.son else { return };
+                    if !son.channels.iter().any(|c| c.kind.is_waveform()) {
+                        ui.label(
+                            egui::RichText::new("No waveform channels in this file.").weak(),
+                        );
+                    }
+                    for (i, ch) in son.channels.iter().enumerate() {
+                        if !ch.kind.is_waveform() {
+                            continue;
+                        }
+                        let color = CHANNEL_COLORS[i % CHANNEL_COLORS.len()];
+                        let title = if ch.title.is_empty() {
+                            format!("Channel {}", i + 1)
+                        } else {
+                            ch.title.clone()
+                        };
+                        ui.label(egui::RichText::new(title).color(color).strong());
+                        match self.stats.get(i).and_then(|s| *s) {
+                            Some(st) => {
+                                egui::Grid::new(format!("stats{i}"))
+                                    .num_columns(2)
+                                    .spacing([10.0, 2.0])
+                                    .show(ui, |ui| {
+                                        let units = if ch.units.is_empty() {
+                                            ""
+                                        } else {
+                                            ch.units.as_str()
+                                        };
+                                        for (name, value) in [
+                                            ("samples", format!("{}", st.n)),
+                                            ("mean", format!("{} {units}", format_value(st.mean as f32))),
+                                            ("RMS", format!("{} {units}", format_value(st.rms as f32))),
+                                            ("min", format!("{} {units}", format_value(st.min))),
+                                            ("max", format!("{} {units}", format_value(st.max))),
+                                            ("peak-peak", format!("{} {units}", format_value(st.max - st.min))),
+                                        ] {
+                                            ui.label(egui::RichText::new(name).small().weak());
+                                            ui.label(egui::RichText::new(value).monospace().size(10.0));
+                                            ui.end_row();
+                                        }
+                                    });
+                            }
+                            None => {
+                                ui.label(egui::RichText::new("no data between cursors").weak());
+                            }
+                        }
+                        ui.separator();
+                    }
+                });
+        }
+
         // ── data view ───────────────────────────────────────────────────────
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.son.is_none() {
@@ -554,12 +710,19 @@ impl eframe::App for App {
             // waveform bands share the space left over by the thin event rows
             let event_rows = visible
                 .iter()
-                .filter(|i| meta[**i].kind.is_event())
+                .filter(|i| !meta[**i].kind.is_waveform())
                 .count();
             let event_h = 26.0;
+            let wave_channels = visible.len() - event_rows;
             let wave_h = ((plot.height() - event_rows as f32 * event_h).max(0.0)
-                / (visible.len() - event_rows).max(1) as f32)
+                / wave_channels.max(1) as f32)
                 .max(0.0);
+            // A file with only event channels gets taller rows instead of an empty pane.
+            let row_h = if wave_channels == 0 {
+                ((plot.height() - 4.0) / event_rows.max(1) as f32).min(96.0)
+            } else {
+                event_h
+            };
 
             let mut band_tops: Vec<(usize, f32, f32)> = Vec::new();
             let mut y = plot.top() + 4.0;
@@ -712,10 +875,10 @@ impl eframe::App for App {
                     // event / marker row
                     let band = Rect::from_min_max(
                         Pos2::new(plot.left(), y),
-                        Pos2::new(plot.right(), (y + event_h - 2.0).min(plot.bottom())),
+                        Pos2::new(plot.right(), (y + row_h - 2.0).min(plot.bottom())),
                     );
                     band_tops.push((ci, band.top(), band.bottom()));
-                    y += event_h;
+                    y += row_h;
 
                     if is_sel {
                         painter.rect_filled(
@@ -743,12 +906,73 @@ impl eframe::App for App {
                         AXIS,
                     );
 
-                    if let Ok(events) = self.son.as_mut().unwrap().read_events(ci) {
-                        let base = band.bottom() - 3.0;
-                        painter.line_segment(
-                            [Pos2::new(band.left(), base), Pos2::new(band.right(), base)],
-                            Stroke::new(1.0, GRID_STRONG),
-                        );
+                    let base = band.bottom() - 3.0;
+                    painter.line_segment(
+                        [Pos2::new(band.left(), base), Pos2::new(band.right(), base)],
+                        Stroke::new(1.0, GRID_STRONG),
+                    );
+
+                    if meta[ci].kind.is_wavemark() {
+                        if let Ok(marks) = self.son.as_mut().unwrap().read_wavemarks(ci) {
+                            for m in marks.iter() {
+                                if m.time < self.t_start || m.time > self.t_end {
+                                    continue;
+                                }
+                                let x = self.x_of(plot, m.time);
+                                painter.line_segment(
+                                    [Pos2::new(x, base - 9.0), Pos2::new(x, base)],
+                                    Stroke::new(1.0, color),
+                                );
+                            }
+
+                            // Mean snippet drawn at the right of the row.
+                            let mut acc: Vec<f32> = Vec::new();
+                            let mut used = 0usize;
+                            for m in marks.iter().take(200) {
+                                if m.samples.is_empty() {
+                                    continue;
+                                }
+                                if acc.is_empty() {
+                                    acc = vec![0.0; m.samples.len()];
+                                }
+                                if m.samples.len() != acc.len() {
+                                    continue;
+                                }
+                                for (a, v) in acc.iter_mut().zip(m.samples.iter()) {
+                                    *a += *v;
+                                }
+                                used += 1;
+                            }
+                            if used > 0 && acc.len() > 1 {
+                                for a in acc.iter_mut() {
+                                    *a /= used as f32;
+                                }
+                                let (lo, hi) = acc.iter().fold(
+                                    (f32::INFINITY, f32::NEG_INFINITY),
+                                    |(l, h), v| (l.min(*v), h.max(*v)),
+                                );
+                                if hi > lo {
+                                    let w = 110.0f32;
+                                    let x0 = band.right() - w - 6.0;
+                                    let mid = band.center().y;
+                                    let scale = band.height() * 0.36 / (hi - lo);
+                                    let points: Vec<Pos2> = acc
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(i, v)| {
+                                            let x = x0
+                                                + w * i as f32 / (acc.len().max(2) - 1) as f32;
+                                            Pos2::new(x, mid - (v - (lo + hi) * 0.5) * scale)
+                                        })
+                                        .collect();
+                                    painter.add(egui::Shape::line(
+                                        points,
+                                        Stroke::new(1.0, color),
+                                    ));
+                                }
+                            }
+                        }
+                    } else if let Ok(events) = self.son.as_mut().unwrap().read_events(ci) {
                         let mut labelled = 0;
                         for ev in &events {
                             if ev.time < self.t_start || ev.time > self.t_end {
@@ -759,9 +983,18 @@ impl eframe::App for App {
                                 [Pos2::new(x, base - 9.0), Pos2::new(x, base)],
                                 Stroke::new(1.0, color),
                             );
-                            // Mouse and keyboard markers carry a code; show it as a character.
+                            // Text marks carry a label; other markers carry an ASCII code.
                             if labelled < 12 {
-                                if let Some(code) = ev.code {
+                                if let Some(text) = &ev.text {
+                                    painter.text(
+                                        Pos2::new(x + 2.0, base - 10.0),
+                                        Align2::LEFT_BOTTOM,
+                                        text.chars().take(14).collect::<String>(),
+                                        FontId::monospace(9.0),
+                                        color,
+                                    );
+                                    labelled += 1;
+                                } else if let Some(code) = ev.code {
                                     if (32..127).contains(&code) {
                                         painter.text(
                                             Pos2::new(x + 1.0, base - 10.0),
