@@ -32,7 +32,7 @@ const AXIS: Color32 = Color32::from_rgb(70, 70, 70);
 const GRID: Color32 = Color32::from_rgb(226, 229, 233);
 const GRID_STRONG: Color32 = Color32::from_rgb(198, 203, 210);
 const PAPER: Color32 = Color32::from_rgb(255, 255, 255);
-const SELECT_TINT: Color32 = Color32::from_rgb(232, 240, 252);
+const SELECT_TINT: Color32 = Color32::from_rgb(204, 228, 247);
 
 /// Decimated envelope of one channel over the visible window.
 struct Envelope {
@@ -1858,6 +1858,33 @@ impl eframe::App for App {
     }
 }
 
+/// Spike2's look: light grey chrome, white data area, black text, classic 3D borders.
+fn spike2_style(ctx: &egui::Context) {
+    let mut v = egui::Visuals::light();
+    v.panel_fill = Color32::from_rgb(240, 240, 240);
+    v.window_fill = Color32::from_rgb(240, 240, 240);
+    v.extreme_bg_color = Color32::WHITE;
+    v.faint_bg_color = Color32::from_rgb(246, 246, 246);
+    v.window_stroke = Stroke::new(1.0, Color32::from_rgb(150, 150, 150));
+    v.widgets.noninteractive.bg_fill = Color32::from_rgb(240, 240, 240);
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, Color32::from_rgb(170, 170, 170));
+    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::from_rgb(20, 20, 20));
+    v.widgets.inactive.bg_fill = Color32::from_rgb(232, 232, 232);
+    v.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::from_rgb(20, 20, 20));
+    v.widgets.hovered.bg_fill = Color32::from_rgb(219, 233, 246);
+    v.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::from_rgb(10, 10, 10));
+    v.widgets.active.bg_fill = Color32::from_rgb(204, 228, 247);
+    v.widgets.active.fg_stroke = Stroke::new(1.0, Color32::from_rgb(0, 0, 0));
+    v.selection.bg_fill = Color32::from_rgb(0, 120, 215);
+    v.selection.stroke = Stroke::new(1.0, Color32::WHITE);
+    ctx.set_visuals(v);
+
+    let mut style = (*ctx.style()).clone();
+    style.spacing.item_spacing = egui::vec2(6.0, 3.0);
+    style.spacing.button_padding = egui::vec2(6.0, 2.0);
+    ctx.set_style(style);
+}
+
 fn main() -> eframe::Result {
     let mut path: Option<PathBuf> = None;
     let mut dc_on_start = false;
@@ -1896,7 +1923,8 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Sharar",
         options,
-        Box::new(move |_cc| {
+        Box::new(move |cc| {
+            spike2_style(&cc.egui_ctx);
             let mut app = App::new(path.clone());
             if dc_on_start {
                 app.enable_dc();

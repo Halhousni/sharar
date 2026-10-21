@@ -87,8 +87,35 @@ PY2
     done < /tmp/vm_keys.txt
     echo "typed ${#text} chars"
     ;;
+  get)
+    # Copy one guest file to Linux over the guest agent (no screenshots involved).
+    src="${2:?guest path required}"
+    dst="${3:?local path required}"
+    handle=$(virsh qemu-agent-command "$DOM" \
+      "{\"execute\":\"guest-file-open\",\"arguments\":{\"path\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$src"),\"mode\":\"r\"}}" \
+      | python3 -c 'import json,sys;print(json.load(sys.stdin)["return"])') || exit 1
+    : > "$dst"
+    offset=0
+    while :; do
+      chunk=$(virsh qemu-agent-command "$DOM" \
+        "{\"execute\":\"guest-file-read\",\"arguments\":{\"handle\":$handle,\"count\":65536}}" 2>/dev/null) || break
+      python3 - "$chunk" "$dst" <<'PY2' || break
+import base64, json, sys
+r = json.loads(sys.argv[1])["return"]
+data = base64.b64decode(r.get("buf-b64", "") or "")
+with open(sys.argv[2], "ab") as f:
+    f.write(data)
+sys.exit(0 if data else 3)
+PY2
+      [ $? -eq 3 ] && break
+      offset=$((offset + 65536))
+      [ "$offset" -gt 209715200 ] && break
+    done
+    virsh qemu-agent-command "$DOM" "{\"execute\":\"guest-file-close\",\"arguments\":{\"handle\":$handle}}" >/dev/null 2>&1
+    echo "$(stat -c %s "$dst") bytes -> $dst"
+    ;;
   *)
-    echo "usage: $0 shot|key|exec|ps|type ..." >&2
+    echo "usage: $0 shot|key|exec|ps|type|get ..." >&2
     exit 2
     ;;
 esac
