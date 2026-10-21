@@ -193,6 +193,81 @@ pub fn dc_remove(samples: &mut [f32], window: usize) {
     samples.copy_from_slice(&out);
 }
 
+/// Peri-stimulus average of a waveform around a set of event times.
+///
+/// Each event contributes one sample per bin, taken at the bin centre; bins with no
+/// samples come back as `NaN`. Times are seconds from the start of the file.
+#[derive(Debug, Clone)]
+pub struct Average {
+    /// Mean value per bin, in channel units.
+    pub bins: Vec<f64>,
+    /// How many events contributed to each bin.
+    pub counts: Vec<usize>,
+    /// Time of the first bin relative to the event, in seconds (negative = before).
+    pub start: f64,
+    /// Width of one bin, in seconds.
+    pub bin_width: f64,
+}
+
+/// Average `samples` around `events`.
+///
+/// `samples` must begin at `start_time` and be evenly spaced by `sample_interval`.
+/// Events outside the available data are skipped rather than clamped, so a stimulus at
+/// the very start does not produce a half window.
+pub fn peri_stimulus_average(
+    samples: &[f32],
+    start_time: f64,
+    sample_interval: f64,
+    events: &[f64],
+    pre: f64,
+    post: f64,
+    nbins: usize,
+) -> Average {
+    let nbins = nbins.max(1);
+    let bin_width = (pre + post) / nbins as f64;
+    let mut sums = vec![0.0f64; nbins];
+    let mut counts = vec![0usize; nbins];
+
+    if sample_interval <= 0.0 || samples.is_empty() || events.is_empty() {
+        return Average {
+            bins: vec![f64::NAN; nbins],
+            counts,
+            start: -pre,
+            bin_width,
+        };
+    }
+
+    let end_time = start_time + samples.len() as f64 * sample_interval;
+    for &t0 in events {
+        if t0 - pre < start_time || t0 + post > end_time {
+            continue;
+        }
+        for (b, (sum, count)) in sums.iter_mut().zip(counts.iter_mut()).enumerate() {
+            let centre = t0 - pre + (b as f64 + 0.5) * bin_width;
+            let idx = ((centre - start_time) / sample_interval).round() as i64;
+            if idx < 0 || idx as usize >= samples.len() {
+                continue;
+            }
+            let v = samples[idx as usize];
+            if v.is_finite() {
+                *sum += f64::from(v);
+                *count += 1;
+            }
+        }
+    }
+
+    Average {
+        bins: sums
+            .iter()
+            .zip(counts.iter())
+            .map(|(s, c)| if *c > 0 { s / *c as f64 } else { f64::NAN })
+            .collect(),
+        counts,
+        start: -pre,
+        bin_width,
+    }
+}
+
 /// An event or marker timestamp.
 #[derive(Debug, Clone)]
 pub struct Event {
@@ -720,5 +795,46 @@ mod process_tests {
         let copy = data.clone();
         dc_remove(&mut data, 1);
         assert_eq!(data, copy);
+    }
+}
+
+#[cfg(test)]
+mod average_tests {
+    use super::peri_stimulus_average;
+
+    #[test]
+    fn average_recovers_a_known_waveform() {
+        // 1 kHz sine at 1 Hz, four events exactly one period apart.
+        let n = 2000;
+        let interval = 0.001f64;
+        let samples: Vec<f32> = (0..n)
+            .map(|i| (2.0 * std::f32::consts::PI * i as f32 * interval as f32).sin())
+            .collect();
+        let events = vec![0.5, 1.5];
+        let avg = peri_stimulus_average(&samples, 0.0, interval, &events, 0.2, 0.2, 40);
+
+        assert_eq!(avg.bins.len(), 40);
+        assert_eq!(avg.counts.iter().sum::<usize>(), 80, "two events x 40 bins");
+        // The average of a periodic signal at the same phase is the signal itself. The
+        // sample time is the event time plus the bin's offset from the event.
+        let mid = 20;
+        let rel = avg.start + (mid as f64 + 0.5) * avg.bin_width;
+        let expect = (2.0 * std::f64::consts::PI * (events[0] + rel)).sin();
+        assert!((avg.bins[mid] - expect).abs() < 1e-3, "{} vs {}", avg.bins[mid], expect);
+    }
+
+    #[test]
+    fn events_without_a_full_window_are_skipped() {
+        let samples = vec![1.0f32; 100];
+        let avg = peri_stimulus_average(&samples, 0.0, 0.001, &[0.0], 0.5, 0.5, 10);
+        assert_eq!(avg.counts.iter().sum::<usize>(), 0);
+        assert!(avg.bins.iter().all(|v| v.is_nan()));
+    }
+
+    #[test]
+    fn empty_event_list_yields_nans() {
+        let samples = vec![1.0f32; 100];
+        let avg = peri_stimulus_average(&samples, 0.0, 0.001, &[], 0.01, 0.01, 5);
+        assert!(avg.bins.iter().all(|v| v.is_nan()));
     }
 }

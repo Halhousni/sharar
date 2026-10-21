@@ -88,6 +88,14 @@ struct App {
     status: String,
     /// Whether the measurements panel is open.
     show_measure: bool,
+    /// Result of the last peri-stimulus average.
+    avg: Option<smr::Average>,
+    avg_label: String,
+    avg_dialog: bool,
+    avg_event_ch: usize,
+    avg_pre: f64,
+    avg_post: f64,
+    avg_bins: usize,
     open_dialog: bool,
     path_input: String,
     error: Option<String>,
@@ -111,6 +119,13 @@ impl App {
             stats_key: None,
             status: "No file open".to_string(),
             show_measure: true,
+            avg: None,
+            avg_label: String::new(),
+            avg_dialog: false,
+            avg_event_ch: 0,
+            avg_pre: 0.05,
+            avg_post: 0.2,
+            avg_bins: 200,
             open_dialog: false,
             path_input: String::new(),
             error: None,
@@ -133,6 +148,13 @@ impl App {
                 self.stats = vec![None; n];
                 self.stats_key = None;
                 self.dc_window = vec![0; n];
+                self.avg = None;
+                self.avg_label.clear();
+                self.avg_event_ch = f
+                    .channels
+                    .iter()
+                    .position(|c| c.kind.is_event())
+                    .unwrap_or(0);
                 self.selected = f.channels.iter().position(|c| c.kind.is_waveform());
                 self.t_start = 0.0;
                 self.t_end = duration;
@@ -303,6 +325,15 @@ impl App {
         }
     }
 
+    /// Open the average dialog with a result already computed.
+    fn enable_average(&mut self) {
+        if self.son.is_none() {
+            return;
+        }
+        self.avg_dialog = true;
+        self.compute_average();
+    }
+
     /// Turn DC remove on for the selected channel, with a 0.2 s window.
     fn enable_dc(&mut self) {
         let Some(i) = self.selected else { return };
@@ -319,6 +350,101 @@ impl App {
         }
         self.caches[i] = None;
         self.stats_key = None;
+    }
+
+    /// Average the selected waveform channel around every event on `avg_event_ch`.
+    fn compute_average(&mut self) {
+        let Some(wave_ch) = self.selected else { return };
+        let Some(son) = self.son.as_ref() else { return };
+        if !son.channels[wave_ch].kind.is_waveform() {
+            return;
+        }
+        let ev_ch = self.avg_event_ch;
+        if ev_ch >= son.channels.len() || !son.channels[ev_ch].kind.is_event() {
+            return;
+        }
+        let interval = son.channels[wave_ch].sample_interval;
+        if interval <= 0.0 {
+            return;
+        }
+        let total = son.channels[wave_ch].items.min(8_000_000) as usize;
+        let start_time = son.start_time(wave_ch);
+        let wave_title = son.channels[wave_ch].title.clone();
+
+        let Ok(events) = self.son.as_mut().unwrap().read_events(ev_ch) else {
+            return;
+        };
+        let times: Vec<f64> = events.iter().map(|e| e.time).collect();
+        let Ok(samples) = self.son.as_mut().unwrap().read_waveform(wave_ch, 0, total) else {
+            return;
+        };
+
+        let avg = smr::peri_stimulus_average(
+            &samples,
+            start_time,
+            interval,
+            &times,
+            self.avg_pre,
+            self.avg_post,
+            self.avg_bins,
+        );
+        let used = avg.counts.first().copied().unwrap_or(0);
+        self.avg_label = format!(
+            "{wave_title} around {} events on '{}' ({} trials)",
+            times.len(),
+            self.son.as_ref().unwrap().channels[ev_ch].title,
+            used
+        );
+        self.avg = Some(avg);
+    }
+
+    /// Write the selected channel over the visible window as `time,value` rows.
+    fn export_csv(&mut self) {
+        let Some(ch) = self.selected else { return };
+        let Some(son) = self.son.as_ref() else { return };
+        if !son.channels[ch].kind.is_waveform() {
+            self.error = Some("select a waveform channel first".to_string());
+            return;
+        }
+        let a = son.sample_at(ch, self.t_start.min(self.t_end));
+        let b = son.sample_at(ch, self.t_start.max(self.t_end));
+        if b <= a {
+            self.error = Some("no samples in the visible window".to_string());
+            return;
+        }
+        let interval = son.channels[ch].sample_interval;
+        let start = son.start_time(ch) + a as f64 * interval;
+        let title = if son.channels[ch].title.is_empty() {
+            format!("channel{}", ch + 1)
+        } else {
+            son.channels[ch].title.replace(' ', "_")
+        };
+        let stem = son.path.with_extension("");
+        let out_path = stem.with_file_name(format!(
+            "{}_{}.csv",
+            stem.file_name().unwrap_or_default().to_string_lossy(),
+            title
+        ));
+
+        let count = ((b - a) as usize).min(20_000_000);
+        let Ok(data) = self.son.as_mut().unwrap().read_waveform(ch, a, count) else {
+            return;
+        };
+        let mut text = String::with_capacity(count * 16);
+        text.push_str("time_s,value\n");
+        for (i, v) in data.iter().enumerate() {
+            let t = start + i as f64 * interval;
+            let _ = std::fmt::Write::write_fmt(&mut text, format_args!("{t:.6},{v:.6}\n"));
+        }
+        match std::fs::write(&out_path, text) {
+            Ok(()) => self.status = format!("wrote {} ({} samples)", out_path.display(), count),
+            Err(e) => self.error = Some(format!("{}: {e}", out_path.display())),
+        }
+    }
+
+    /// The status line, for the `--export` path to report on the console.
+    fn status_message(&self) -> &str {
+        &self.status
     }
 
     fn set_gain(&mut self, factor: f32) {
@@ -459,6 +585,10 @@ impl eframe::App for App {
                         self.son = None;
                     }
                     ui.separator();
+                    if ui.button("Export channel (visible window) as CSV…").clicked() {
+                        self.export_csv();
+                    }
+                    ui.separator();
                     if ui.button("Quit").clicked() {
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
@@ -532,7 +662,12 @@ impl eframe::App for App {
                         }
                     }
                     ui.separator();
-                    ui.label("Averaging and peri-stimulus analysis are not built yet.");
+                    if ui
+                        .button("Average around events…")
+                        .clicked()
+                    {
+                        self.avg_dialog = true;
+                    }
                 });
                 ui.menu_button("Help", |ui| {
                     ui.label("Sharar — read and display CED Spike2 .smr files.");
@@ -1288,6 +1423,163 @@ impl eframe::App for App {
             );
         });
 
+        // ── average dialog ──────────────────────────────────────────────────
+        if self.avg_dialog {
+            let events: Vec<(usize, String)> = self
+                .son
+                .as_ref()
+                .map(|son| {
+                    son.channels
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, c)| c.kind.is_event())
+                        .map(|(i, c)| {
+                            (
+                                i,
+                                if c.title.is_empty() {
+                                    format!("Channel {}", i + 1)
+                                } else {
+                                    c.title.clone()
+                                },
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let mut open = self.avg_dialog;
+            egui::Window::new("Average around events")
+                .collapsible(false)
+                .resizable(true)
+                .default_width(480.0)
+                .open(&mut open)
+                .show(ctx, |ui| {
+                    if events.is_empty() {
+                        ui.label("This file has no event channels to average around.");
+                        return;
+                    }
+
+                    let current = events
+                        .iter()
+                        .find(|(i, _)| *i == self.avg_event_ch)
+                        .map(|(_, t)| t.clone())
+                        .unwrap_or_else(|| events[0].1.clone());
+                    egui::ComboBox::from_label("Event channel")
+                        .selected_text(current)
+                        .show_ui(ui, |ui| {
+                            for (i, title) in &events {
+                                ui.selectable_value(&mut self.avg_event_ch, *i, title);
+                            }
+                        });
+
+                    ui.horizontal(|ui| {
+                        ui.label("before (s)");
+                        ui.add(egui::DragValue::new(&mut self.avg_pre).speed(0.005).range(0.0..=10.0));
+                        ui.label("after (s)");
+                        ui.add(egui::DragValue::new(&mut self.avg_post).speed(0.005).range(0.001..=10.0));
+                        ui.label("bins");
+                        ui.add(egui::DragValue::new(&mut self.avg_bins).speed(1).range(2..=2000));
+                    });
+
+                    ui.horizontal(|ui| {
+                        if ui.button("Compute").clicked() {
+                            self.compute_average();
+                        }
+                        if let Some(i) = self.selected {
+                            if let Some(son) = &self.son {
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "waveform: {}",
+                                        if son.channels[i].title.is_empty() {
+                                            format!("channel {}", i + 1)
+                                        } else {
+                                            son.channels[i].title.clone()
+                                        }
+                                    ))
+                                    .small()
+                                    .weak(),
+                                );
+                            }
+                        }
+                    });
+
+                    if let Some(avg) = &self.avg {
+                        ui.separator();
+                        ui.label(&self.avg_label);
+
+                        let (rect, _) = ui.allocate_exact_size(
+                            Vec2::new(ui.available_width(), 190.0),
+                            egui::Sense::hover(),
+                        );
+                        let painter = ui.painter_at(rect);
+                        painter.rect_filled(rect, 0.0, PAPER);
+                        painter.rect_stroke(
+                            rect,
+                            0.0,
+                            Stroke::new(1.0, AXIS),
+                            egui::StrokeKind::Inside,
+                        );
+
+                        let vals: Vec<f64> = avg.bins.iter().copied().filter(|v| v.is_finite()).collect();
+                        if vals.len() > 1 {
+                            let lo = vals.iter().cloned().fold(f64::INFINITY, f64::min);
+                            let hi = vals.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                            let span = (hi - lo).max(1e-12);
+                            let n = avg.bins.len();
+
+                            let points: Vec<Pos2> = avg
+                                .bins
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, v)| v.is_finite())
+                                .map(|(i, v)| {
+                                    let x = rect.left()
+                                        + rect.width() * i as f32 / (n.max(2) - 1) as f32;
+                                    let y = rect.bottom()
+                                        - rect.height() * ((*v - lo) / span) as f32;
+                                    Pos2::new(x, y)
+                                })
+                                .collect();
+                            painter.add(egui::Shape::line(points, Stroke::new(1.0, CURSOR_1)));
+
+                            // event time marker at t = 0
+                            let zero = (0.0 - avg.start) / avg.bin_width;
+                            if zero >= 0.0 && zero <= n as f64 {
+                                let x = rect.left()
+                                    + rect.width() * zero as f32 / n as f32;
+                                painter.line_segment(
+                                    [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
+                                    Stroke::new(1.0, GRID_STRONG),
+                                );
+                            }
+
+                            painter.text(
+                                Pos2::new(rect.left() + 4.0, rect.top() + 2.0),
+                                Align2::LEFT_TOP,
+                                format!("{:.4} … {:.4}", lo, hi),
+                                FontId::monospace(9.0),
+                                AXIS,
+                            );
+                            painter.text(
+                                Pos2::new(rect.left() + 4.0, rect.bottom() - 12.0),
+                                Align2::LEFT_TOP,
+                                format!("{:.3} s", avg.start),
+                                FontId::monospace(9.0),
+                                AXIS,
+                            );
+                            painter.text(
+                                Pos2::new(rect.right() - 4.0, rect.bottom() - 12.0),
+                                Align2::RIGHT_TOP,
+                                format!("{:.3} s", avg.start + n as f64 * avg.bin_width),
+                                FontId::monospace(9.0),
+                                AXIS,
+                            );
+                        }
+                    }
+                });
+            self.avg_dialog = open;
+        }
+
         // ── open dialog ─────────────────────────────────────────────────────
         if self.open_dialog {
             let mut open = self.open_dialog;
@@ -1346,10 +1638,16 @@ impl eframe::App for App {
 fn main() -> eframe::Result {
     let mut path: Option<PathBuf> = None;
     let mut dc_on_start = false;
+    let mut avg_on_start = false;
+    let mut export_on_start = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
             "--dc" => dc_on_start = true,
+            // Open the peri-stimulus average for the first event channel.
+            "--average" => avg_on_start = true,
+            // Write the visible window of the selected channel to CSV, then keep running.
+            "--export" => export_on_start = true,
             _ => path = Some(PathBuf::from(arg)),
         }
     }
@@ -1369,6 +1667,13 @@ fn main() -> eframe::Result {
             let mut app = App::new(path.clone());
             if dc_on_start {
                 app.enable_dc();
+            }
+            if avg_on_start {
+                app.enable_average();
+            }
+            if export_on_start {
+                app.export_csv();
+                eprintln!("export: {}", app.status_message());
             }
             Ok(Box::new(app))
         }),

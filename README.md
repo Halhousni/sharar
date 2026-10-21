@@ -15,6 +15,9 @@ natively on Linux, reading the files directly rather than through CED's Windows 
 cargo run -p sharar -- path/to/recording.smr
 ```
 
+Command-line flags: `--dc` starts with DC remove on, `--average` opens the average dialog
+with a result computed, `--export` writes the visible window to CSV and reports the path.
+
 Drag the window on a file, or use `File → Open…`. Keyboard: `F` fits the recording to the
 window, `+`/`-` change the selected channel's gain, `0` resets it, `D` toggles DC remove on
 the selected channel. Mouse: wheel zooms about the pointer, middle-drag pans, dragging near
@@ -38,6 +41,10 @@ a cursor moves it.
   peak-to-peak per waveform channel, computed on the processed signal.
 - DC remove (a centred boxcar mean subtraction) per channel, off by default:
   Analysis → DC remove, or `D`, or `--dc` on the command line.
+- Peri-stimulus average: `Analysis → Average around events…` picks an event channel and a
+  window, then plots the mean waveform with the trial count.
+- CSV export of the selected channel over the visible window: `File → Export channel…`,
+  or `--export` on the command line.
 
 ![a spike train and a text mark](docs/shot_spikes.png)
 
@@ -50,10 +57,11 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Acquisition from a CED 1401 | the `ced1401` device crate exists separately, not wired to the GUI |
 | Sampling configuration | none |
 | Channel processing | DC remove only; no filters, rectification or other processes |
-| Averaging, peri-stimulus analysis | none; measurements between cursors work |
+| Averaging | peri-stimulus average works; no smoothing, confidence bands or baselines |
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
 | `.s2s` scripting | none |
-| Writing `.smr` | read-only |
+| Writing `.smr` | read-only; CSV export works |
+| Digital filters (FIR/IIR dialogs) | none |
 
 ## Layout
 
