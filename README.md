@@ -85,6 +85,24 @@ inventories, sample rates, units, event counts and durations. Those recordings s
 Spike2 CD and are not redistributed here, so the tests skip when they are absent — extract
 `data2.cab` from the CD to `testdata/` to run them fully.
 
+## Reference: the real Spike2 in a VM
+
+The CD's example recordings and Spike2 itself run in a Windows 10 VM on this machine, and
+`tools/vm.sh` drives it over libvirt without taking over the Linux desktop:
+
+```sh
+tools/vm.sh shot out.png        # screenshot the guest display
+tools/vm.sh key KEY_ESCAPE      # send keystrokes (Linux key names)
+tools/vm.sh type "text"         # type into the focused field
+tools/vm.sh exec "dir C:\"     # run a command via the QEMU guest agent
+tools/vm.sh ps "Get-Process"    # run PowerShell via the guest agent
+```
+
+It needs `LIBVIRT_DEFAULT_URI=qemu:///session` and a guest agent, and it is how the layout
+below was checked against the program rather than against the manual alone: Spike2's data
+window carries a numeric y-axis per channel and a status bar reading `cursor, time, value`,
+and its menus are File, Edit, View, Analysis, Cursor, Sample, Script, Window, Help.
+
 ## Notes on the format
 
 Recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO`:

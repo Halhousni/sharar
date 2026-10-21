@@ -728,6 +728,41 @@ impl eframe::App for App {
                         self.avg_dialog = true;
                     }
                 });
+                ui.menu_button("Cursor", |ui| {
+                    if ui.button("Cursors to view edges").clicked() {
+                        self.cursors = [self.t_start, self.t_end];
+                    }
+                    if ui.button("Cursors to mid ±10%").clicked() {
+                        let mid = (self.t_start + self.t_end) * 0.5;
+                        let d = (self.t_end - self.t_start) * 0.1;
+                        self.cursors = [mid - d, mid + d];
+                    }
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new("Cursor modes (free, vertical, measurement) are not built.")
+                            .small()
+                            .weak(),
+                    );
+                });
+                ui.menu_button("Sample", |ui| {
+                    ui.label(
+                        egui::RichText::new("Sampling configuration needs the 1401; not built.")
+                            .small()
+                            .weak(),
+                    );
+                });
+                ui.menu_button("Script", |ui| {
+                    ui.label(
+                        egui::RichText::new("The .s2s script language is not built.").small().weak(),
+                    );
+                });
+                ui.menu_button("Window", |ui| {
+                    if ui.button("Fit to window").clicked() {
+                        self.fit();
+                    }
+                    ui.separator();
+                    ui.label(egui::RichText::new("One data window per file at present.").small().weak());
+                });
                 ui.menu_button("Help", |ui| {
                     ui.label("Sharar — read and display CED Spike2 .smr files.");
                     ui.label("Wheel zooms, middle-drag pans, F fits, +/- gain, D DC remove.");
@@ -795,6 +830,15 @@ impl eframe::App for App {
         // ── status bar ──────────────────────────────────────────────────────
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(if self.son.is_some() {
+                        "For Help, press F1"
+                    } else {
+                        "Open a .smr file to begin"
+                    })
+                    .weak(),
+                );
+                ui.separator();
                 ui.label(&self.status);
                 ui.separator();
                 let dt = self.cursors[1] - self.cursors[0];
@@ -1116,6 +1160,29 @@ impl eframe::App for App {
                                 painter.line_segment(
                                     [Pos2::new(x, y1), Pos2::new(x, y2.max(y1 + 1.0))],
                                     stroke,
+                                );
+                            }
+
+                            // numeric y axis at the left edge of the band
+                            for k in 0..=4 {
+                                let v = hi - (hi - lo) * k as f32 / 4.0;
+                                let yy = band.top() + band.height() * k as f32 / 4.0;
+                                painter.line_segment(
+                                    [
+                                        Pos2::new(band.left(), yy),
+                                        Pos2::new(band.left() + 4.0, yy),
+                                    ],
+                                    Stroke::new(1.0, AXIS),
+                                );
+                                // Keep the number clear of the tick and inside the band,
+                                // otherwise the tick reads as a minus sign.
+                                let ty = yy.clamp(band.top() + 6.0, band.bottom() - 6.0);
+                                painter.text(
+                                    Pos2::new(band.left() + 9.0, ty),
+                                    Align2::LEFT_CENTER,
+                                    format_value(v),
+                                    FontId::monospace(8.5),
+                                    AXIS,
                                 );
                             }
 
