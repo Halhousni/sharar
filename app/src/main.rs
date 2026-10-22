@@ -89,6 +89,9 @@ struct App {
     filter_dialog: bool,
     /// View > Channel Information…, Spike2's read-out for the selected channel.
     chan_info: bool,
+    /// The design the filter dialog is previewing, keyed by its parameters so a
+    /// Remez run per frame does not happen.
+    f_preview: Option<(u64, smr::Design)>,
     f_kind: smr::FilterKind,
     f_cutoff: f64,
     f_width: f64,
@@ -136,6 +139,7 @@ impl App {
             filters: Vec::new(),
             filter_dialog: false,
             chan_info: false,
+            f_preview: None,
             f_kind: smr::FilterKind::LowPass,
             f_cutoff: 150.0,
             f_width: 100.0,
@@ -1813,6 +1817,67 @@ impl eframe::App for App {
                         );
                     }
 
+                    // ── response plot ──────────────────────────────────
+                    // Spike2's dialog is a band editor around a response plot;
+                    // this is the plot half, drawn from CFIR::FreqR.
+                    if !self.f_iir && rate > 0.0 {
+                        let key = {
+                            let t = self.f_kind as u64;
+                            let q = |v: f64| (v * 100.0).round() as u64;
+                            t ^ (q(self.f_cutoff) << 8)
+                                ^ (q(self.f_width) << 24)
+                                ^ (q(self.f_atten) << 40)
+                                ^ (q(rate) << 52)
+                        };
+                        let stale = self.f_preview.as_ref().map(|(k, _)| *k) != Some(key);
+                        if stale {
+                            let t = match self.f_kind {
+                                smr::FilterKind::LowPass => smr::DesignType::LowPass,
+                                smr::FilterKind::HighPass => smr::DesignType::HighPass,
+                                smr::FilterKind::BandPass => smr::DesignType::BandPass,
+                                smr::FilterKind::BandStop => smr::DesignType::BandStop,
+                            };
+                            let w = (self.f_width / rate).clamp(1e-4, 0.1);
+                            self.f_preview = smr::fir_quick(t, self.f_cutoff / rate, w, self.f_atten)
+                                .ok()
+                                .map(|d| (key, d));
+                        }
+                        if let Some((_, d)) = self.f_preview.as_ref() {
+                            let (rect, _) = ui.allocate_exact_size(
+                                egui::vec2(340.0, 110.0),
+                                egui::Sense::hover(),
+                            );
+                            let p = ui.painter_at(rect);
+                            p.rect_filled(rect, 2.0, Color32::WHITE);
+                            p.rect_stroke(
+                                rect,
+                                2.0,
+                                egui::Stroke::new(1.0, AXIS),
+                                egui::StrokeKind::Inside,
+                            );
+                            // +10 dB at the top, -80 at the bottom, 0..Nyquist across.
+                            // t runs 0 at +10 dB to 1 at -80, and y grows downwards.
+                            let to_y = |db: f64| {
+                                let t = ((10.0 - db.clamp(-80.0, 10.0)) / 90.0) as f32;
+                                rect.top() + t * rect.height()
+                            };
+                            let zero = to_y(0.0);
+                            p.line_segment(
+                                [egui::pos2(rect.left(), zero), egui::pos2(rect.right(), zero)],
+                                egui::Stroke::new(1.0, Color32::from_gray(200)),
+                            );
+                            let mut pts = Vec::with_capacity(200);
+                            for i in 0..=200 {
+                                let f = 0.5 * i as f64 / 200.0;
+                                let x = rect.left() + rect.width() * (i as f32 / 200.0);
+                                pts.push(egui::pos2(x, to_y(d.freq_db(f))));
+                            }
+                            p.add(egui::Shape::line(
+                                pts,
+                                egui::Stroke::new(1.2, Color32::from_rgb(0, 90, 180)),
+                            ));
+                        }
+                    }
                     ui.separator();
                     ui.horizontal(|ui| {
                         if ui.button("Apply to selected channel").clicked() {

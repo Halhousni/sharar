@@ -1275,6 +1275,35 @@ mod filter_tests {
     }
 
     #[test]
+    fn freq_r_matches_a_direct_dtft() {
+        // CFIR::FreqR works from the symmetric half; the same response must come
+        // out of a plain transform of the full coefficient array, which is an
+        // independent way to the same number.
+        for (t, cutoff, width) in [
+            (DesignType::LowPass, 0.10, 0.05),
+            (DesignType::HighPass, 0.20, 0.05),
+            (DesignType::BandPass, 0.25, 0.10),
+        ] {
+            let d = fir_quick(t, cutoff, width, 50.0).expect("design");
+            for i in 1..20 {
+                let f = i as f64 / 40.0;
+                let w = 2.0 * std::f64::consts::PI * f;
+                let (mut re, mut im) = (0.0, 0.0);
+                for (k, c) in d.coeffs.iter().enumerate() {
+                    re += c * (w * k as f64).cos();
+                    im -= c * (w * k as f64).sin();
+                }
+                let mag = (re * re + im * im).sqrt();
+                let got = d.freq_r(f).abs();
+                assert!(
+                    (got - mag).abs() < 1e-9,
+                    "{t:?} at {f}: freq_r {got} vs dtft {mag}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn tags_distinguish_settings() {
         let mk = |kind, cutoff, width, atten| FilterSpec { kind, cutoff, width, atten, iir: false };
         let a = mk(FilterKind::LowPass, 100.0, 50.0, 50.0);

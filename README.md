@@ -70,8 +70,9 @@ pointer, middle-drag pans, dragging near a cursor moves it.
   the stop-band attenuation in dB, exactly as Spike2 does, and it derives the coefficient
   count from them. Coefficients agree with CED's own library to 1.8e-14 relative across
   nineteen designs; `docs/filters.md` records the recovered code and how it was checked.
-  The IIR option is a two-pole Butterworth section, causal, and is not Spike2's; it covers
-  only the low and high pass.
+  The dialog plots the response over 0 to Nyquist as you change the parameters, through
+  `CFIR::FreqR`, the same evaluator Spike2's dialog uses. The IIR option is a two-pole
+  Butterworth section, causal, and is not Spike2's; it covers only the low and high pass.
 
 ## What is not built yet
 

@@ -76,10 +76,13 @@ explicit corner points and lets the plot drive it. Both end up in the same
 `CFIR::fircalc`. Sharar's filter dialog follows the script path, which is why it
 asks for attenuation and width and shows the coefficient count.
 
-Matching the dialog exactly would mean drawing the response plot and the band
-display, and editing bands directly — a bigger change than adding controls, and
-the response plot needs `CFIR::FreqR`, which is already decompiled at 0x18c0 but
-not ported.
+Sharar now draws the response — `CFIR::FreqR` is ported (0x18c0) as
+`Design::freq_r`, checked against a plain DTFT of the full coefficient array in
+`freq_r_matches_a_direct_dtft`, and the filter dialog plots it from 0 to Nyquist
+over a +10 to -80 dB window with a 0 dB reference line. What is still missing is
+the other half: the band display and the five editable edges with their -3 dB
+points, which is what turns Spike2's dialog from a plot with parameters under it
+into a band editor.
 
 ## X Axis Range, as an example of the scale of a dialog
 

@@ -122,6 +122,54 @@ pub struct Design {
     pub dev: f64,
     /// Frequency of each extremal, as `CFIR::GetExtremal` reports it.
     pub extrema: Vec<f64>,
+    /// The symmetric half the exchange works in, `r` entries, kept because
+    /// `CFIR::FreqR` evaluates the response from it rather than from the
+    /// mirrored full array.
+    half: Vec<f64>,
+    /// `r`: half the coefficient count, rounded up for an odd low pass.
+    r: usize,
+    /// nfilt is odd.
+    odd: bool,
+    /// The antisymmetric family: a differentiator, or one of FIRMake's types.
+    diff: bool,
+}
+
+impl Design {
+    /// `CFIR::FreqR`: the amplitude response at `f`, a fraction of the sampling
+    /// rate. Type 0 reads the half array as a cosine series, the antisymmetric
+    /// types as a sine series, and the parity of the coefficient count decides
+    /// whether the terms count from a half sample or a whole one.
+    pub fn freq_r(&self, f: f64) -> f64 {
+        let r = self.r;
+        let w = f * TWO_PI;
+        let c = &self.half;
+        let mut acc = 0.0;
+        if !self.odd {
+            for k in 1..=r {
+                let t = (k as f64 - 0.5) * w;
+                acc += if self.diff { t.sin() } else { t.cos() } * c[r - k] * 2.0;
+            }
+        } else if !self.diff {
+            acc = c[r - 1];
+            for k in 1..r {
+                acc += (k as f64 * w).cos() * c[r - 1 - k] * 2.0;
+            }
+        } else {
+            for k in 1..=r {
+                acc += (k as f64 * w).sin() * c[r - k] * 2.0;
+            }
+        }
+        acc
+    }
+
+    /// The same response in dB, floored at -120 so a stop band draws.
+    pub fn freq_db(&self, f: f64) -> f64 {
+        let a = self.freq_r(f).abs();
+        if a <= 0.0 {
+            return -120.0;
+        }
+        20.0 * a.log10()
+    }
 }
 
 /// The `CFIR` object: same fields, same layout, same arithmetic.
@@ -857,7 +905,16 @@ pub fn design_raw(
 
     let coeffs = (0..cfm.nfilt).map(|i| cfm.get_coeff(i)).collect();
     let extrema = (0..cfm.r).map(|k| cfm.grid[cfm.ext[k]]).collect();
-    Ok(Design { coeffs, dev, extrema })
+    let half = cfm.coeff[..cfm.r].to_vec();
+    Ok(Design {
+        coeffs,
+        dev,
+        extrema,
+        half,
+        r: cfm.r,
+        odd: cfm.odd,
+        diff: cfm.diff,
+    })
 }
 
 /// `FIRMake(type%, param[][], coef[]{, nGrid{, extFr[]}})`: design from an
