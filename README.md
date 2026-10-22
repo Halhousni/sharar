@@ -91,16 +91,15 @@ inventories, sample rates, units, event counts and durations. Those recordings s
 Spike2 CD and are not redistributed here, so the tests skip when they are absent — extract
 `data2.cab` from the CD to `testdata/` to run them fully.
 
-## Checked against the real program
+## Checked against Spike2
 
-The layout below was checked against Spike2 itself rather than the manual alone: its data
-window carries a numeric y-axis per channel and a status bar reading `cursor, time, value`,
-and its menus are File, Edit, View, Analysis, Cursor, Sample, Script, Window, Help.
+The layout and menus were checked against Spike2 rather than the manual alone. Its data
+window carries a numeric y-axis per channel and a status bar reading `cursor, time, value`.
+Its menus are File, Edit, View, Analysis, Cursor, Sample, Script, Window, Help.
 
-`tools/vm.sh` is the harness used for that, driving a Windows guest over libvirt and the
-QEMU guest agent. It is a development aid, not part of the build, and it expects a guest of
-your own with Spike2 installed. Set `DOM` to the libvirt domain name and
-`LIBVIRT_DEFAULT_URI=qemu:///session`.
+`tools/vm.sh` drives a Windows guest over libvirt and the QEMU guest agent to do that. It is
+a development aid, not part of the build, and needs your own guest with Spike2 installed, its
+libvirt domain in `DOM`, and `LIBVIRT_DEFAULT_URI=qemu:///session`.
 
 ## Notes on the format
 
