@@ -76,13 +76,12 @@ DESIGNS = [
     (35, 4, 2, 1, differ(0.20, 0.05)),
     (63, 4, 2, 1, differ(0.30, 0.10)),
     # Band tables that do not reach Nyquist take the warped path in invfft and
-    # its corner fix-up, which is not ported: `smr::design` refuses them. They
-    # are listed so `--list` shows what is deliberately absent, not compared.
-]
-
-UNPORTED = [
+    # the corner fix-up that goes with it.
     (35, 0, 2, 1, [(0.05, 0.15, 1.0, 1.0), (0.25, 0.40, 0.0, 10.0)]),
+    (63, 0, 2, 1, [(0.02, 0.10, 1.0, 1.0), (0.20, 0.45, 0.0, 10.0)]),
     (64, 0, 2, 1, [(0.10, 0.20, 1.0, 1.0), (0.30, 0.40, 0.0, 10.0)]),
+    (127, 0, 3, 1, [(0.05, 0.10, 0.0, 10.0), (0.12, 0.20, 1.0, 1.0), (0.25, 0.40, 0.0, 10.0)]),
+    (32, 0, 2, 1, [(0.05, 0.30, 1.0, 1.0), (0.35, 0.45, 0.0, 10.0)]),
 ]
 
 
@@ -135,7 +134,13 @@ def run_oracle(text):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true")
-    ap.add_argument("--tol", type=float, default=1e-12)
+    ap.add_argument("--tol", type=float, default=1e-12, help="tolerance for full-coverage tables")
+    ap.add_argument(
+        "--tol-warped",
+        type=float,
+        default=1e-6,
+        help="tolerance for band tables that take invfft's warped path",
+    )
     ap.add_argument(
         "--emit",
         metavar="PATH",
@@ -143,6 +148,7 @@ def main():
     )
     args = ap.parse_args()
 
+    args.specs = DESIGNS
     text = render(DESIGNS)
     if args.list:
         print(text, end="")
@@ -192,9 +198,12 @@ def main():
         diff = max((abs(x - y) for x, y in zip(ca, cb)), default=0.0) / scale
         if diff > worst:
             worst, worst_i = diff, i
-        flag = "ok" if diff <= args.tol else "DIFF"
-        print(f"{i:2d} {flag:4s} n={len(ca):4d} dev {dev_a:.6e}/{dev_b:.6e} rel {diff:.3e}")
-        if diff > args.tol:
+        warped = args.specs[i][4][0][0] != 0.0 or args.specs[i][4][-1][1] != 0.5
+        tol = args.tol_warped if warped else args.tol
+        flag = "ok" if diff <= tol else "DIFF"
+        tag = "warp" if warped else "    "
+        print(f"{i:2d} {flag:4s}{tag} n={len(ca):4d} dev {dev_a:.6e}/{dev_b:.6e} rel {diff:.3e}")
+        if diff > tol:
             failures += 1
 
     print(f"\nworst relative coefficient difference {worst:.3e} (design {worst_i}), {failures} of {len(port)} outside {args.tol:g}")

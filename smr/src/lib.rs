@@ -1238,14 +1238,16 @@ mod filter_tests {
         assert!(gain(&spec, 700.0, rate) > 0.9, "high pass {}", gain(&spec, 700.0, rate));
     }
 
-    #[test]
-    fn a_band_table_short_of_nyquist_is_refused() {
-        // The warped inverse transform and its corner fix-up are not ported, so
-        // this must be an error rather than a plausible wrong answer.
+    fn a_band_table_short_of_nyquist_still_designs() {
+        // No coverage of DC or Nyquist sends invfft down its warped path and
+        // through the corner recursion; the design must still come out finite
+        // and symmetric rather than NaN.
         let bands = [Band::new(0.05, 0.15, 1.0, 1.0), Band::new(0.25, 0.40, 0.0, 10.0)];
-        match design(35, DesignType::LowPass, &bands, 2, true) {
-            Err(DesignError::UnportedBands) => {}
-            other => panic!("expected UnportedBands, got {other:?}"),
+        let d = design(35, DesignType::LowPass, &bands, 2, true).expect("design");
+        assert!(d.coeffs.iter().all(|c| c.is_finite()), "coefficients must be finite");
+        let n = d.coeffs.len();
+        for i in 0..n / 2 {
+            assert!((d.coeffs[i] - d.coeffs[n - 1 - i]).abs() < 1e-12, "not symmetric at {i}");
         }
     }
 

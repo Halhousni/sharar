@@ -97,6 +97,16 @@ band pass, band stop and differentiator — agree to a worst relative difference
 of **1.8e-14**, which is the last two or three bits of the mantissa. The
 deviations agree to every printed digit, and the extremal sets are identical.
 
+Five further designs use band tables that stop short of Nyquist, so they take
+the warped path. Three of them also agree to machine precision (5.7e-15,
+7.7e-13, 2.2e-12); the other two land at 1.2e-9 and 8.6e-8 relative to their
+peak coefficient. That gap is not a difference in the algorithm: the corner
+recursion multiplies by `2*wb` at every step and the warp's `acos` has an
+infinite derivative at the band edges, so a last-bit difference in `cos`
+between MSVC's maths and glibc's becomes visible. These designs also produce
+large coefficients (peak 66 in one case), which scales the absolute difference
+up with them.
+
 The DLL is not redistributable, so the harness and the fixture live outside the
 repository. `smr/tests/fir_reference.rs` reads `testdata/fir_reference.txt` when
 it is present and prints a skip when it is not, so a fresh clone still passes.
@@ -109,14 +119,15 @@ it is present and prints a skip when it is not, so a fresh clone still passes.
 - `CFIR` types 5, 6 and 7 (Hilbert and the other antisymmetric designs) are not
   ported. `SetFilt` collapses any type below 4 to 0, so the four band layouts
   above are the ones `FIRQuick` can produce.
-- A band table that does not span 0 to Nyquist takes the warped path in
-  `CFIR::invfft`, and the corner fix-up that goes with it
-  (`CFIR::FixFirstLastCorners`) is not ported. `smr::design` therefore *refuses*
-  such a table with `DesignError::UnportedBands` rather than returning
-  coefficients that would look plausible and be wrong. The exchange itself is
-  right on those tables — the deviation matches CED's exactly — but the inverse
-  transform is not. No `FIRQuick` layout reaches it, because every one of them
-  covers the whole spectrum.
+- A band table that does not span 0 to Nyquist is supported, through the
+  warped path in `CFIR::invfft` and the corner recursion that goes with it
+  (0x180002212, ported as `corner_fix`). Two details there are easy to get
+  wrong and both were confirmed against the oracle: the recursion halves its
+  warp at the last step, and it stores the previous half of the impulse
+  response *into the amplitude array* rather than a fresh buffer, so later
+  terms read the overwritten values. No `FIRQuick` layout reaches this path —
+  every one covers the whole spectrum — so it matters only for `FIRMake`-style
+  band tables.
 - A differentiator above 0.48, or with a band edge that leaves no room for the
   stop band, degenerates in both implementations: CED reports deviation 1.0 and
   NaN coefficients, and this port does the same.

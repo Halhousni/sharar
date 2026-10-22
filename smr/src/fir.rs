@@ -97,12 +97,6 @@ pub enum DesignError {
     NoConvergence,
     /// The tap count or frequency is outside what Spike2 accepts.
     OutOfRange,
-    /// The band table leaves part of 0..Nyquist unspecified. `CFIR::invfft`
-    /// takes a warped path for those, and the corner fix-up that goes with it
-    /// (`CFIR::FixFirstLastCorners`) is not ported, so the coefficients would
-    /// be wrong rather than merely different. Every `FIRQuick` layout covers
-    /// the whole spectrum and never reaches it.
-    UnportedBands,
 }
 
 impl std::fmt::Display for DesignError {
@@ -113,10 +107,6 @@ impl std::fmt::Display for DesignError {
             }
             DesignError::NoConvergence => write!(f, "the exchange did not converge"),
             DesignError::OutOfRange => write!(f, "the tap count or frequency is out of range"),
-            DesignError::UnportedBands => write!(
-                f,
-                "band tables that do not span 0 to Nyquist are not ported"
-            ),
         }
     }
 }
@@ -295,11 +285,10 @@ impl Cfm {
         let full = bands[0].low == 0.0 && bands[bands.len() - 1].high == 0.5;
 
         let dev = self.remez();
-        if dev < 0.0 {
-            return dev;
+        if !(dev < 0.0) {
+            self.invfft(full);
+            self.impulse();
         }
-        self.invfft(full);
-        self.impulse();
         dev
     }
 
@@ -406,7 +395,12 @@ impl Cfm {
                 sg = -sg;
             }
 
-            if dev < prev_dev {
+            // `dVar16 < dVar19` as the compiler lowers it: an unordered
+            // comparison (a NaN deviation, which a degenerate grid produces)
+            // takes the branch. That is how `fircalc` escapes a grid that has
+            // more extrema than points and falls through to a coarser one, so
+            // `!(dev >= prev_dev)` is the faithful form, not `dev < prev_dev`.
+            if !(dev >= prev_dev) {
                 self.err |= 1;
                 return 1.0;
             }
@@ -678,12 +672,71 @@ impl Cfm {
                 *hv *= 2.0 * inv;
             }
         }
+        if !uniform {
+            self.corner_fix(wa, wb, &mut amp);
+        }
         if r < 4 {
             self.h[r] = 0.0;
             if r + 1 < self.h.len() {
                 self.h[r + 1] = 0.0;
             }
         }
+    }
+
+    /// The corner fix-up for a band table that does not span 0 to Nyquist,
+    /// `CFIR::invfft`'s non-uniform branch at 0x180002212.
+    ///
+    /// When the bands leave part of the spectrum unspecified, `invfft` samples
+    /// the response on a grid that has been warped through `acos`, and the
+    /// cosine series that follows is not the impulse response of the true
+    /// filter. This recursion rebuilds it from the warped one, using the two
+    /// coefficients of that warp. `wa` and `wb` are the scale and offset
+    /// computed at the top of `invfft`.
+    fn corner_fix(&mut self, wa: f64, wb: f64, amp: &mut [f64]) {
+        let r = self.r;
+        let mut wh = vec![0.0f64; r + 2];
+        let mut f0 = vec![0.0f64; r + 2];
+        let (mut wa, mut wb) = (wa, wb);
+
+        wh[0] = wb * 2.0 * self.h[r - 1] + self.h[r - 2];
+        wh[1] = wa * 2.0 * self.h[r - 1];
+        f0[0] = self.h[r - 3] - self.h[r - 1];
+
+        let mut i = 1usize;
+        while i < r - 1 {
+            // The warp is halved at the last step, which is what makes the
+            // recursion close on the corner.
+            if i == r - 2 {
+                wa *= 0.5;
+                wb *= 0.5;
+            }
+            wh[i + 1] = 0.0;
+            // The original keeps the previous half in the amplitude array
+            // rather than a fresh buffer; the reads below see the overwritten
+            // values, so the aliasing is part of the arithmetic.
+            for j in 0..=i {
+                amp[j] = wh[j];
+                wh[j] *= 2.0 * wb;
+            }
+            wh[1] += wa * 2.0 * amp[0];
+
+            let next = i + 1;
+            for j in 0..next.saturating_sub(2) {
+                wh[j] = wa * amp[j + 1] + f0[j] + wh[j];
+            }
+            for j in 2..next {
+                wh[j] = wa * amp[j - 1] + wh[j];
+            }
+            if i < r - 2 {
+                for j in 0..=i {
+                    f0[j] = -amp[j];
+                }
+                f0[0] += self.h[r - i - 3];
+            }
+            i = next;
+        }
+
+        self.h[..r].copy_from_slice(&wh[..r]);
     }
 
     /// `CFIR::Impulse`: fold the impulse response into the symmetric half of
@@ -774,15 +827,6 @@ pub fn design(
         }
     }
 
-    // The warped inverse transform in `CFIR::invfft` is only correct with the
-    // corner fix-up, which is not ported. Refuse rather than return coefficients
-    // that look plausible and are not Spike2's.
-    let covers = bands.first().is_some_and(|b| b.low == 0.0)
-        && bands.last().is_some_and(|b| b.high == 0.5);
-    if !covers {
-        return Err(DesignError::UnportedBands);
-    }
-
     let mut cfm = Cfm::new(nfilt, jtype.jtype());
     let grids = [lgrid, lgrid / 2 + 1, lgrid * 2 - 1];
     let tries = if retry { 3 } else { 1 };
@@ -790,7 +834,8 @@ pub fn design(
     let mut dev = 0.0f64;
     for g in grids.iter().take(tries) {
         dev = cfm.docalc(bands, *g);
-        if !(dev >= 0.0 && cfm.err & 1 != 0) {
+        // `0.0 <= dev` as compiled: NaN counts as satisfying it.
+        if dev < 0.0 || cfm.err & 1 == 0 {
             break;
         }
     }
