@@ -4,8 +4,9 @@ An application to read CED Spike2 `.smr` files.
 
 Sharar opens a recording from CED's Spike2 (the acquisition program Spike2 ships with the
 1401 interface) and displays it: waveform channels, event channels and markers on a shared
-time axis, with cursors, per-channel gain and scale bars. It is written in Rust and runs
-natively on Linux, reading the files directly rather than through CED's Windows DLLs.
+time axis, with cursors, per-channel gain and scale bars. It is written in Rust with egui and
+reads the files directly rather than through CED's Windows DLLs. It builds on Linux, macOS and
+Windows, and has been developed and tested on Linux.
 
 ![the EMG example open in Sharar](docs/screenshot.png)
 
