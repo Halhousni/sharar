@@ -154,6 +154,31 @@ pair a `for`/`while` needs to know whether a loop is being entered or re-entered
 grip on the data windows — which is where a port would have to meet the rest of
 Sharar rather than the interpreter.
 
+## How large the built-in surface is
+
+The number that decides whether a port is a project or a season:
+
+| measure | count |
+|---|---|
+| exported symbols, `runtime.s2l` | 589 |
+| exported symbols, `compiler.dll` | 756 |
+| classes in `runtime.s2l` | 72 |
+| methods on `CArrObj` alone | 61 |
+
+`CArrObj` is the array type the `Arr*` opcodes operate on, and its exports are the
+array function library: `Abs`, `ATan`, `ATan2`, `AmpPh`, `Conv`, `Diff`, `DimSize`,
+`ArrHist` and fifty more. `CBaseViewCmd` adds 27 more for the data windows
+(`GetAdcChannel`, `GetChannelList`, `CurrentMaxTime`, `GetCurrentSpkView`), and
+`CBaseCmd` another 17 for the command plumbing.
+
+There are also numerics that have nothing to do with scripting as such — `Beta`,
+`BetaI`, `BinomialC`, `CBrent`, `CLinPred`, `CRand`, spline bases — because the
+runtime doubles as a numerical library for the scripts that call it.
+
+So the surface is of the order of several hundred functions, not a few dozen. A
+port that runs the language but stubs the library would run almost nothing real: the
+average Spike2 script is mostly calls.
+
 ## What is not known yet
 
 - the operand encoding: which words follow which opcode;
