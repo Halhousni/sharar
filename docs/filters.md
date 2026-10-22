@@ -109,10 +109,14 @@ it is present and prints a skip when it is not, so a fresh clone still passes.
 - `CFIR` types 5, 6 and 7 (Hilbert and the other antisymmetric designs) are not
   ported. `SetFilt` collapses any type below 4 to 0, so the four band layouts
   above are the ones `FIRQuick` can produce.
-- The frequency warp for a band table that does not span 0 to Nyquist is
-  implemented, but the corner fix-up that goes with it
-  (`CFIR::FixFirstLastCorners`) is not: no `FIRQuick` design reaches it, because
-  every layout above covers the whole spectrum.
+- A band table that does not span 0 to Nyquist takes the warped path in
+  `CFIR::invfft`, and the corner fix-up that goes with it
+  (`CFIR::FixFirstLastCorners`) is not ported. `smr::design` therefore *refuses*
+  such a table with `DesignError::UnportedBands` rather than returning
+  coefficients that would look plausible and be wrong. The exchange itself is
+  right on those tables — the deviation matches CED's exactly — but the inverse
+  transform is not. No `FIRQuick` layout reaches it, because every one of them
+  covers the whole spectrum.
 - A differentiator above 0.48, or with a band edge that leaves no room for the
   stop band, degenerates in both implementations: CED reports deviation 1.0 and
   NaN coefficients, and this port does the same.

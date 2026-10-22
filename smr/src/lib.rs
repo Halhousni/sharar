@@ -223,6 +223,29 @@ pub fn dc_remove(samples: &mut [f32], window: usize) {
 pub enum FilterKind {
     LowPass,
     HighPass,
+    BandPass,
+    BandStop,
+}
+
+impl FilterKind {
+    /// A short name for the status bar.
+    pub fn label(self) -> &'static str {
+        match self {
+            FilterKind::LowPass => "low pass",
+            FilterKind::HighPass => "high pass",
+            FilterKind::BandPass => "band pass",
+            FilterKind::BandStop => "band stop",
+        }
+    }
+
+    fn design_type(self) -> DesignType {
+        match self {
+            FilterKind::LowPass => DesignType::LowPass,
+            FilterKind::HighPass => DesignType::HighPass,
+            FilterKind::BandPass => DesignType::BandPass,
+            FilterKind::BandStop => DesignType::BandStop,
+        }
+    }
 }
 
 /// A filter request, in the units the caller works in.
@@ -254,6 +277,8 @@ impl FilterSpec {
         let kind = match self.kind {
             FilterKind::LowPass => 1u64,
             FilterKind::HighPass => 2u64,
+            FilterKind::BandPass => 3u64,
+            FilterKind::BandStop => 4u64,
         };
         let q = |v: f64| ((v.max(0.0) * 100.0).round() as u64) & 0x3ff;
         kind | (q(self.cutoff) << 2)
@@ -332,7 +357,7 @@ pub fn apply_filter(samples: &mut [f32], spec: &FilterSpec, sample_rate: f64) {
     if spec.cutoff >= nyquist {
         // Nothing to remove: a low pass above Nyquist is the identity, and a high pass
         // above Nyquist would delete the signal.
-        if spec.kind == FilterKind::HighPass {
+        if spec.kind == FilterKind::HighPass || spec.kind == FilterKind::BandPass {
             for v in samples.iter_mut() {
                 *v = 0.0;
             }
@@ -342,18 +367,19 @@ pub fn apply_filter(samples: &mut [f32], spec: &FilterSpec, sample_rate: f64) {
     let norm = spec.cutoff / sample_rate;
 
     if spec.iir {
+        // The IIR path only has the two Butterworth sections; the band types
+        // are FIR-only, as a note in the dialog says.
         let bq = match spec.kind {
-            FilterKind::LowPass => Biquad::lowpass(norm),
-            FilterKind::HighPass => Biquad::highpass(norm),
+            FilterKind::LowPass => Some(Biquad::lowpass(norm)),
+            FilterKind::HighPass => Some(Biquad::highpass(norm)),
+            FilterKind::BandPass | FilterKind::BandStop => None,
         };
+        let Some(bq) = bq else { return };
         bq.apply(samples);
         return;
     }
 
-    let kind = match spec.kind {
-        FilterKind::LowPass => DesignType::LowPass,
-        FilterKind::HighPass => DesignType::HighPass,
-    };
+    let kind = spec.kind.design_type();
     let width = (spec.width / sample_rate).clamp(1e-4, 0.1);
     let coeffs = match fir_quick(kind, norm, width, spec.atten) {
         Ok(d) => d.coeffs,
@@ -1183,6 +1209,47 @@ mod filter_tests {
     }
 
     #[test]
+    fn band_pass_keeps_the_band_and_rejects_either_side() {
+        let spec = FilterSpec {
+            kind: FilterKind::BandPass,
+            cutoff: 200.0,
+            width: 100.0,
+            atten: 50.0,
+            iir: false,
+        };
+        let rate = 2000.0;
+        assert!(gain(&spec, 200.0, rate) > 0.9, "centre gain {}", gain(&spec, 200.0, rate));
+        assert!(gain(&spec, 20.0, rate) < 0.05, "low stop {}", gain(&spec, 20.0, rate));
+        assert!(gain(&spec, 700.0, rate) < 0.05, "high stop {}", gain(&spec, 700.0, rate));
+    }
+
+    #[test]
+    fn band_stop_rejects_the_band_and_keeps_either_side() {
+        let spec = FilterSpec {
+            kind: FilterKind::BandStop,
+            cutoff: 200.0,
+            width: 100.0,
+            atten: 50.0,
+            iir: false,
+        };
+        let rate = 2000.0;
+        assert!(gain(&spec, 200.0, rate) < 0.05, "centre {}", gain(&spec, 200.0, rate));
+        assert!(gain(&spec, 20.0, rate) > 0.9, "low pass {}", gain(&spec, 20.0, rate));
+        assert!(gain(&spec, 700.0, rate) > 0.9, "high pass {}", gain(&spec, 700.0, rate));
+    }
+
+    #[test]
+    fn a_band_table_short_of_nyquist_is_refused() {
+        // The warped inverse transform and its corner fix-up are not ported, so
+        // this must be an error rather than a plausible wrong answer.
+        let bands = [Band::new(0.05, 0.15, 1.0, 1.0), Band::new(0.25, 0.40, 0.0, 10.0)];
+        match design(35, DesignType::LowPass, &bands, 2, true) {
+            Err(DesignError::UnportedBands) => {}
+            other => panic!("expected UnportedBands, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn tags_distinguish_settings() {
         let mk = |kind, cutoff, width, atten| FilterSpec { kind, cutoff, width, atten, iir: false };
         let a = mk(FilterKind::LowPass, 100.0, 50.0, 50.0);
@@ -1190,6 +1257,8 @@ mod filter_tests {
         let c = mk(FilterKind::LowPass, 200.0, 50.0, 50.0);
         let e = mk(FilterKind::LowPass, 100.0, 20.0, 50.0);
         let f = mk(FilterKind::LowPass, 100.0, 50.0, 80.0);
+        let g = mk(FilterKind::BandPass, 100.0, 50.0, 50.0);
+        assert_ne!(a.tag(), g.tag());
         assert_ne!(a.tag(), b.tag());
         assert_ne!(a.tag(), c.tag());
         assert_ne!(a.tag(), e.tag());

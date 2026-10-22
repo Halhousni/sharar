@@ -75,7 +75,14 @@ DESIGNS = [
     (3, 0, 2, 1, low_pass(0.20, 0.05)),
     (35, 4, 2, 1, differ(0.20, 0.05)),
     (63, 4, 2, 1, differ(0.30, 0.10)),
-    (35, 4, 1, 1, differ(0.49, 0.01)),
+    # Band tables that do not reach Nyquist take the warped path in invfft and
+    # its corner fix-up, which is not ported: `smr::design` refuses them. They
+    # are listed so `--list` shows what is deliberately absent, not compared.
+]
+
+UNPORTED = [
+    (35, 0, 2, 1, [(0.05, 0.15, 1.0, 1.0), (0.25, 0.40, 0.0, 10.0)]),
+    (64, 0, 2, 1, [(0.10, 0.20, 1.0, 1.0), (0.30, 0.40, 0.0, 10.0)]),
 ]
 
 

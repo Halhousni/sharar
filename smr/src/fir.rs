@@ -97,6 +97,12 @@ pub enum DesignError {
     NoConvergence,
     /// The tap count or frequency is outside what Spike2 accepts.
     OutOfRange,
+    /// The band table leaves part of 0..Nyquist unspecified. `CFIR::invfft`
+    /// takes a warped path for those, and the corner fix-up that goes with it
+    /// (`CFIR::FixFirstLastCorners`) is not ported, so the coefficients would
+    /// be wrong rather than merely different. Every `FIRQuick` layout covers
+    /// the whole spectrum and never reaches it.
+    UnportedBands,
 }
 
 impl std::fmt::Display for DesignError {
@@ -107,6 +113,10 @@ impl std::fmt::Display for DesignError {
             }
             DesignError::NoConvergence => write!(f, "the exchange did not converge"),
             DesignError::OutOfRange => write!(f, "the tap count or frequency is out of range"),
+            DesignError::UnportedBands => write!(
+                f,
+                "band tables that do not span 0 to Nyquist are not ported"
+            ),
         }
     }
 }
@@ -441,7 +451,7 @@ impl Cfm {
             // Upward from j+1, when the interval is wide enough.
             if next > j + 1 {
                 let mut i = j + 1;
-                let mut e = self.gee(i, nod);
+                let e = self.gee(i, nod);
                 if e > dev {
                     best = e;
                     i += 1;
@@ -762,6 +772,15 @@ pub fn design(
         if bad {
             return Err(DesignError::BadBand { index: i });
         }
+    }
+
+    // The warped inverse transform in `CFIR::invfft` is only correct with the
+    // corner fix-up, which is not ported. Refuse rather than return coefficients
+    // that look plausible and are not Spike2's.
+    let covers = bands.first().is_some_and(|b| b.low == 0.0)
+        && bands.last().is_some_and(|b| b.high == 0.5);
+    if !covers {
+        return Err(DesignError::UnportedBands);
     }
 
     let mut cfm = Cfm::new(nfilt, jtype.jtype());

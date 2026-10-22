@@ -56,14 +56,15 @@ pointer, middle-drag pans, dragging near a cursor moves it.
   or `--export` on the command line.
 - Live strip chart: `--record` opens a scrolling view of the last five seconds, one trace per
   channel, fed by a synthetic source until the 1401 path is wired.
-- Digital filters: `Analysis → Digital filters…` applies a low-pass or high-pass to the
-  selected channel. The FIR path is a port of Spike2's own designer: the Parks-McClellan
+- Digital filters: `Analysis → Digital filters…` applies a low pass, high pass, band pass or
+  band stop to the selected channel. The FIR path is a port of Spike2's own designer: the Parks-McClellan
   exchange in `Filters.dll`, with the band table, the tap count and the defaults that
   `FIRWin.s2l` builds for `FIRQuick`. You give it a corner frequency, a transition width and
   the stop-band attenuation in dB, exactly as Spike2 does, and it derives the coefficient
   count from them. Coefficients agree with CED's own library to 1.8e-14 relative across
   nineteen designs; `docs/filters.md` records the recovered code and how it was checked.
-  The IIR option is a two-pole Butterworth section, causal, and is not Spike2's.
+  The IIR option is a two-pole Butterworth section, causal, and is not Spike2's; it covers
+  only the low and high pass.
 
 ## What is not built yet
 
@@ -79,7 +80,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
-| Filter design | the Parks-McClellan designer behind `FIRQuick`, so low/high pass, band pass, band stop and differentiator coefficients match Spike2; the dialog offers low and high pass, the IIR option is not Spike2's |
+| Filter design | the Parks-McClellan designer behind `FIRQuick`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14; a differentiator is available from the library but not the dialog; band tables that do not reach Nyquist are refused (the corner fix-up is not ported); the IIR option is not Spike2's |
 
 ## Layout
 

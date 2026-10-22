@@ -881,8 +881,7 @@ impl eframe::App for App {
                         ui.label(format!(
                             "{} {:.0} Hz {}",
                             match spec.kind {
-                                smr::FilterKind::LowPass => "low pass",
-                                smr::FilterKind::HighPass => "high pass",
+                                other => other.label(),
                             },
                             spec.cutoff,
                             if spec.iir { "IIR" } else { "FIR" }
@@ -1703,9 +1702,15 @@ impl eframe::App for App {
                         ui.label("Type");
                         ui.selectable_value(&mut self.f_kind, smr::FilterKind::LowPass, "Low pass");
                         ui.selectable_value(&mut self.f_kind, smr::FilterKind::HighPass, "High pass");
+                        ui.selectable_value(&mut self.f_kind, smr::FilterKind::BandPass, "Band pass");
+                        ui.selectable_value(&mut self.f_kind, smr::FilterKind::BandStop, "Band stop");
                     });
                     ui.horizontal(|ui| {
-                        ui.label("Cutoff (Hz)");
+                        let band = matches!(
+                            self.f_kind,
+                            smr::FilterKind::BandPass | smr::FilterKind::BandStop
+                        );
+                        ui.label(if band { "Centre (Hz)" } else { "Cutoff (Hz)" });
                         ui.add(egui::DragValue::new(&mut self.f_cutoff).speed(1.0).range(0.01..=1.0e6));
                         ui.label(if rate > 0.0 {
                             format!("Nyquist {:.0} Hz", rate / 2.0)
@@ -1725,15 +1730,13 @@ impl eframe::App for App {
                     });
                     if !self.f_iir && rate > 0.0 {
                         let w = (self.f_width / rate).clamp(1e-4, 0.1);
-                        let n = smr::quick_tap_count(
-                            match self.f_kind {
-                                smr::FilterKind::LowPass => smr::DesignType::LowPass,
-                                smr::FilterKind::HighPass => smr::DesignType::HighPass,
-                            },
-                            self.f_cutoff / rate,
-                            w,
-                            self.f_atten,
-                        );
+                        let t = match self.f_kind {
+                            smr::FilterKind::LowPass => smr::DesignType::LowPass,
+                            smr::FilterKind::HighPass => smr::DesignType::HighPass,
+                            smr::FilterKind::BandPass => smr::DesignType::BandPass,
+                            smr::FilterKind::BandStop => smr::DesignType::BandStop,
+                        };
+                        let n = smr::quick_tap_count(t, self.f_cutoff / rate, w, self.f_atten);
                         ui.label(format!("{n} coefficients"));
                     }
                     ui.horizontal(|ui| {
