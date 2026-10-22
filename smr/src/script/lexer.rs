@@ -14,9 +14,13 @@ use std::fmt;
 
 /// Keywords, matched without regard to case. This is the list recovered from
 /// `compiler.dll`'s string table.
+/// Every one of these appears as a standalone string in `compiler.dll`. Notably
+/// absent: `downto`, `div`, `array`, `begin` and `elseif` — words an outsider
+/// would guess at and the binary does not have.
 const KEYWORDS: &[&str] = &[
-    "call", "case", "const", "else", "endcase", "endif", "for", "func", "next", "proc", "repeat",
-    "return", "step", "until", "var", "while",
+    "and", "call", "case", "const", "do", "else", "end", "endcase", "endif", "for", "func", "if",
+    "mod", "next", "not", "or", "proc", "repeat", "return", "step", "string", "then", "to",
+    "until", "var", "while", "xor",
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +49,8 @@ pub enum Tok {
     Comma,
     Semi,
     Colon,
+    /// Member access: `View(3).FileName$(1)` is in Spike2's own demo script.
+    Dot,
     LParen,
     RParen,
     LBracket,
@@ -122,6 +128,14 @@ pub fn lex(src: &str) -> Result<Vec<Token>, LexError> {
         let c = chars[i];
         if c == '\r' || c == '\n' || c == ' ' || c == '\t' {
             bump!();
+            continue;
+        }
+        // A comment runs from an apostrophe to the end of the line, which is how
+        // Spike2's own demo script is written throughout.
+        if c == '\'' {
+            while i < chars.len() && chars[i] != '\n' {
+                bump!();
+            }
             continue;
         }
         let (start_line, start_col) = (line, col);
@@ -258,6 +272,7 @@ pub fn lex(src: &str) -> Result<Vec<Token>, LexError> {
             '<' => Some(Tok::Lt),
             '>' => Some(Tok::Gt),
             ',' => Some(Tok::Comma),
+            '.' => Some(Tok::Dot),
             ';' => Some(Tok::Semi),
             ':' => Some(Tok::Colon),
             '(' => Some(Tok::LParen),
@@ -323,7 +338,7 @@ FileClose();\r\n";
         assert_eq!(toks[i + 1].tok, Tok::Ident("i%".into()));
         assert_eq!(toks[i + 2].tok, Tok::Assign);
         assert_eq!(toks[i + 3].tok, Tok::Int(0));
-        assert_eq!(toks[i + 4].tok, Tok::Ident("to".into())); // `to` is not a keyword
+        assert_eq!(toks[i + 4].tok, Tok::Kw("to"));
         assert!(toks.iter().any(|t| t.tok == Tok::Kw("next")));
     }
 
@@ -367,6 +382,37 @@ FileClose();\r\n";
         assert!(toks.iter().any(|t| t.tok == Tok::Ne));
         assert!(toks.iter().any(|t| t.tok == Tok::Le));
         assert!(toks.iter().any(|t| t.tok == Tok::Ge));
+    }
+
+    #[test]
+    fn comments_run_to_the_end_of_the_line() {
+        let toks = lex("var a := 1; ' set it\nvar b := 2;").unwrap();
+        let vars = toks.iter().filter(|t| t.tok == Tok::Kw("var")).count();
+        assert_eq!(vars, 2);
+        assert!(toks.iter().all(|t| t.tok != Tok::Ident("set".into())));
+    }
+
+    /// Spike2's own demonstration script, if it has been pulled from the VM. It is
+    /// CED's file, so it is not in the repository; without it the test says so and
+    /// passes.
+    #[test]
+    fn lexes_spike2s_own_demo_script() {
+        let path = std::path::Path::new("vmbin/basedemo.s2s");
+        let Ok(src) = std::fs::read_to_string(path) else {
+            eprintln!("skipping: {} not present", path.display());
+            return;
+        };
+        let toks = lex(&src).expect("the demo script should lex");
+        // 43 KB of script: a couple of thousand tokens at least.
+        assert!(toks.len() > 1500, "only {} tokens", toks.len());
+        assert_eq!(toks.last().unwrap().tok, Tok::End);
+        // The constructs that make it a real language sample rather than a snippet.
+        for kw in ["proc", "func", "for", "while", "repeat", "case", "if", "then"] {
+            assert!(
+                toks.iter().any(|t| t.tok == Tok::Kw(kw)),
+                "no {kw} in the demo"
+            );
+        }
     }
 
     #[test]
