@@ -17,7 +17,8 @@ cargo run -p sharar -- path/to/recording.smr
 
 Command-line flags: `--dc` starts with DC remove on, `--filters` opens the filter dialog,
 `--lowpass=<hz>` applies a FIR low pass at startup, `--average` opens the average dialog with
-a result computed, `--export` writes the visible window to CSV and reports the path.
+a result computed, `--export` writes the visible window to CSV and reports the path, and
+`--record` opens the live strip chart on its synthetic source.
 
 Drag the window on a file, or use `File → Open…`. Keyboard: `F` fits the recording to the
 window, `+`/`-` change the selected channel's gain, `0` resets it, `D` toggles DC remove on
@@ -40,12 +41,14 @@ a cursor moves it.
 - Channel list with visibility toggles and selection.
 - Measurements between the cursors: sample count, mean, RMS, minimum, maximum and
   peak-to-peak per waveform channel, computed on the processed signal.
-- DC remove (a centred boxcar mean subtraction) per channel, off by default:
-  Analysis → DC remove, or `D`, or `--dc` on the command line.
+- DC remove (a centred boxcar mean subtraction) per channel, off by default: the Analysis
+  menu's `DC remove on selected channel` checkbox, or `D`, or `--dc` on the command line.
 - Peri-stimulus average: `Analysis → Average around events…` picks an event channel and a
   window, then plots the mean waveform with the trial count.
 - CSV export of the selected channel over the visible window: `File → Export channel…`,
   or `--export` on the command line.
+- Live strip chart: `--record` opens a scrolling view of the last five seconds, one trace per
+  channel, fed by a synthetic source until the 1401 path is wired.
 - Digital filters: `Analysis → Digital filters…` applies a low-pass or high-pass to the
   selected channel, either as a Hamming-windowed sinc FIR (odd tap count, centred
   convolution so there is no time shift) or as a two-pole Butterworth IIR section.
@@ -55,17 +58,15 @@ a cursor moves it.
   attained deviation, and the class exposes `GetExtremal` and `InIteration` — so its
   filters are equiripple against a requested ripple, where these are windowed.
 
-![a spike train and a text mark](docs/shot_spikes.png)
-
 ## What is not built yet
 
 This is an early slice of a large program, not a finished replacement for Spike2.
 
 | Area | State |
 |---|---|
-| Acquisition from a CED 1401 | the `ced1401` device crate exists separately, not wired to the GUI |
+| Acquisition from a CED 1401 | `--record` opens a live strip chart fed by a synthetic source; the 1401 backend is a stub that reports no device attached |
 | Sampling configuration | none |
-| Channel processing | DC remove only; no filters, rectification or other processes |
+| Channel processing | DC remove and low/high-pass digital filters; no rectification, integration or other processes |
 | Averaging | peri-stimulus average works; no smoothing, confidence bands or baselines |
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
 | `.s2s` scripting | none |
