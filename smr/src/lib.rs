@@ -28,6 +28,7 @@ use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 mod fir;
+pub mod script;
 mod son64;
 
 pub use fir::{
