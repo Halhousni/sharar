@@ -12,9 +12,11 @@
 //!
 //! All integers are little-endian.
 //!
-//! ADC values are converted to channel units as `count as f32 * scale / 65536.0 + offset`,
-//! which is CED's documented conversion. Note that `neo` applies an extra factor of ten
-//! (`gain = scale / 6553.6`); that is a neo convention, not the file's.
+//! ADC values are converted to channel units as `count as f32 * scale / 6553.6 + offset`.
+//! That is CED's conversion: `scale` is in units per volt, and a 16-bit ADC spans ±5 V over
+//! ±32768 counts, so `scale * 5` is the channel's full-scale range. Spike2 reports exactly
+//! that range in its channel information, and `neo` reaches the same numbers with
+//! `gain = scale / 6553.6`.
 
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
@@ -22,6 +24,11 @@ use std::path::{Path, PathBuf};
 
 pub const FILE_HEADER_LEN: u64 = 512;
 pub const CHANNEL_HEADER_LEN: u64 = 140;
+
+/// Divisor that turns a 16-bit ADC count into volts before the channel's `scale` (in units
+/// per volt) is applied: `count as f32 * scale / ADC_SCALE_DIVISOR + offset`. CED's range is
+/// ±5 V over ±32768 counts, so a channel's full-scale range is `scale * 5`.
+pub const ADC_SCALE_DIVISOR: f32 = 6553.6;
 pub const BLOCK_HEADER_LEN: u64 = 20;
 
 /// Channel kinds, by the numeric code in the channel header.
@@ -795,7 +802,7 @@ impl SonFile {
             for (i, chunk) in raw.chunks_exact(elem as usize).enumerate() {
                 let v = if is_adc {
                     let c = i16::from_le_bytes([chunk[0], chunk[1]]);
-                    f32::from(c) * scale / 65536.0 + offset
+                    f32::from(c) * scale / ADC_SCALE_DIVISOR + offset
                 } else {
                     let bits = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
                     f32::from_bits(bits)
@@ -893,7 +900,7 @@ impl SonFile {
                     }
                     samples.push(if is_adc {
                         let c = i16::from_le_bytes([chunk[at], chunk[at + 1]]);
-                        f32::from(c) * scale / 65536.0 + offset
+                        f32::from(c) * scale / ADC_SCALE_DIVISOR + offset
                     } else {
                         f32::from_bits(u32::from_le_bytes([
                             chunk[at],
@@ -924,8 +931,12 @@ impl SonFile {
                 return base;
             }
             if tick <= block.end_tick {
-                let offset = ((tick - block.start_tick) as f64 / channel.sample_interval.max(1e-12))
-                    .round() as u64;
+                // Ticks and `sample_interval` are in different units: ticks are time-base
+                // units and `sample_interval` is seconds per sample, so the tick difference
+                // has to be converted to seconds before dividing.
+                let secs_into_block = f64::from(tick - block.start_tick) * self.time_factor;
+                let offset =
+                    (secs_into_block / channel.sample_interval.max(1e-12)).round() as u64;
                 return base + offset.min(block.items.max(0) as u64);
             }
             base += block.items.max(0) as u64;

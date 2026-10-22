@@ -54,10 +54,9 @@ a cursor moves it.
   selected channel, either as a Hamming-windowed sinc FIR (odd tap count, centred
   convolution so there is no time shift) or as a two-pole Butterworth IIR section.
 
-  These are approximations, not ports. Spike2 designs FIR filters in `FIRWin.s2l` with
-  the Parks-McClellan exchange — `CFIR::fircalc` takes a band table (`CBand`) and an
-  attained deviation, and the class exposes `GetExtremal` and `InIteration` — so its
-  filters are equiripple against a requested ripple, where these are windowed.
+  These are approximations, not ports. Spike2 designs equiripple filters against a requested
+  ripple; these are windowed, so the pass band and stop band differ in detail even where the
+  corner frequency agrees.
 
 ## What is not built yet
 
@@ -72,6 +71,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only; CSV export works |
+| `.smrx` (SON64) | not supported; Spike2 8 and later save this format by default, so recent recordings will not open |
 | Filter design | low/high pass only; no band pass, stop bands, differentiators or scripts |
 
 ## Layout
@@ -89,8 +89,10 @@ cargo test     # parser tests
 
 The tests check the reader against known values from CED's own example recordings: channel
 inventories, sample rates, units, event counts and durations. Those recordings ship on the
-Spike2 CD and are not redistributed here, so the tests skip when they are absent — extract
-`data2.cab` from the CD to `testdata/` to run them fully.
+Spike2 CD and are not redistributed here, so those tests skip when they are absent — extract
+`data2.cab` from the CD to `testdata/` to run them fully. The parser is also covered by a
+synthetic fixture that the test helper writes itself, so scaling, block indexing and markers
+are tested on a machine without the CD.
 
 ## Checked against Spike2
 
@@ -111,14 +113,15 @@ Recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO
 - Files reserve 32 channel headers and mark unused ones `kind = 0`; they must be filtered or
   the channel list is mostly empty slots.
 - Filters follow the arrangement the CD's manual describes: the FIR type is set by a pass
-band edge and a transition gap, and the number of coefficients follows from the narrower of
-the bands. This implementation exposes the tap count directly instead of deriving it.
-
-ADC samples convert to units as `count * scale / 65536 + offset`. Note that `neo` applies
-  an extra factor of ten (`gain = scale / 6553.6`), which is a neo convention rather than
-  the file's.
-- `neo` reports one marker where the EMG example's "Memory" channel holds twelve, evenly
-  spaced every 6 s. The block payload is authoritative; `smr` reads all twelve.
+  band edge and a transition gap, and the number of coefficients follows from the narrower of
+  the bands. This implementation exposes the tap count directly instead of deriving it.
+- ADC samples convert to units as `count * scale / 6553.6 + offset`. `scale` is in units per
+  volt and a 16-bit ADC spans ±5 V, so a channel's full-scale range is `scale * 5`. Spike2
+  reports that range in its channel information, and `neo` uses the same divisor. An earlier
+  version of this reader divided by 65536 and read every value ten times too small.
+- The EMG example's "Memory" marker channel holds a run of markers spaced every 6 s, not the
+  single marker `neo` reports. Spike2 lists them across the record, so `smr` reads the whole
+  run; how many there are should be pinned against Spike2 rather than against `neo`.
 
 ## Legal
 
