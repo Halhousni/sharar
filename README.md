@@ -100,8 +100,8 @@ smr/      .smr and .smrx reader, plus the FIR designer — no dependencies
 app/      the egui/eframe application
 tools/    inventory.py (.smr reference reader), smrx_oracle.py (.smrx check against sonpy),
           fir_oracle.py (filter check against CED's Filters.dll)
-docs/     screenshots; filters.md on the recovered designer, 1401.md on the
-          acquisition stack
+docs/     screenshots; filters.md on the recovered designer, script.md on the
+          script engine, 1401.md on the acquisition stack
 ```
 
 ```sh
