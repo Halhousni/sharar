@@ -134,6 +134,14 @@ struct App {
     /// The design the filter dialog is previewing, keyed by its parameters so a
     /// Remez run per frame does not happen.
     f_preview: Option<(u64, smr::Design)>,
+    /// An explicit band table, which is what Spike2's dialog builds internally
+    /// from its edges. Empty means "derive bands from the quick parameters".
+    f_bands: Vec<smr::Band>,
+    /// Tap count for the band table path; zero asks the designer's own rule.
+    f_taps: usize,
+    /// Why the last preview attempt failed, so the plot can say so instead of
+    /// showing an empty box.
+    f_err: Option<String>,
     f_kind: smr::FilterKind,
     f_cutoff: f64,
     f_width: f64,
@@ -195,6 +203,9 @@ impl App {
             filter_dialog: false,
             chan_info: false,
             f_preview: None,
+            f_bands: Vec::new(),
+            f_taps: 0,
+            f_err: None,
             f_kind: smr::FilterKind::LowPass,
             f_cutoff: 150.0,
             f_width: 100.0,
@@ -2340,6 +2351,99 @@ impl eframe::App for App {
                         );
                     }
 
+                    // ── band table ──────────────────────────────────────
+                    // The same four fields CFIR reads: low, high, desired
+                    // amplitude and weight. Spike2's dialog calls these edges,
+                    // response and -3 dB points; these are the designer's own.
+                    egui::CollapsingHeader::new("Bands (CFIR band table)")
+                        .default_open(!self.f_bands.is_empty())
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label("taps");
+                                let mut t = self.f_taps as i32;
+                                if ui
+                                    .add(egui::DragValue::new(&mut t).range(0..=2047))
+                                    .changed()
+                                {
+                                    self.f_taps = t.max(0) as usize;
+                                }
+                                ui.label(if self.f_taps == 0 { "(auto)" } else { "" });
+                                ui.separator();
+                                if ui.button("From parameters").clicked() {
+                                    let t = match self.f_kind {
+                                        smr::FilterKind::LowPass => smr::DesignType::LowPass,
+                                        smr::FilterKind::HighPass => smr::DesignType::HighPass,
+                                        smr::FilterKind::BandPass => smr::DesignType::BandPass,
+                                        smr::FilterKind::BandStop => smr::DesignType::BandStop,
+                                    };
+                                    let w = (self.f_width / rate).clamp(1e-4, 0.1);
+                                    self.f_bands =
+                                        smr::quick_bands(t, self.f_cutoff / rate, w);
+                                }
+                                if ui.button("Clear").clicked() {
+                                    self.f_bands.clear();
+                                }
+                            });
+                            if self.f_bands.is_empty() {
+                                ui.label(
+                                    egui::RichText::new(
+                                        "empty: the design comes from the parameters above",
+                                    )
+                                    .weak()
+                                    .small(),
+                                );
+                            } else {
+                                egui::Grid::new("bands")
+                                    .num_columns(5)
+                                    .striped(true)
+                                    .show(ui, |ui| {
+                                        for h in ["low", "high", "want", "weight", ""] {
+                                            ui.label(egui::RichText::new(h).small().weak());
+                                        }
+                                        ui.end_row();
+                                        let mut drop = None;
+                                        for (i, b) in self.f_bands.iter_mut().enumerate() {
+                                            ui.add(
+                                                egui::DragValue::new(&mut b.low)
+                                                    .speed(0.001)
+                                                    .range(0.0..=0.5),
+                                            );
+                                            ui.add(
+                                                egui::DragValue::new(&mut b.high)
+                                                    .speed(0.001)
+                                                    .range(0.0..=0.5),
+                                            );
+                                            ui.add(
+                                                egui::DragValue::new(&mut b.fx)
+                                                    .speed(0.01)
+                                                    .range(0.0..=10.0),
+                                            );
+                                            ui.add(
+                                                egui::DragValue::new(&mut b.wt)
+                                                    .speed(0.01)
+                                                    .range(0.001..=100.0),
+                                            );
+                                            if ui.small_button("x").clicked() {
+                                                drop = Some(i);
+                                            }
+                                            ui.end_row();
+                                        }
+                                        if let Some(i) = drop {
+                                            self.f_bands.remove(i);
+                                        }
+                                    });
+                                if ui.button("+ band").clicked() {
+                                    let lo = self
+                                        .f_bands
+                                        .last()
+                                        .map(|b| b.high)
+                                        .unwrap_or(0.0);
+                                    self.f_bands
+                                        .push(smr::Band::new(lo, (lo + 0.05).min(0.5), 0.0, 1.0));
+                                }
+                            }
+                        });
+
                     // ── response plot ──────────────────────────────────
                     // Spike2's dialog is a band editor around a response plot;
                     // this is the plot half, drawn from CFIR::FreqR.
@@ -2347,10 +2451,22 @@ impl eframe::App for App {
                         let key = {
                             let t = self.f_kind as u64;
                             let q = |v: f64| (v * 100.0).round() as u64;
-                            t ^ (q(self.f_cutoff) << 8)
+                            let mut k = t
+                                ^ (q(self.f_cutoff) << 8)
                                 ^ (q(self.f_width) << 24)
                                 ^ (q(self.f_atten) << 40)
-                                ^ (q(rate) << 52)
+                                ^ (q(rate) << 52);
+                            // Every band field participates, or an edit to one
+                            // would not trigger a redraw.
+                            for b in &self.f_bands {
+                                k = k
+                                    .rotate_left(5)
+                                    ^ q(b.low)
+                                    ^ q(b.high).rotate_left(13)
+                                    ^ q(b.fx).rotate_left(23)
+                                    ^ q(b.wt).rotate_left(31);
+                            }
+                            k ^ (self.f_taps as u64) << 3
                         };
                         let stale = self.f_preview.as_ref().map(|(k, _)| *k) != Some(key);
                         if stale {
@@ -2361,9 +2477,54 @@ impl eframe::App for App {
                                 smr::FilterKind::BandStop => smr::DesignType::BandStop,
                             };
                             let w = (self.f_width / rate).clamp(1e-4, 0.1);
-                            self.f_preview = smr::fir_quick(t, self.f_cutoff / rate, w, self.f_atten)
-                                .ok()
-                                .map(|d| (key, d));
+                            // An explicit band table goes straight to CFIR's
+                            // own entry point, which is the same call the Wine
+                            // harness makes against Filters.dll.
+                            self.f_err = None;
+                            self.f_preview = if self.f_bands.is_empty() {
+                                smr::fir_quick(t, self.f_cutoff / rate, w, self.f_atten)
+                                    .ok()
+                                    .map(|d| (key, d))
+                            } else {
+                                let n = if self.f_taps > 0 {
+                                    self.f_taps
+                                } else {
+                                    smr::quick_tap_count(t, self.f_cutoff / rate, w, self.f_atten)
+                                };
+                                match smr::design(n, t, &self.f_bands, 16, true) {
+                                    Ok(d) => Some((key, d)),
+                                    Err(e) => {
+                                        self.f_err = Some(format!("{e:?}"));
+                                        None
+                                    }
+                                }
+                            };
+                        }
+                        if self.f_preview.as_ref().map(|(k, _)| *k) != Some(key) {
+                            // No design: say why, rather than draw an empty box.
+                            let (rect, _) = ui.allocate_exact_size(
+                                egui::vec2(340.0, 110.0),
+                                egui::Sense::hover(),
+                            );
+                            let p = ui.painter_at(rect);
+                            p.rect_filled(rect, 2.0, Color32::WHITE);
+                            p.rect_stroke(
+                                rect,
+                                2.0,
+                                egui::Stroke::new(1.0, AXIS),
+                                egui::StrokeKind::Inside,
+                            );
+                            let msg = self
+                                .f_err
+                                .clone()
+                                .unwrap_or_else(|| "no design".to_string());
+                            p.text(
+                                rect.center(),
+                                Align2::CENTER_CENTER,
+                                format!("the exchange did not converge: {msg}"),
+                                FontId::proportional(11.0),
+                                Color32::from_gray(120),
+                            );
                         }
                         if let Some((_, d)) = self.f_preview.as_ref() {
                             let (rect, _) = ui.allocate_exact_size(
@@ -2403,7 +2564,15 @@ impl eframe::App for App {
                     }
                     ui.separator();
                     ui.horizontal(|ui| {
-                        if ui.button("Apply to selected channel").clicked() {
+                        // A band table is a design, not a FilterSpec the channel
+                        // path can carry yet, so Apply says so rather than
+                        // quietly designing something else.
+                        let bands_set = !self.f_bands.is_empty();
+                        if ui
+                            .add_enabled(!bands_set, egui::Button::new("Apply to selected channel"))
+                            .on_disabled_hover_text("a band table is not applied yet; clear it to use the parameters")
+                            .clicked()
+                        {
                             if let Some(i) = self.selected {
                                 let spec = smr::FilterSpec {
                                     kind: self.f_kind,
@@ -2692,6 +2861,7 @@ fn main() -> eframe::Result {
     let mut showhide_on_start = false;
     let mut yrange_on_start: Option<(f32, f32)> = None;
     let mut copy_dump = false;
+    let mut bands_notch = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
@@ -2709,6 +2879,9 @@ fn main() -> eframe::Result {
             // --copy-dump prints Edit > Copy's text and exits, which is also how
             // it can be used from a script.
             "--copy-dump" => copy_dump = true,
+            // --bands=notch seeds a stop band in the middle, for exercising the
+            // band table without clicking.
+            "--bands=notch" => bands_notch = true,
             // --yrange=<lo>,<hi> pins the first channel's Y range at startup.
             other if other.starts_with("--yrange=") => {
                 let v = &other["--yrange=".len()..];
@@ -2774,6 +2947,14 @@ fn main() -> eframe::Result {
             if copy_dump {
                 println!("{}", app.copy_measurements());
                 std::process::exit(0);
+            }
+            if bands_notch {
+                app.f_bands = vec![
+                    smr::Band::new(0.0, 0.20, 1.0, 1.0),
+                    smr::Band::new(0.22, 0.30, 0.0, 10.0),
+                    smr::Band::new(0.32, 0.5, 1.0, 1.0),
+                ];
+                app.filter_dialog = true;
             }
             if let Some((a, b)) = yrange_on_start {
                 if !app.y_range.is_empty() {

@@ -66,6 +66,9 @@ DESIGNS = [
     (35, 0, 2, 1, high_pass(0.10, 0.05)),
     (63, 0, 2, 1, high_pass(0.25, 0.05)),
     (64, 0, 2, 1, high_pass(0.25, 0.05)),
+    # A raw band table with a stop band in the middle: the shape the filter
+    # dialog's band editor produces, passed to CFIR untouched.
+    (103, 0, 3, 1, [(0.0, 0.20, 1.0, 1.0), (0.22, 0.30, 0.0, 10.0), (0.32, 0.5, 1.0, 1.0)]),
     (127, 0, 3, 1, band_pass(0.10, 0.20)),
     (63, 0, 3, 1, band_pass(0.15, 0.25)),
     (127, 0, 3, 1, band_stop(0.10, 0.20)),

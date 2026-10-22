@@ -76,13 +76,37 @@ explicit corner points and lets the plot drive it. Both end up in the same
 `CFIR::fircalc`. Sharar's filter dialog follows the script path, which is why it
 asks for attenuation and width and shows the coefficient count.
 
-Sharar now draws the response — `CFIR::FreqR` is ported (0x18c0) as
+Sharar draws the response — `CFIR::FreqR` is ported (0x18c0) as
 `Design::freq_r`, checked against a plain DTFT of the full coefficient array in
 `freq_r_matches_a_direct_dtft`, and the filter dialog plots it from 0 to Nyquist
-over a +10 to -80 dB window with a 0 dB reference line. What is still missing is
-the other half: the band display and the five editable edges with their -3 dB
-points, which is what turns Spike2's dialog from a plot with parameters under it
-into a band editor.
+over a +10 to -80 dB window with a 0 dB reference line.
+
+The dialog also edits a **band table**: rows of low, high, desired amplitude and
+weight, which are the four fields `CFIR` reads and the same table `CFilterObject`
+builds internally. `smr::design` takes that table straight to the exchange —
+the same entry point the Wine harness calls — so a hand-built table designs with
+the original's numbers. Verified on a three-band notch:
+
+```
+103 0 3 16 1  0.0 0.20 1.0 1.0  0.22 0.30 0.0 10.0  0.32 0.5 1.0 1.0
+```
+
+CED and the port both return deviation 0.023553798689392, coefficients agreeing
+to 1e-14, and the design is in `tools/fir_oracle.py`'s sweep. A five-band table
+with weight 20 does **not** converge — in CED it returns deviation 1 with NaN
+coefficients and in the port the same, which is the exchange refusing an
+infeasible problem rather than a porting fault. The dialog reports that over the
+plot rather than drawing an empty box.
+
+Two things this is not yet. The band table does not reach the channel: Apply is
+disabled while a table is set, because the channel path carries a `FilterSpec`
+and not a coefficient set. And Spike2's per-edge **-3 dB points** are not the
+same thing as a band's weight — the dialogue between them happens inside
+`CFilterObject::CreateBand` (0xbf20), which stores weights as `10 - 9·k` when it
+is handed zero and keeps bands sorted by their low edge in a 14-double record.
+Porting that properly means reading `CFilterObject::CreateFilter` alongside it;
+until then the dialog edits the designer's own parameters, which are honest but
+not what a Spike2 user would type.
 
 ## X Axis Range, as an example of the scale of a dialog
 
