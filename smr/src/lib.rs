@@ -27,7 +27,10 @@ use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
+mod fir;
 mod son64;
+
+pub use fir::{arr_fir, design, fir_quick, quick_bands, quick_tap_count, Band, Design, DesignError, DesignType};
 
 pub const FILE_HEADER_LEN: u64 = 512;
 pub const CHANNEL_HEADER_LEN: u64 = 140;
@@ -223,14 +226,21 @@ pub enum FilterKind {
 }
 
 /// A filter request, in the units the caller works in.
+///
+/// The FIR path takes the two parameters Spike2's `FIRQuick` takes — a corner
+/// frequency and a transition width, both in Hz, and the stop-band attenuation
+/// in dB — and derives the tap count from them. Asking for a tap count instead
+/// would be a different control from the one the reference program offers.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FilterSpec {
     pub kind: FilterKind,
     /// Corner (-6 dB) frequency in Hz.
     pub cutoff: f64,
-    /// Number of FIR coefficients. Ignored by the IIR path.
-    pub taps: usize,
-    /// True for the two-pole IIR, false for the windowed-sinc FIR.
+    /// Transition width in Hz: the gap between pass and stop band.
+    pub width: f64,
+    /// Stop-band attenuation in dB.
+    pub atten: f64,
+    /// True for the two-pole IIR, false for the Parks-McClellan FIR.
     pub iir: bool,
 }
 
@@ -245,59 +255,12 @@ impl FilterSpec {
             FilterKind::LowPass => 1u64,
             FilterKind::HighPass => 2u64,
         };
-        let cutoff = ((self.cutoff.max(0.0) * 10.0).round() as u64) & 0x3f_ffff;
-        kind | (cutoff << 2) | ((self.taps as u64 & 0xfff) << 24) | ((self.iir as u64) << 36)
+        let q = |v: f64| ((v.max(0.0) * 100.0).round() as u64) & 0x3ff;
+        kind | (q(self.cutoff) << 2)
+            | (q(self.width) << 12)
+            | (q(self.atten) << 22)
+            | ((self.iir as u64) << 40)
     }
-}
-
-/// Windowed-sinc low-pass coefficients with unity gain at DC.
-///
-/// `cutoff` is normalised to the sample rate (0.5 = Nyquist). The Hamming window trades
-/// a wider transition for lower ripple than a rectangular one.
-///
-/// **This is not how Spike2 designs its filters.** CED's designer is `FIRWin.s2l`, whose
-/// symbols are the Parks-McClellan exchange (`CFIR::fircalc` with a `CBand`, 
-/// `CFIR::GetExtremal`, `CFIR::InIteration`), so its filters are equiripple against a
-/// requested deviation rather than windowed. Results here agree in broad behaviour and
-/// will differ in detail; treat this as a working approximation, not a match.
-pub fn fir_lowpass(cutoff: f64, taps: usize) -> Vec<f64> {
-    let n = taps.max(3) | 1; // odd, so the filter is symmetric about a sample
-    let fc = cutoff.clamp(1e-6, 0.4999);
-    let m = (n - 1) as f64;
-    let mid = m / 2.0;
-
-    let mut h = Vec::with_capacity(n);
-    for i in 0..n {
-        let k = i as f64 - mid;
-        let sinc = if k.abs() < 1e-12 {
-            2.0 * fc
-        } else {
-            (2.0 * std::f64::consts::PI * fc * k).sin() / (std::f64::consts::PI * k)
-        };
-        // Hamming window
-        let w = 0.54 - 0.46 * (2.0 * std::f64::consts::PI * i as f64 / m).cos();
-        h.push(sinc * w);
-    }
-
-    let sum: f64 = h.iter().sum();
-    if sum.abs() > 1e-12 {
-        for c in h.iter_mut() {
-            *c /= sum;
-        }
-    }
-    h
-}
-
-/// High-pass by spectral inversion of a low-pass, offsetting the centre tap so the sum
-/// of coefficients stays zero.
-pub fn fir_highpass(cutoff: f64, taps: usize) -> Vec<f64> {
-    let mut h = fir_lowpass(cutoff, taps);
-    let mid = h.len() / 2;
-    for c in h.iter_mut() {
-        *c = -*c;
-    }
-    h[mid] += 1.0;
-    h
 }
 
 /// One biquad section (direct form 1).
@@ -387,9 +350,18 @@ pub fn apply_filter(samples: &mut [f32], spec: &FilterSpec, sample_rate: f64) {
         return;
     }
 
-    let coeffs = match spec.kind {
-        FilterKind::LowPass => fir_lowpass(norm, spec.taps),
-        FilterKind::HighPass => fir_highpass(norm, spec.taps),
+    let kind = match spec.kind {
+        FilterKind::LowPass => DesignType::LowPass,
+        FilterKind::HighPass => DesignType::HighPass,
+    };
+    let width = (spec.width / sample_rate).clamp(1e-4, 0.1);
+    let coeffs = match fir_quick(kind, norm, width, spec.atten) {
+        Ok(d) => d.coeffs,
+        Err(_) => {
+            // Spike2 rejects a design it cannot converge; leaving the data
+            // untouched is the honest result rather than a silent window.
+            return;
+        }
     };
     let mid = coeffs.len() / 2;
     let input: Vec<f32> = samples.to_vec();
@@ -1097,7 +1069,7 @@ mod filter_tests {
     use super::*;
 
     /// Amplitude of a sinusoid at `freq` after filtering, measured by peak of the middle
-    /// third (away from the FIR edges).
+    /// third (away from the fixed-up edges).
     fn gain(spec: &FilterSpec, freq: f64, rate: f64) -> f64 {
         let n = 4000usize;
         let mut data: Vec<f32> = (0..n)
@@ -1117,7 +1089,7 @@ mod filter_tests {
 
     #[test]
     fn fir_lowpass_keeps_low_and_rejects_high() {
-        let spec = FilterSpec { kind: FilterKind::LowPass, cutoff: 100.0, taps: 129, iir: false };
+        let spec = FilterSpec { kind: FilterKind::LowPass, cutoff: 100.0, width: 50.0, atten: 50.0, iir: false };
         let rate = 1000.0;
         assert!(gain(&spec, 10.0, rate) > 0.98, "passband gain {}", gain(&spec, 10.0, rate));
         assert!(gain(&spec, 400.0, rate) < 0.05, "stopband gain {}", gain(&spec, 400.0, rate));
@@ -1125,7 +1097,7 @@ mod filter_tests {
 
     #[test]
     fn fir_highpass_rejects_low_and_keeps_high() {
-        let spec = FilterSpec { kind: FilterKind::HighPass, cutoff: 100.0, taps: 129, iir: false };
+        let spec = FilterSpec { kind: FilterKind::HighPass, cutoff: 100.0, width: 50.0, atten: 50.0, iir: false };
         let rate = 1000.0;
         assert!(gain(&spec, 10.0, rate) < 0.05, "stopband gain {}", gain(&spec, 10.0, rate));
         assert!(gain(&spec, 400.0, rate) > 0.9, "passband gain {}", gain(&spec, 400.0, rate));
@@ -1133,7 +1105,7 @@ mod filter_tests {
 
     #[test]
     fn iir_lowpass_rolls_off_high_frequencies() {
-        let spec = FilterSpec { kind: FilterKind::LowPass, cutoff: 100.0, taps: 0, iir: true };
+        let spec = FilterSpec { kind: FilterKind::LowPass, cutoff: 100.0, width: 50.0, atten: 50.0, iir: true };
         let rate = 1000.0;
         let low = gain(&spec, 20.0, rate);
         let high = gain(&spec, 400.0, rate);
@@ -1142,29 +1114,86 @@ mod filter_tests {
     }
 
     #[test]
-    fn fir_lowpass_has_unity_dc_gain() {
-        let h = fir_lowpass(0.1, 129);
-        let sum: f64 = h.iter().sum();
-        assert!((sum - 1.0).abs() < 1e-9, "sum {sum}");
-        // High-pass must remove a constant.
+    fn fir_lowpass_gain_at_dc_sits_on_the_ripple() {
+        let d = fir_quick(DesignType::LowPass, 0.1, 0.05, 50.0).expect("design");
+        // The sum of the coefficients is the response at DC. Spike2 designs an
+        // equiripple pass band, so DC sits one ripple from unity, not on it: the
+        // exchange's own deviation bounds it.
+        let sum: f64 = d.coeffs.iter().sum();
+        assert!((sum - 1.0).abs() <= 1.5 * d.dev, "sum {sum}, dev {}", d.dev);
+        // A high pass must remove a constant, to within the stop-band ripple the
+        // equiripple design allows at DC.
+        let h = fir_quick(DesignType::HighPass, 0.1, 0.05, 50.0).expect("design");
         let mut flat = vec![1.0f32; 500];
         apply_filter(
             &mut flat,
-            &FilterSpec { kind: FilterKind::HighPass, cutoff: 100.0, taps: 129, iir: false },
+            &FilterSpec { kind: FilterKind::HighPass, cutoff: 100.0, width: 50.0, atten: 50.0, iir: false },
             1000.0,
         );
-        assert!(flat[250].abs() < 1e-6, "residual {}", flat[250]);
+        assert!(f64::from(flat[250]).abs() <= 1.5 * h.dev, "residual {}", flat[250]);
+    }
+
+    #[test]
+    fn tap_count_follows_the_quick_formula() {
+        // (50 - 23.9*0.05 - 5.585) / (14.41*0.05 + 0.0723) = 54.52 -> 55, already odd.
+        assert_eq!(quick_tap_count(DesignType::LowPass, 0.1, 0.05, 50.0), 55);
+        assert!(quick_tap_count(DesignType::LowPass, 0.1, 0.05, 80.0) > 55);
+        assert!(quick_tap_count(DesignType::LowPass, 0.1, 0.02, 50.0) > 55);
+    }
+
+    #[test]
+    fn quick_bands_match_the_reference_layout() {
+        let b = quick_bands(DesignType::LowPass, 0.10, 0.05);
+        assert_eq!(b.len(), 2);
+        assert!((b[0].high - 0.075).abs() < 1e-12 && b[0].fx == 1.0 && b[0].wt == 1.0);
+        assert!((b[1].low - 0.125).abs() < 1e-12 && b[1].high == 0.5 && b[1].wt == 10.0);
+        // The band filters leave a 0.02 gap either side of the transition.
+        let b = quick_bands(DesignType::BandPass, 0.15, 0.10);
+        assert_eq!(b.len(), 3);
+        assert!((b[0].high - (0.10 - 0.02)).abs() < 1e-12);
+        assert!((b[2].low - (0.20 + 0.02)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn design_is_symmetric_and_equiripple() {
+        let d = fir_quick(DesignType::LowPass, 0.1, 0.05, 50.0).expect("design");
+        let n = d.coeffs.len();
+        assert!(n % 2 == 1, "odd length {n}");
+        for i in 0..n / 2 {
+            assert!((d.coeffs[i] - d.coeffs[n - 1 - i]).abs() < 1e-12, "not symmetric at {i}");
+        }
+        let peak = d.coeffs.iter().fold(0.0f64, |a, v| a.max(v.abs()));
+        assert!(d.dev > 0.0 && d.dev < peak, "dev {} peak {}", d.dev, peak);
+    }
+
+    #[test]
+    fn arr_fir_holds_the_end_samples() {
+        // ArrFir clamps the window at both ends rather than padding with zeros, so
+        // a constant in gives the same value everywhere out, scaled by the DC gain.
+        let mut data = vec![2.0f64; 64];
+        let d = fir_quick(DesignType::LowPass, 0.1, 0.05, 50.0).expect("design");
+        let dc: f64 = d.coeffs.iter().sum();
+        arr_fir(&mut data, &d.coeffs);
+        for (i, v) in data.iter().enumerate() {
+            assert!((v - 2.0 * dc).abs() < 1e-9, "sample {i} = {v}, want {}", 2.0 * dc);
+        }
+        // Zero padding would instead have pulled the first sample towards the
+        // middle of the window; the clamp is what keeps it flat.
+        assert!((data[0] - data[32]).abs() < 1e-12);
     }
 
     #[test]
     fn tags_distinguish_settings() {
-        let a = FilterSpec { kind: FilterKind::LowPass, cutoff: 100.0, taps: 129, iir: false };
-        let b = FilterSpec { kind: FilterKind::HighPass, cutoff: 100.0, taps: 129, iir: false };
-        let c = FilterSpec { kind: FilterKind::LowPass, cutoff: 200.0, taps: 129, iir: false };
+        let mk = |kind, cutoff, width, atten| FilterSpec { kind, cutoff, width, atten, iir: false };
+        let a = mk(FilterKind::LowPass, 100.0, 50.0, 50.0);
+        let b = mk(FilterKind::HighPass, 100.0, 50.0, 50.0);
+        let c = mk(FilterKind::LowPass, 200.0, 50.0, 50.0);
+        let e = mk(FilterKind::LowPass, 100.0, 20.0, 50.0);
+        let f = mk(FilterKind::LowPass, 100.0, 50.0, 80.0);
         assert_ne!(a.tag(), b.tag());
         assert_ne!(a.tag(), c.tag());
+        assert_ne!(a.tag(), e.tag());
+        assert_ne!(a.tag(), f.tag());
         assert_eq!(a.tag(), a.tag());
     }
 }
-
-

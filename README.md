@@ -57,12 +57,13 @@ pointer, middle-drag pans, dragging near a cursor moves it.
 - Live strip chart: `--record` opens a scrolling view of the last five seconds, one trace per
   channel, fed by a synthetic source until the 1401 path is wired.
 - Digital filters: `Analysis → Digital filters…` applies a low-pass or high-pass to the
-  selected channel, either as a Hamming-windowed sinc FIR (odd tap count, centred
-  convolution so there is no time shift) or as a two-pole Butterworth IIR section.
-
-  These are approximations, not ports. Spike2 designs equiripple filters against a requested
-  ripple; these are windowed, so the pass band and stop band differ in detail even where the
-  corner frequency agrees.
+  selected channel. The FIR path is a port of Spike2's own designer: the Parks-McClellan
+  exchange in `Filters.dll`, with the band table, the tap count and the defaults that
+  `FIRWin.s2l` builds for `FIRQuick`. You give it a corner frequency, a transition width and
+  the stop-band attenuation in dB, exactly as Spike2 does, and it derives the coefficient
+  count from them. Coefficients agree with CED's own library to 1.8e-14 relative across
+  nineteen designs; `docs/filters.md` records the recovered code and how it was checked.
+  The IIR option is a two-pole Butterworth section, causal, and is not Spike2's.
 
 ## What is not built yet
 
@@ -78,15 +79,16 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
-| Filter design | low/high pass only; no band pass, stop bands, differentiators or scripts |
+| Filter design | the Parks-McClellan designer behind `FIRQuick`, so low/high pass, band pass, band stop and differentiator coefficients match Spike2; the dialog offers low and high pass, the IIR option is not Spike2's |
 
 ## Layout
 
 ```
-smr/      .smr and .smrx reader — no dependencies
+smr/      .smr and .smrx reader, plus the FIR designer — no dependencies
 app/      the egui/eframe application
-tools/    inventory.py (.smr reference reader), smrx_oracle.py (.smrx check against sonpy)
-docs/     screenshots
+tools/    inventory.py (.smr reference reader), smrx_oracle.py (.smrx check against sonpy),
+          fir_oracle.py (filter check against CED's Filters.dll)
+docs/     screenshots, and filters.md on the recovered designer
 ```
 
 ```sh

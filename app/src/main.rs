@@ -89,7 +89,8 @@ struct App {
     filter_dialog: bool,
     f_kind: smr::FilterKind,
     f_cutoff: f64,
-    f_taps: usize,
+    f_width: f64,
+    f_atten: f64,
     f_iir: bool,
     /// Statistics between the cursors, per channel.
     stats: Vec<Option<WindowStats>>,
@@ -134,7 +135,8 @@ impl App {
             filter_dialog: false,
             f_kind: smr::FilterKind::LowPass,
             f_cutoff: 150.0,
-            f_taps: 129,
+            f_width: 100.0,
+            f_atten: 50.0,
             f_iir: false,
             stats: Vec::new(),
             stats_key: None,
@@ -213,9 +215,11 @@ impl App {
                 self.stats_key = None;
                 self.dc_window = vec![0; n];
                 self.filters = vec![None; n];
-                self.f_cutoff = (f.channels.iter().map(|c| c.sample_rate()).fold(0.0, f64::max)
-                    / 8.0)
-                    .max(1.0);
+                // A corner an eighth of the fastest rate, with a transition a fifth of
+                // that, which is the scale FIRQuick's own defaults sit at.
+                let fastest = f.channels.iter().map(|c| c.sample_rate()).fold(0.0, f64::max);
+                self.f_cutoff = (fastest / 8.0).max(1.0);
+                self.f_width = (self.f_cutoff * 0.2).clamp(0.01, (fastest * 0.1).max(0.01));
                 self.avg = None;
                 self.avg_label.clear();
                 self.avg_event_ch = f
@@ -1710,14 +1714,30 @@ impl eframe::App for App {
                         });
                     });
                     ui.horizontal(|ui| {
+                        ui.label("Width (Hz)");
+                        // FIRQuick refuses a transition wider than a tenth of the rate.
+                        let wmax = if rate > 0.0 { rate * 0.1 } else { 1.0e6 };
+                        let w = self.f_width.clamp(0.01, wmax);
+                        self.f_width = w;
+                        ui.add(egui::DragValue::new(&mut self.f_width).speed(1.0).range(0.01..=wmax));
+                        ui.label("Attenuation (dB)");
+                        ui.add(egui::DragValue::new(&mut self.f_atten).speed(1.0).range(10.0..=160.0));
+                    });
+                    if !self.f_iir && rate > 0.0 {
+                        let w = (self.f_width / rate).clamp(1e-4, 0.1);
+                        let n = smr::quick_tap_count(
+                            match self.f_kind {
+                                smr::FilterKind::LowPass => smr::DesignType::LowPass,
+                                smr::FilterKind::HighPass => smr::DesignType::HighPass,
+                            },
+                            self.f_cutoff / rate,
+                            w,
+                            self.f_atten,
+                        );
+                        ui.label(format!("{n} coefficients"));
+                    }
+                    ui.horizontal(|ui| {
                         ui.checkbox(&mut self.f_iir, "IIR (two-pole Butterworth)");
-                        if !self.f_iir {
-                            ui.add_enabled(
-                                true,
-                                egui::DragValue::new(&mut self.f_taps).speed(1).range(3..=2001),
-                            );
-                            ui.label("taps");
-                        }
                     });
 
                     if rate > 0.0 && self.f_cutoff >= rate / 2.0 {
@@ -1734,7 +1754,8 @@ impl eframe::App for App {
                                 let spec = smr::FilterSpec {
                                     kind: self.f_kind,
                                     cutoff: self.f_cutoff,
-                                    taps: self.f_taps,
+                                    width: self.f_width,
+                                    atten: self.f_atten,
                                     iir: self.f_iir,
                                 };
                                 if let Some(f) = self.filters.get_mut(i) {
@@ -1756,7 +1777,7 @@ impl eframe::App for App {
                     });
                     ui.label(
                         egui::RichText::new(
-                            "FIR is a Hamming-windowed sinc, applied as a centred convolution.                              IIR is a two-pole Butterworth section, causal.",
+                            "FIR: Spike2's Parks-McClellan exchange; the count follows\n                        from the attenuation and the width.\n                        IIR: a two-pole Butterworth section, not Spike2's.",
                         )
                         .small()
                         .weak(),
@@ -2064,7 +2085,10 @@ fn main() -> eframe::Result {
                 app.apply_filter_to_selected(smr::FilterSpec {
                     kind: smr::FilterKind::LowPass,
                     cutoff: hz,
-                    taps: 129,
+                    // The scale of Spike2's own default: a transition a fifth of
+                    // the corner, at its 50 dB default attenuation.
+                    width: (hz * 0.2).max(0.01),
+                    atten: 50.0,
                     iir: false,
                 });
             }
