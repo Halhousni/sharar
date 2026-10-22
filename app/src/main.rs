@@ -69,6 +69,26 @@ struct ChanMeta {
     items: u64,
 }
 
+/// How a cursor is tagged at the top of the plot, Spike2's Cursor > Label Mode.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CursorLabel {
+    Number,
+    Position,
+    Both,
+    None,
+}
+
+impl CursorLabel {
+    fn tag(self, i: usize, t: f64) -> Option<String> {
+        match self {
+            CursorLabel::Number => Some(format!("{}", i + 1)),
+            CursorLabel::Position => Some(format!("{t:.4}")),
+            CursorLabel::Both => Some(format!("{} {t:.4}", i + 1)),
+            CursorLabel::None => None,
+        }
+    }
+}
+
 struct App {
     son: Option<SonFile>,
     visible: Vec<bool>,
@@ -78,6 +98,17 @@ struct App {
     t_start: f64,
     t_end: f64,
     cursors: [f64; 2],
+    /// Cursor > Label Mode.
+    cursor_label: CursorLabel,
+    /// Cursor > Display Y Values.
+    show_y: bool,
+    /// View > X Axis Range… and the values it edits.
+    xaxis_dialog: bool,
+    x_left: f64,
+    x_right: f64,
+    /// Explicit large-tick spacing in seconds; zero means automatic.
+    x_tick: f64,
+    x_subs: u32,
     dragging: Option<usize>,
     caches: Vec<Option<Cache>>,
     /// Value at cursor 1 and cursor 2, per channel.
@@ -131,7 +162,14 @@ impl App {
             selected: None,
             t_start: 0.0,
             t_end: 1.0,
-            cursors: [0.0, 0.1],
+            cursors: [0.0, 0.0],
+            cursor_label: CursorLabel::Number,
+            show_y: true,
+            xaxis_dialog: false,
+            x_left: 0.0,
+            x_right: 1.0,
+            x_tick: 0.0,
+            x_subs: 1,
             dragging: None,
             caches: Vec::new(),
             readouts: Vec::new(),
@@ -752,13 +790,10 @@ impl eframe::App for App {
                         self.zoom(2.0, a);
                     }
                     ui.separator();
-                    if ui.button("Cursors to view edges").clicked() {
-                        self.cursors = [self.t_start, self.t_end];
-                    }
-                    if ui.button("Cursors to mid ±10%").clicked() {
-                        let mid = (self.t_start + self.t_end) * 0.5;
-                        let d = (self.t_end - self.t_start) * 0.1;
-                        self.cursors = [mid - d, mid + d];
+                    if ui.button("X Axis Range…").clicked() {
+                        self.x_left = self.t_start;
+                        self.x_right = self.t_end;
+                        self.xaxis_dialog = true;
                     }
                 });
                 ui.menu_button("Analysis", |ui| {
@@ -807,14 +842,65 @@ impl eframe::App for App {
                     }
                 });
                 ui.menu_button("Cursor", |ui| {
-                    if ui.button("Cursors to view edges").clicked() {
+                    // Spike2's Cursor menu is the largest in the program; these
+                    // are the entries that act on the two cursors this view has.
+                    if ui.button("Display All").clicked() {
                         self.cursors = [self.t_start, self.t_end];
                     }
-                    if ui.button("Cursors to mid ±10%").clicked() {
+                    ui.menu_button("Label Mode", |ui| {
+                        for (m, name) in [
+                            (CursorLabel::Position, "Position"),
+                            (CursorLabel::Number, "Number"),
+                            (CursorLabel::Both, "Position and Number"),
+                            (CursorLabel::None, "None"),
+                        ] {
+                            ui.selectable_value(&mut self.cursor_label, m, name);
+                        }
+                    });
+                    ui.checkbox(&mut self.show_y, "Display Y Values");
+                    ui.menu_button("Move to", |ui| {
                         let mid = (self.t_start + self.t_end) * 0.5;
-                        let d = (self.t_end - self.t_start) * 0.1;
-                        self.cursors = [mid - d, mid + d];
-                    }
+                        for (name, t) in [
+                            ("View Start", self.t_start),
+                            ("View Mid", mid),
+                            ("View End", self.t_end),
+                        ] {
+                            if ui.button(name).clicked() {
+                                self.cursors[0] = t;
+                            }
+                        }
+                    });
+                    // Search steps through the selected channel's event times,
+                    // which is what Spike2's Search Right/Left walk over.
+                    // read_events needs a mutable reader, so the menu borrows it
+                    // for the one call rather than for the whole closure.
+                    let events: Vec<f64> = match (self.selected, self.son.as_mut()) {
+                        (Some(i), Some(s)) => s
+                            .read_events(i)
+                            .map(|ev| ev.iter().map(|e| e.time).collect())
+                            .unwrap_or_default(),
+                        _ => Vec::new(),
+                    };
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add_enabled(!events.is_empty(), egui::Button::new("Search Left"))
+                            .clicked()
+                        {
+                            let t = self.cursors[0];
+                            if let Some(prev) = events.iter().filter(|e| **e < t - 1e-9).next_back() {
+                                self.cursors[0] = *prev;
+                            }
+                        }
+                        if ui
+                            .add_enabled(!events.is_empty(), egui::Button::new("Search Right"))
+                            .clicked()
+                        {
+                            let t = self.cursors[0];
+                            if let Some(next) = events.iter().find(|e| **e > t + 1e-9) {
+                                self.cursors[0] = *next;
+                            }
+                        }
+                    });
                     ui.separator();
                     ui.label(
                         egui::RichText::new("Cursor modes (free, vertical, measurement) are not built.")
@@ -1532,7 +1618,13 @@ impl eframe::App for App {
             );
 
             let span = (self.t_end - self.t_start).max(1e-12);
-            let step = nice_step(span, 10.0);
+            // View > X Axis Range… can pin the large-tick spacing; zero means
+            // automatic, which is what Spike2's dialog shows as blank.
+            let step = if self.x_tick > 0.0 {
+                self.x_tick
+            } else {
+                nice_step(span, 10.0)
+            };
             let first = (self.t_start / step).ceil() * step;
             let mut t = first;
             while t <= self.t_end {
@@ -1545,6 +1637,21 @@ impl eframe::App for App {
                     [Pos2::new(x, plot.bottom()), Pos2::new(x, plot.bottom() + 5.0)],
                     Stroke::new(1.0, AXIS),
                 );
+                // Minor ticks at the subdivision interval, if asked for.
+                if self.x_subs > 1 {
+                    let minor = step / self.x_subs as f64;
+                    for k in 1..self.x_subs {
+                        let tm = t + minor * k as f64;
+                        if tm > self.t_end {
+                            break;
+                        }
+                        let xm = self.x_of(plot, tm);
+                        painter.line_segment(
+                            [Pos2::new(xm, plot.bottom()), Pos2::new(xm, plot.bottom() + 2.5)],
+                            Stroke::new(1.0, AXIS),
+                        );
+                    }
+                }
                 let label = if t.abs() < step * 1e-6 {
                     "0".to_string()
                 } else if step >= 1.0 {
@@ -1611,18 +1718,37 @@ impl eframe::App for App {
                     [Pos2::new(x, plot.top()), Pos2::new(x, axis_rect.bottom())],
                     Stroke::new(1.0, color),
                 );
-                let tag = Rect::from_min_size(
-                    Pos2::new(x + 2.0, plot.top() + 1.0),
-                    Vec2::new(14.0, 13.0),
-                );
-                painter.rect_filled(tag, 2.0, color);
-                painter.text(
-                    tag.center(),
-                    Align2::CENTER_CENTER,
-                    format!("{}", i + 1),
-                    FontId::monospace(9.0),
-                    Color32::WHITE,
-                );
+                // The tag follows Cursor > Label Mode, and carries the selected
+                // channel's value when Display Y Values is on.
+                let mut text = self.cursor_label.tag(i, *c);
+                if self.show_y {
+                    if let Some(Some((a, b))) =
+                        self.selected.and_then(|ci| self.readouts.get(ci))
+                    {
+                        let v = if i == 0 { *a } else { *b };
+                        let t = text.take().unwrap_or_default();
+                        text = Some(if t.is_empty() {
+                            format!("{v:.3}")
+                        } else {
+                            format!("{t}  {v:.3}")
+                        });
+                    }
+                }
+                if let Some(text) = text {
+                    let width = 4.0 + 5.2 * text.chars().count() as f32;
+                    let tag = Rect::from_min_size(
+                        Pos2::new(x + 2.0, plot.top() + 1.0),
+                        Vec2::new(width, 13.0),
+                    );
+                    painter.rect_filled(tag, 2.0, color);
+                    painter.text(
+                        tag.center(),
+                        Align2::CENTER_CENTER,
+                        text,
+                        FontId::monospace(9.0),
+                        Color32::WHITE,
+                    );
+                }
             }
 
             // ── input ───────────────────────────────────────────────────────
@@ -1695,6 +1821,80 @@ impl eframe::App for App {
                 egui::StrokeKind::Inside,
             );
         });
+
+        // ── X axis range ────────────────────────────────────────────────────
+        // Spike2's dialog 1800 is 23 controls; these are the ones this view can
+        // honour: left, right, width, and an explicit tick spacing. Its
+        // logarithmic and auto-units options need an axis model this view does
+        // not have, so they are shown disabled rather than faked.
+        if self.xaxis_dialog {
+            let mut open = self.xaxis_dialog;
+            egui::Window::new("X Axis Range")
+                .collapsible(false)
+                .resizable(false)
+                .open(&mut open)
+                .show(ctx, |ui| {
+                    let dur = self.son.as_ref().map(|s| s.duration()).unwrap_or(0.0);
+                    egui::Grid::new("xrange").num_columns(2).show(ui, |ui| {
+                        ui.label("Left (s)");
+                        ui.add(egui::DragValue::new(&mut self.x_left).speed(0.01).range(0.0..=dur));
+                        ui.end_row();
+                        ui.label("Right (s)");
+                        ui.add(egui::DragValue::new(&mut self.x_right).speed(0.01).range(0.0..=dur));
+                        ui.end_row();
+                        ui.label("Width (s)");
+                        let mut w = self.x_right - self.x_left;
+                        if ui
+                            .add(egui::DragValue::new(&mut w).speed(0.01).range(0.001..=dur))
+                            .changed()
+                        {
+                            self.x_right = (self.x_left + w).min(dur);
+                        }
+                        ui.end_row();
+                        ui.label("Large tick (s)");
+                        ui.add(
+                            egui::DragValue::new(&mut self.x_tick)
+                                .speed(0.001)
+                                .range(0.0..=dur)
+                                .custom_formatter(|v, _| {
+                                    if v <= 0.0 {
+                                        "auto".to_string()
+                                    } else {
+                                        format!("{v}")
+                                    }
+                                }),
+                        );
+                        ui.end_row();
+                        ui.label("Subdivisions");
+                        ui.add(egui::DragValue::new(&mut self.x_subs).range(1..=20));
+                        ui.end_row();
+                    });
+                    ui.add_enabled(false, egui::Checkbox::new(&mut false, "Logarithmic"));
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("Show All").clicked() {
+                            self.fit();
+                            self.x_left = self.t_start;
+                            self.x_right = self.t_end;
+                        }
+                        if ui.button("Draw").clicked() {
+                            let (a, b) = (self.x_left.min(self.x_right), self.x_left.max(self.x_right));
+                            if b - a > 1e-9 {
+                                self.t_start = a.max(0.0);
+                                self.t_end = b.min(dur);
+                                self.clamp_view();
+                                self.caches.iter_mut().for_each(|c| *c = None);
+                            }
+                        }
+                        if ui.button("Close").clicked() {
+                            self.xaxis_dialog = false;
+                        }
+                    });
+                });
+            if !open {
+                self.xaxis_dialog = false;
+            }
+        }
 
         // ── channel information ─────────────────────────────────────────────
         // Spike2's View > Channel Information… is the read-out its users reach

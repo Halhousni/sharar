@@ -82,21 +82,27 @@ configure once and apply) from the individual filter dialogs, which is why
 
 ## What Sharar has now
 
-Eighteen items: File (Open, Open by path, Close, Export CSV, Quit), Edit (three
-selection helpers), View (fit, zoom in/out, cursors to edges, cursors to mid
-±10%), Analysis (digital filters, average), Cursor (two cursor placements),
-Window (fit), Help (keyboard help). Sample and Script are empty.
+File (Open, Open by path, Close, Export CSV, Quit), Edit (three selection
+helpers), View (fit, zoom in/out, Channel Information, X Axis Range), Analysis
+(digital filters, average), Cursor (Display All, Label Mode, Display Y Values,
+Move to, Search Left/Right), Window (fit), Help (keyboard help). Sample and
+Script are empty, and Y Axis Range is not built.
+
+Two notes on where things sit. Cursor placement used to appear in both the View
+and Cursor menus; it now belongs to Cursor only, which is where Spike2 keeps it.
+And X Axis Range honours left, right, width and an explicit large-tick spacing,
+with subdivisions as minor ticks — its logarithmic and auto-units controls are
+drawn disabled rather than faked, because the axis has no log or unit model.
 
 ## The next steps, in order of what they buy
 
-1. **View > Channel Information…** — done, and it is the read-out Spike2 users
-   reach for when a unit or a scale is in dispute. It shows Title, Comment,
-   Kind, Units, Rate, Scale, Offset, Range and Items.
-2. **The Cursor menu** — label modes, display all, search left/right, Y values.
-   Cursors exist in the engine; the menu just does not expose them.
-3. **View > X/Y Axis Range… and Show/Hide Channel…** — the view already clamps
-   and the channel list already toggles visibility; these are dialogs over
-   state that exists.
+1. **View > Channel Information…** — done.
+2. **The Cursor menu** — done: label modes, display all, move to, search
+   left/right over the selected channel's events, and Y values on the tag.
+3. **View > X Axis Range…** — done. Still to do from this group: **Y Axis
+   Range…**, which needs a per-channel vertical offset the drawing does not
+   carry yet (it scales about zero with `gain`), and **Show/Hide Channel…**,
+   which is a dialog over the visibility flags.
 4. **Analysis > Process…** — the named pipeline. This is a design change, not a
    dialog: it means storing a list of processes per channel instead of the
    single `Option<FilterSpec>` the app carries today.
