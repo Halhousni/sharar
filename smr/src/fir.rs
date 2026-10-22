@@ -44,6 +44,40 @@ impl Band {
     pub fn new(low: f64, high: f64, fx: f64, wt: f64) -> Self {
         Self { low, high, fx, wt }
     }
+
+    /// A band built the way Spike2's dialog builds one: an edge pair and the
+    /// gain wanted there, with the weight derived.
+    pub fn from_gain(low: f64, high: f64, gain: f64) -> Self {
+        Self {
+            low,
+            high,
+            fx: gain,
+            wt: edge_weight(gain),
+        }
+    }
+}
+
+/// The weight Spike2 derives from a band's wanted response, `10 - 9·gain`
+/// floored at 1.
+///
+/// Two places in `Filters.dll` implement this rule and agree: `CFilterObject::
+/// CreateBand` (0xbf20) when it is handed a zero weight, and `CDlgFilterObject::
+/// SetBand` (0x9ba0) when the dialog's band record leaves its weight field
+/// empty. A wanted gain of 1 gives weight 1, and a stop band (gain 0) gives 10,
+/// which is why hand-written band tables for pass and stop bands use those two
+/// numbers.
+///
+/// The dialog also converts to and from dB before this point
+/// (`CDlgFilterObject::CondConvertFromdB`, 0x96d0, `10^(dB/20)`), but only for
+/// the types that are not 11 or 12 (`CalcShowdB`, 0x9650) - those two are
+/// differentiators, where the wanted response is a slope and not a level.
+pub fn edge_weight(gain: f64) -> f64 {
+    let w = 10.0 - gain * 9.0;
+    if w <= 0.0 {
+        1.0
+    } else {
+        w
+    }
 }
 
 /// Filter types as `CFIR::SetFilt` numbers them.

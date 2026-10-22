@@ -2397,7 +2397,11 @@ impl eframe::App for App {
                                     .num_columns(5)
                                     .striped(true)
                                     .show(ui, |ui| {
-                                        for h in ["low", "high", "want", "weight", ""] {
+                                        // Spike2's dialog edits a gain per edge
+                                        // and derives the weight; the derived
+                                        // column is shown so the numbers are
+                                        // never hidden.
+                                        for h in ["low", "high", "gain", "dB", "weight"] {
                                             ui.label(egui::RichText::new(h).small().weak());
                                         }
                                         ui.end_row();
@@ -2418,11 +2422,20 @@ impl eframe::App for App {
                                                     .speed(0.01)
                                                     .range(0.0..=10.0),
                                             );
-                                            ui.add(
-                                                egui::DragValue::new(&mut b.wt)
-                                                    .speed(0.01)
-                                                    .range(0.001..=100.0),
-                                            );
+                                            // -3 dB is where a pass band is
+                                            // usually wanted, so show it.
+                                            let db = if b.fx > 0.0 {
+                                                20.0 * b.fx.log10()
+                                            } else {
+                                                f64::NEG_INFINITY
+                                            };
+                                            ui.label(if db.is_finite() {
+                                                format!("{db:.1}")
+                                            } else {
+                                                "-inf".to_string()
+                                            });
+                                            b.wt = smr::edge_weight(b.fx);
+                                            ui.label(format!("{:.2}", b.wt));
                                             if ui.small_button("x").clicked() {
                                                 drop = Some(i);
                                             }

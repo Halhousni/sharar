@@ -98,15 +98,36 @@ coefficients and in the port the same, which is the exchange refusing an
 infeasible problem rather than a porting fault. The dialog reports that over the
 plot rather than drawing an empty box.
 
-Two things this is not yet. The band table does not reach the channel: Apply is
-disabled while a table is set, because the channel path carries a `FilterSpec`
-and not a coefficient set. And Spike2's per-edge **-3 dB points** are not the
-same thing as a band's weight — the dialogue between them happens inside
-`CFilterObject::CreateBand` (0xbf20), which stores weights as `10 - 9·k` when it
-is handed zero and keeps bands sorted by their low edge in a 14-double record.
-Porting that properly means reading `CFilterObject::CreateFilter` alongside it;
-until then the dialog edits the designer's own parameters, which are honest but
-not what a Spike2 user would type.
+### The dialog's edges are gains, and the weight is derived
+
+`Filters.dll` exports the whole dialog, not just the designer: `CDlgFilterObject`,
+`CChangeFilter`, `CChangeGap`, `CMoveGap`, `CFilterBank`, `CResFile`. Two of its
+functions settle the question the band table left open.
+
+`CDlgFilterObject::SetBand` (0x9ba0) copies the dialog's band record into a
+`CFiltBand` and, when the record's weight is zero, writes `10 - 9·gain` into the
+weight, floored at 1. `CFilterObject::CreateBand` (0xbf20) implements the same
+rule at the same field when it is handed a zero weight. So a band edge carries a
+**wanted gain**, and the weight is a function of it: gain 1 gives weight 1, a
+stop band (gain 0) gives 10, and a -3 dB corner gives 3.6285.
+
+`CDlgFilterObject::CalcShowdB` (0x9650) decides whether the dialog displays that
+gain in dB, which it does for every type except 11 and 12 — the two
+differentiators, where a level makes no sense. `CondConvertFromdB` (0x96d0) is
+`10^(dB/20)`.
+
+Sharar ports the rule as `smr::edge_weight` and builds bands with
+`Band::from_gain`. The dialog now edits a gain per edge and shows both the gain
+in dB and the derived weight, so nothing is hidden. The notch table verified
+against CED earlier was written with gains 1 and 0 and weights 1 and 10, which is
+exactly what the rule produces — the hand-written table and the dialog's own
+route agree.
+
+Still not done: the band table does not reach the channel. Apply is disabled
+while a table is set, because the channel path carries a `FilterSpec` and not a
+coefficient set. That is the next piece, along with the band display beside the
+plot, which needs `CChangeFilter`'s pixel/gain mapping rather than anything in
+the designer.
 
 ## X Axis Range, as an example of the scale of a dialog
 

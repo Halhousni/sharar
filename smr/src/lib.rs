@@ -31,8 +31,8 @@ mod fir;
 mod son64;
 
 pub use fir::{
-    arr_fir, design, design_raw, fir_make, fir_quick, quick_bands, quick_tap_count, Band, Design,
-    DesignError, DesignType,
+    arr_fir, design, design_raw, edge_weight, fir_make, fir_quick, quick_bands, quick_tap_count,
+    Band, Design, DesignError, DesignType,
 };
 
 pub const FILE_HEADER_LEN: u64 = 512;
@@ -1272,6 +1272,24 @@ mod filter_tests {
         // The type code is checked against the script's 1..4 range.
         assert_eq!(fir_make(0, &bands, 41, None), Err(DesignError::OutOfRange));
         assert_eq!(fir_make(5, &bands, 41, None), Err(DesignError::OutOfRange));
+    }
+
+    #[test]
+    fn edge_weight_follows_the_dialogs_rule() {
+        // FiltDlg's rule: 10 - 9*gain, floored at 1.
+        assert_eq!(crate::edge_weight(1.0), 1.0);
+        assert_eq!(crate::edge_weight(0.0), 10.0);
+        // A -3 dB corner: 10^(-3/20) = 0.70795, weight 3.6285.
+        let g = 10f64.powf(-3.0 / 20.0);
+        assert!((crate::edge_weight(g) - 3.6285).abs() < 1e-4);
+        // Above unity the rule would go negative, and is floored.
+        assert_eq!(crate::edge_weight(1.2), 1.0);
+        // A band built from a gain matches one written by hand with those
+        // weights, which is what the verified notch table does.
+        let a = Band::from_gain(0.0, 0.2, 1.0);
+        assert_eq!((a.fx, a.wt), (1.0, 1.0));
+        let b = Band::from_gain(0.22, 0.30, 0.0);
+        assert_eq!((b.fx, b.wt), (0.0, 10.0));
     }
 
     #[test]
