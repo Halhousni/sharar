@@ -69,6 +69,20 @@ struct ChanMeta {
     items: u64,
 }
 
+/// Everything that makes one view of a file distinct from another. Spike2 gives
+/// each window its own time range, cursors and selected channel, and the Window
+/// menu switches between them; this is the same split, with the active view's
+/// fields mirrored into `App` so the drawing code is untouched.
+#[derive(Clone)]
+struct ViewState {
+    name: String,
+    t_start: f64,
+    t_end: f64,
+    cursors: [f64; 2],
+    cursor_label: CursorLabel,
+    selected: Option<usize>,
+}
+
 /// One entry in a channel's process chain, in the order Analysis > Process…
 /// applies them. Spike2's own chain is the same idea: a named list of
 /// operations a channel runs through before it is drawn.
@@ -186,6 +200,10 @@ struct App {
     chain_tag: u64,
     /// Analysis > Process… dialog.
     process_dialog: bool,
+    /// The other views, and which one is active. The active view's values live
+    /// in the fields above; they are written back on every switch or close.
+    views: Vec<ViewState>,
+    active_view: usize,
     /// View > Show/Hide Channel….
     showhide_dialog: bool,
     /// File > Recent Files, newest first, persisted under the config directory.
@@ -271,6 +289,8 @@ impl App {
             processes: Vec::new(),
             chain_tag: 0,
             process_dialog: false,
+            views: Vec::new(),
+            active_view: 0,
             yaxis_dialog: false,
             showhide_dialog: false,
             recent: Vec::new(),
@@ -401,6 +421,15 @@ impl App {
                 self.selected = f.channels.iter().position(|c| c.kind.is_waveform());
                 self.t_start = 0.0;
                 self.t_end = duration;
+                self.views = vec![ViewState {
+                    name: "View 1".to_string(),
+                    t_start: 0.0,
+                    t_end: duration,
+                    cursors: [duration * 0.25, duration * 0.5],
+                    cursor_label: CursorLabel::Number,
+                    selected: f.channels.iter().position(|c| c.kind.is_waveform()),
+                }];
+                self.active_view = 0;
                 self.cursors = [duration * 0.25, duration * 0.5];
                 self.status = format!(
                     "{}  ·  {} channels  ·  {:.3} s",
@@ -584,6 +613,76 @@ impl App {
         if self.son.is_some() {
             self.filter_dialog = true;
         }
+    }
+
+    /// The active view as a snapshot.
+    fn snapshot(&self) -> ViewState {
+        ViewState {
+            name: self
+                .views
+                .get(self.active_view)
+                .map(|v| v.name.clone())
+                .unwrap_or_else(|| "View 1".to_string()),
+            t_start: self.t_start,
+            t_end: self.t_end,
+            cursors: self.cursors,
+            cursor_label: self.cursor_label,
+            selected: self.selected,
+        }
+    }
+
+    /// Write the active view's fields back into the list. Called before any
+    /// switch so a change is never lost.
+    fn stash_view(&mut self) {
+        if self.active_view < self.views.len() {
+            let snap = self.snapshot();
+            self.views[self.active_view] = snap;
+        }
+    }
+
+    /// Make view `i` active.
+    fn switch_view(&mut self, i: usize) {
+        if i >= self.views.len() || i == self.active_view {
+            return;
+        }
+        self.stash_view();
+        let v = self.views[i].clone();
+        self.t_start = v.t_start;
+        self.t_end = v.t_end;
+        self.cursors = v.cursors;
+        self.cursor_label = v.cursor_label;
+        self.selected = v.selected;
+        self.active_view = i;
+        self.caches.iter_mut().for_each(|c| *c = None);
+        self.stats_key = None;
+    }
+
+    /// Window > New View: a copy of this one, at the same time range.
+    fn new_view(&mut self) {
+        let mut snap = self.snapshot();
+        snap.name = format!("View {}", self.views.len() + 1);
+        self.stash_view();
+        self.views.push(snap);
+        let i = self.views.len() - 1;
+        self.switch_view(i);
+    }
+
+    /// Window > Close View. The last view stays.
+    fn close_view(&mut self) {
+        if self.views.len() <= 1 {
+            self.status = "the last view cannot be closed".to_string();
+            return;
+        }
+        self.views.remove(self.active_view);
+        self.active_view = self.active_view.min(self.views.len() - 1);
+        let v = self.views[self.active_view].clone();
+        self.t_start = v.t_start;
+        self.t_end = v.t_end;
+        self.cursors = v.cursors;
+        self.cursor_label = v.cursor_label;
+        self.selected = v.selected;
+        self.caches.iter_mut().for_each(|c| *c = None);
+        self.stats_key = None;
     }
 
     /// Append a step to the selected channel's chain (used by the launch flag).
@@ -1256,7 +1355,31 @@ impl eframe::App for App {
                         self.fit();
                     }
                     ui.separator();
-                    ui.label(egui::RichText::new("One data window per file at present.").small().weak());
+                    let mut pick: Option<usize> = None;
+                    for (i, v) in self.views.iter().enumerate() {
+                        let label = if i == self.active_view {
+                            format!("* {}", v.name)
+                        } else {
+                            format!("   {}", v.name)
+                        };
+                        if ui.button(label).clicked() {
+                            pick = Some(i);
+                        }
+                    }
+                    if let Some(i) = pick {
+                        self.switch_view(i);
+                        ui.close();
+                    }
+                    ui.separator();
+                    if ui.button("New View").clicked() {
+                        self.new_view();
+                    }
+                    if ui
+                        .add_enabled(self.views.len() > 1, egui::Button::new("Close View"))
+                        .clicked()
+                    {
+                        self.close_view();
+                    }
                 });
                 ui.menu_button("Help", |ui| {
                     ui.label("Sharar — read and display CED Spike2 .smr and .smrx files.");
@@ -1274,6 +1397,23 @@ impl eframe::App for App {
 
         // ── toolbar ─────────────────────────────────────────────────────────
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+            // One tab per view, so switching does not need the menu. Spike2 puts
+            // each view in its own window; tabs are the closest thing in one
+            // window, and they keep the menu as the authoritative list.
+            if self.views.len() > 1 {
+                ui.horizontal(|ui| {
+                    let mut pick: Option<usize> = None;
+                    for (i, v) in self.views.iter().enumerate() {
+                        let sel = i == self.active_view;
+                        if ui.selectable_label(sel, &v.name).clicked() {
+                            pick = Some(i);
+                        }
+                    }
+                    if let Some(i) = pick {
+                        self.switch_view(i);
+                    }
+                });
+            }
             ui.horizontal(|ui| {
                 if ui.button("Open").clicked() {
                     self.pick_file(ui.ctx());
@@ -3225,6 +3365,8 @@ fn main() -> eframe::Result {
     let mut bands_kill = false;
     let mut bands_apply = false;
     let mut process_on_start = false;
+    let mut two_views = false;
+    let mut views_check = false;
     let mut process_chain = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
@@ -3251,6 +3393,9 @@ fn main() -> eframe::Result {
             "--bands=kill" => bands_kill = true,
             "--bands-apply" => bands_apply = true,
             "--process" => process_on_start = true,
+            // Two views, the second zoomed, to exercise the Window menu.
+            "--two-views" => two_views = true,
+            "--views-check" => views_check = true,
             // Two steps in the chain, to show that they compose in order.
             "--process-chain" => process_chain = true,
             // --yrange=<lo>,<hi> pins the first channel's Y range at startup.
@@ -3318,6 +3463,29 @@ fn main() -> eframe::Result {
             if copy_dump {
                 println!("{}", app.copy_measurements());
                 std::process::exit(0);
+            }
+            if views_check {
+                // Round-trip a view switch and print what each view holds, so the
+                // stash/load pair is exercised outside the UI.
+                app.new_view();
+                app.t_start = 40.0;
+                app.t_end = 60.0;
+                app.cursors = [45.0, 55.0];
+                app.switch_view(0);
+                println!("v0 {:.3}..{:.3} cursors {:.3}/{:.3}", app.t_start, app.t_end, app.cursors[0], app.cursors[1]);
+                app.switch_view(1);
+                println!("v1 {:.3}..{:.3} cursors {:.3}/{:.3}", app.t_start, app.t_end, app.cursors[0], app.cursors[1]);
+                app.close_view();
+                println!("after close: {} views, range {:.3}..{:.3}", app.views.len(), app.t_start, app.t_end);
+                std::process::exit(0);
+            }
+            if two_views {
+                app.new_view();
+                app.t_start = 40.0;
+                app.t_end = 60.0;
+                app.cursors = [45.0, 55.0];
+                app.stash_view();
+                app.status = format!("{} views", app.views.len());
             }
             if process_chain {
                 let rate = 100.0;

@@ -85,8 +85,24 @@ configure once and apply) from the individual filter dialogs, which is why
 File (Open, Open by path, Close, Revert to Saved, Recent Files, Export CSV,
 Quit), Edit (Copy, Copy for Spreadsheet, three selection helpers), View (fit, zoom in/out, Channel Information, X Axis Range, Y Axis
 Range, Show/Hide Channel), Analysis (Process…, digital filters, average), Cursor (Display All, Label Mode, Display Y Values,
-Move to, Search Left/Right), Window (fit), Help (keyboard help). Sample and
-Script are empty.
+Move to, Search Left/Right), Window (fit, New View, Close View, the view list),
+Help (keyboard help). Sample and Script are empty.
+
+### Views
+
+A file can be open in more than one view, each with its own time range, cursors,
+cursor label mode and selected channel, which is the split Spike2 makes between
+windows. Switching is in the Window menu and in the tab strip above the toolbar.
+The channel process chains and the display settings stay shared, as they are in
+Spike2: they belong to a channel, not to a view.
+
+The implementation keeps the active view's values in the `App` fields the drawing
+code already used, and writes them back into the view list whenever the active view
+changes or closes. That is one source of truth at any moment, and it left the
+~110 references to `t_start`, `t_end`, `cursors` and `selected` alone, which a
+`self.views[i].field` rewrite would have had to thread through every call that
+passes them to a `&self` method. `--views-check` round-trips a switch and prints
+what each view holds.
 
 ### Process, and why it came before more analysis dialogs
 
