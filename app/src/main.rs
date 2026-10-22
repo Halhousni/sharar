@@ -111,6 +111,9 @@ struct App {
     open_dialog: bool,
     path_input: String,
     error: Option<String>,
+    /// Receives the file chosen in the native picker, which runs on its own thread so the
+    /// window keeps drawing while it is open.
+    picker: Option<std::sync::mpsc::Receiver<Option<PathBuf>>>,
 }
 
 impl App {
@@ -148,11 +151,53 @@ impl App {
             open_dialog: false,
             path_input: String::new(),
             error: None,
+            picker: None,
         };
         if let Some(p) = path {
             app.load(&p);
         }
         app
+    }
+
+    /// Show the system file picker. Does nothing while one is already open.
+    fn pick_file(&mut self, ctx: &egui::Context) {
+        if self.picker.is_some() {
+            return;
+        }
+        let start = self
+            .son
+            .as_ref()
+            .and_then(|s| s.path.parent().map(Path::to_path_buf))
+            .or_else(|| std::env::current_dir().ok());
+        let (tx, rx) = std::sync::mpsc::channel();
+        let ctx = ctx.clone();
+        std::thread::spawn(move || {
+            let mut dialog = rfd::FileDialog::new()
+                .set_title("Open Spike2 data file")
+                .add_filter("Spike2 data (.smr, .smrx)", &["smr", "smrx"])
+                .add_filter("All files", &["*"]);
+            if let Some(dir) = start {
+                dialog = dialog.set_directory(dir);
+            }
+            let _ = tx.send(dialog.pick_file());
+            ctx.request_repaint();
+        });
+        self.picker = Some(rx);
+    }
+
+    /// Load the file the picker returned, once it has.
+    fn poll_picker(&mut self) {
+        let Some(rx) = &self.picker else { return };
+        match rx.try_recv() {
+            Ok(choice) => {
+                self.picker = None;
+                if let Some(path) = choice {
+                    self.load(&path);
+                }
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {}
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => self.picker = None,
+        }
     }
 
     fn load(&mut self, path: &Path) {
@@ -637,6 +682,7 @@ impl eframe::App for App {
             ctx.request_repaint_after(std::time::Duration::from_millis(16));
         }
 
+        self.poll_picker();
         self.refresh_readouts();
         self.refresh_stats();
 
@@ -645,7 +691,12 @@ impl eframe::App for App {
             ui.horizontal(|ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Open…").clicked() {
+                        self.pick_file(ui.ctx());
+                        ui.close();
+                    }
+                    if ui.button("Open by path…").clicked() {
                         self.open_dialog = true;
+                        ui.close();
                     }
                     if ui.button("Close").clicked() {
                         self.son = None;
@@ -774,7 +825,7 @@ impl eframe::App for App {
                     ui.label(egui::RichText::new("One data window per file at present.").small().weak());
                 });
                 ui.menu_button("Help", |ui| {
-                    ui.label("Sharar — read and display CED Spike2 .smr files.");
+                    ui.label("Sharar — read and display CED Spike2 .smr and .smrx files.");
                     ui.label("Wheel zooms, middle-drag pans, F fits, +/- gain, D DC remove.");
                 });
                 ui.separator();
@@ -791,7 +842,7 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if ui.button("Open").clicked() {
-                    self.open_dialog = true;
+                    self.pick_file(ui.ctx());
                 }
                 ui.separator();
                 if ui.button("Fit").clicked() {
@@ -846,7 +897,7 @@ impl eframe::App for App {
                     } else if self.son.is_some() {
                         "For Help, press F1"
                     } else {
-                        "Open a .smr file to begin"
+                        "Open a .smr or .smrx file to begin"
                     })
                     .weak(),
                 );
@@ -1042,7 +1093,7 @@ impl eframe::App for App {
             }
             if self.son.is_none() {
                 ui.centered_and_justified(|ui| {
-                    ui.label("Open a .smr file: File → Open…");
+                    ui.label("Open a .smr or .smrx file: File → Open…");
                 });
                 return;
             }
@@ -1874,16 +1925,16 @@ impl eframe::App for App {
         // ── open dialog ─────────────────────────────────────────────────────
         if self.open_dialog {
             let mut open = self.open_dialog;
-            egui::Window::new("Open .smr")
+            egui::Window::new("Open by path")
                 .collapsible(false)
                 .resizable(false)
                 .open(&mut open)
                 .show(ctx, |ui| {
-                    ui.label("Path to a Spike2 data file:");
+                    ui.label("Path to a Spike2 data file (.smr or .smrx):");
                     ui.add(
                         egui::TextEdit::singleline(&mut self.path_input)
                             .desired_width(520.0)
-                            .hint_text("/path/to/file.smr"),
+                            .hint_text("/path/to/file.smrx"),
                     );
                     ui.horizontal(|ui| {
                         if ui.button("Open").clicked() {
@@ -1911,7 +1962,7 @@ impl eframe::App for App {
                         if let Ok(entries) = std::fs::read_dir(&dir) {
                             for entry in entries.flatten().take(40) {
                                 let p = entry.path();
-                                if p.extension().map(|e| e == "smr").unwrap_or(false) {
+                                if p.extension().map(|e| e == "smr" || e == "smrx").unwrap_or(false) {
                                     let name = p.file_name().unwrap().to_string_lossy().to_string();
                                     if ui.button(name).clicked() {
                                         self.path_input = p.display().to_string();

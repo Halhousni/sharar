@@ -9,6 +9,7 @@ description = "Sharar - read and display CED Spike2 .smr files"
 smr = { path = "../smr" }
 eframe = "0.32"
 egui = "0.32"
+rfd = "0.17"
 
 [[bin]]
 name = "sharar"
