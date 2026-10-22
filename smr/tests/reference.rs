@@ -38,7 +38,7 @@ fn emg_waveform_matches_reference() {
     assert_eq!(mem.title, "Memory");
     let events = f.read_events(1).unwrap();
     // The block declares 12 items and the payload holds 12 tick/marker pairs at
-    // 6-second intervals. neo reports only the first of them; the file is authoritative.
+    // 6-second intervals. Spike2 lists the same twelve times; neo reports only the first.
     assert_eq!(events.len(), 12);
     assert!((events[0].time - 0.00105).abs() < 1e-9, "got {}", events[0].time);
     assert!((events[11].time - 65.99049).abs() < 1e-6, "got {}", events[11].time);

@@ -119,9 +119,9 @@ Recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO
   volt and a 16-bit ADC spans ±5 V, so a channel's full-scale range is `scale * 5`. Spike2
   reports that range in its channel information, and `neo` uses the same divisor. An earlier
   version of this reader divided by 65536 and read every value ten times too small.
-- The EMG example's "Memory" marker channel holds a run of markers spaced every 6 s, not the
-  single marker `neo` reports. Spike2 lists them across the record, so `smr` reads the whole
-  run; how many there are should be pinned against Spike2 rather than against `neo`.
+- The EMG example's "Memory" marker channel holds twelve markers every 6 s, from 0.00105 s
+  to 65.99049 s, not the single marker `neo` reports. Spike2 lists the same twelve times, so
+  the file payload and `smr` agree and `neo` keeps only the first.
 
 ## Legal
 
