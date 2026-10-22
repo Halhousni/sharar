@@ -114,8 +114,34 @@ PY2
     virsh qemu-agent-command "$DOM" "{\"execute\":\"guest-file-close\",\"arguments\":{\"handle\":$handle}}" >/dev/null 2>&1
     echo "$(stat -c %s "$dst") bytes -> $dst"
     ;;
+  put)
+    # Copy a Linux file into the guest over the guest agent.
+    src="${2:?local path required}"
+    dst="${3:?guest path required}"
+    handle=$(virsh qemu-agent-command "$DOM" \
+      "{\"execute\":\"guest-file-open\",\"arguments\":{\"path\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$dst"),\"mode\":\"wb\"}}" \
+      | python3 -c 'import json,sys;print(json.load(sys.stdin)["return"])') || exit 1
+    python3 - "$src" <<'PY2' > /tmp/vm_chunks.txt
+import base64, sys
+data = open(sys.argv[1], 'rb').read()
+for i in range(0, len(data), 65536):
+    print(base64.b64encode(data[i:i+65536]).decode())
+PY2
+    while IFS= read -r chunk; do
+      virsh qemu-agent-command "$DOM" "{\"execute\":\"guest-file-write\",\"arguments\":{\"handle\":$handle,\"buf-b64\":\"$chunk\"}}" >/dev/null 2>&1
+    done < /tmp/vm_chunks.txt
+    virsh qemu-agent-command "$DOM" "{\"execute\":\"guest-file-close\",\"arguments\":{\"handle\":$handle}}" >/dev/null 2>&1
+    echo "wrote $dst"
+    ;;
+  click)
+    # click <x> <y> in guest pixels (abs pointer, usb-tablet range 0..32767)
+    x="${2:?x}"; y="${3:?y}"; w="${4:-1440}"; h="${5:-900}"
+    ax=$(python3 -c "print(int(int('$x')/int('$w')*32767))")
+    ay=$(python3 -c "print(int(int('$y')/int('$h')*32767))")
+    virsh qemu-monitor-command "$DOM" "{\"execute\":\"input-send-event\",\"arguments\":{\"events\":[{\"type\":\"abs\",\"data\":{\"axis\":\"x\",\"value\":$ax}},{\"type\":\"abs\",\"data\":{\"axis\":\"y\",\"value\":$ay}},{\"type\":\"btn\",\"data\":{\"down\":true,\"button\":\"left\"}},{\"type\":\"btn\",\"data\":{\"down\":false,\"button\":\"left\"}}]}}" >/dev/null 2>&1 && echo "clicked $x,$y"
+    ;;
   *)
-    echo "usage: $0 shot|key|exec|ps|type|get ..." >&2
+    echo "usage: $0 shot|key|exec|ps|type|get|put|click ..." >&2
     exit 2
     ;;
 esac

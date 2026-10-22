@@ -1,0 +1,11 @@
+var coef[2047], f%, i%, n%, cut[3], wid[3], att[3];
+cut[0] := 0.10; wid[0] := 0.05; att[0] := 50;
+cut[1] := 0.10; wid[1] := 0.05; att[1] := 80;
+cut[2] := 0.20; wid[2] := 0.02; att[2] := 50;
+f% := FileOpen("C:\\Users\\user\\Documents\\Spike8\\coef.bin", 9);
+BWrite(3);
+for i% := 0 to 3 - 1 do
+    n% := FIRQuick(coef[], 0, cut[i%], wid[i%], att[i%]);
+    BWrite(cut[i%]); BWrite(wid[i%]); BWrite(att[i%]); BWrite(n%); BWrite(coef[:n%]);
+next;
+FileClose();
