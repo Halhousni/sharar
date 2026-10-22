@@ -94,6 +94,15 @@ struct App {
     visible: Vec<bool>,
     /// Vertical gain per channel, multiplied onto the automatic fit.
     gain: Vec<f32>,
+    /// View > Y Axis Range…: an explicit displayed range in channel units.
+    /// `None` means the automatic fit, which is the default.
+    y_range: Vec<Option<(f32, f32)>>,
+    yaxis_dialog: bool,
+    /// View > Show/Hide Channel….
+    showhide_dialog: bool,
+    /// Working values for the Y Axis Range dialog.
+    y_min: f32,
+    y_max: f32,
     selected: Option<usize>,
     t_start: f64,
     t_end: f64,
@@ -159,6 +168,11 @@ impl App {
             son: None,
             visible: Vec::new(),
             gain: Vec::new(),
+            y_range: Vec::new(),
+            yaxis_dialog: false,
+            showhide_dialog: false,
+            y_min: -1.0,
+            y_max: 1.0,
             selected: None,
             t_start: 0.0,
             t_end: 1.0,
@@ -254,6 +268,7 @@ impl App {
                 let n = f.channels.len();
                 self.visible = vec![true; n];
                 self.gain = vec![1.0; n];
+                self.y_range = vec![None; n];
                 self.caches = (0..n).map(|_| None).collect();
                 self.readouts = vec![None; n];
                 self.stats = vec![None; n];
@@ -795,6 +810,24 @@ impl eframe::App for App {
                         self.x_right = self.t_end;
                         self.xaxis_dialog = true;
                     }
+                    if ui.button("Y Axis Range…").clicked() {
+                        // Seed the dialog from whatever the channel shows now, so
+                        // opening it never jumps the trace.
+                        if let Some(ci) = self.selected {
+                            let (a, b) = self.y_range[ci].unwrap_or_else(|| {
+                                match self.stats.get(ci).and_then(|s| *s) {
+                                    Some(s) => (s.min, s.max),
+                                    None => (-1.0, 1.0),
+                                }
+                            });
+                            self.y_min = a;
+                            self.y_max = b;
+                            self.yaxis_dialog = true;
+                        }
+                    }
+                    if ui.button("Show/Hide Channel…").clicked() {
+                        self.showhide_dialog = true;
+                    }
                 });
                 ui.menu_button("Analysis", |ui| {
                     ui.checkbox(&mut self.show_measure, "Show measurements");
@@ -1313,7 +1346,12 @@ impl eframe::App for App {
                                 hi = hi.max(*b);
                             }
                             let gain = self.gain.get(ci).copied().unwrap_or(1.0);
-                            let (lo, hi) = if lo.is_finite() && hi.is_finite() && hi > lo {
+                            let fixed = self.y_range.get(ci).copied().flatten();
+                            let (lo, hi) = if let Some((a, b)) = fixed {
+                                // An explicit Y range overrides both the fit and
+                                // the gain, as Spike2's Y Axis Range does.
+                                (a.min(b), a.max(b))
+                            } else if lo.is_finite() && hi.is_finite() && hi > lo {
                                 let mid0 = (lo + hi) * 0.5;
                                 let half0 = (hi - lo) * 0.54 / gain;
                                 (mid0 - half0, mid0 + half0)
@@ -1896,6 +1934,117 @@ impl eframe::App for App {
             }
         }
 
+        // ── Y axis range ────────────────────────────────────────────────────
+        // Spike2 keeps this per channel; so does this, over `y_range`. An
+        // explicit range replaces the automatic fit and the gain together.
+        if self.yaxis_dialog {
+            let mut open = self.yaxis_dialog;
+            egui::Window::new("Y Axis Range")
+                .collapsible(false)
+                .resizable(false)
+                .open(&mut open)
+                .show(ctx, |ui| {
+                    match self.selected {
+                        None => {
+                            ui.label("Select a channel.");
+                        }
+                        Some(ci) => {
+                            let name = self
+                                .son
+                                .as_ref()
+                                .and_then(|s| s.channels.get(ci).map(|c| c.title.clone()))
+                                .unwrap_or_default();
+                            let units = self
+                                .son
+                                .as_ref()
+                                .and_then(|s| s.channels.get(ci).map(|c| c.units.clone()))
+                                .unwrap_or_default();
+                            ui.label(if units.is_empty() {
+                                name
+                            } else {
+                                format!("{name} ({units})")
+                            });
+                            // With Automatic ticked the dialog shows the range
+                            // the channel is actually drawn over, so turning the
+                            // tick off starts from what is on screen.
+                            if self.y_range.get(ci).copied().flatten().is_none() {
+                                if let Some(s) = self.stats.get(ci).and_then(|s| *s) {
+                                    self.y_min = s.min;
+                                    self.y_max = s.max;
+                                }
+                            }
+                            egui::Grid::new("yrange").num_columns(2).show(ui, |ui| {
+                                ui.label("Bottom");
+                                ui.add(egui::DragValue::new(&mut self.y_min).speed(0.01));
+                                ui.end_row();
+                                ui.label("Top");
+                                ui.add(egui::DragValue::new(&mut self.y_max).speed(0.01));
+                                ui.end_row();
+                            });
+                            let mut auto = self.y_range.get(ci).copied().flatten().is_none();
+                            if ui.checkbox(&mut auto, "Automatic").changed() {
+                                self.y_range[ci] = if auto {
+                                    None
+                                } else {
+                                    Some((self.y_min, self.y_max))
+                                };
+                            }
+                            ui.separator();
+                            ui.horizontal(|ui| {
+                                if ui.button("Apply").clicked() {
+                                    self.y_range[ci] = Some((
+                                        self.y_min.min(self.y_max),
+                                        self.y_min.max(self.y_max),
+                                    ));
+                                }
+                                if ui.button("Close").clicked() {
+                                    self.yaxis_dialog = false;
+                                }
+                            });
+                        }
+                    }
+                });
+            if !open {
+                self.yaxis_dialog = false;
+            }
+        }
+
+        // ── show/hide channel ───────────────────────────────────────────────
+        if self.showhide_dialog {
+            let mut open = self.showhide_dialog;
+            egui::Window::new("Show/Hide Channel")
+                .collapsible(false)
+                .resizable(false)
+                .open(&mut open)
+                .show(ctx, |ui| {
+                    let titles: Vec<String> = self
+                        .son
+                        .as_ref()
+                        .map(|s| s.channels.iter().map(|c| c.title.clone()).collect())
+                        .unwrap_or_default();
+                    for (i, t) in titles.iter().enumerate() {
+                        if let Some(v) = self.visible.get_mut(i) {
+                            ui.checkbox(v, t);
+                        }
+                    }
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("All").clicked() {
+                            self.visible.iter_mut().for_each(|v| *v = true);
+                        }
+                        if ui.button("None").clicked() {
+                            self.visible.iter_mut().for_each(|v| *v = false);
+                        }
+                        if ui.button("Close").clicked() {
+                            self.showhide_dialog = false;
+                        }
+                    });
+                });
+            if !open {
+                self.showhide_dialog = false;
+            }
+        }
+
         // ── channel information ─────────────────────────────────────────────
         // Spike2's View > Channel Information… is the read-out its users reach
         // for when a scale or a unit is in dispute, so it shows the same fields
@@ -2365,6 +2514,9 @@ fn main() -> eframe::Result {
     let mut lowpass_on_start: Option<f64> = None;
     let mut filter_dialog_on_start = false;
     let mut chan_info_on_start = false;
+    let mut yaxis_on_start = false;
+    let mut showhide_on_start = false;
+    let mut yrange_on_start: Option<(f32, f32)> = None;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
@@ -2377,6 +2529,17 @@ fn main() -> eframe::Result {
             "--filters" => filter_dialog_on_start = true,
             // Open View > Channel Information… at startup.
             "--chan-info" => chan_info_on_start = true,
+            "--yaxis" => yaxis_on_start = true,
+            "--showhide" => showhide_on_start = true,
+            // --yrange=<lo>,<hi> pins the first channel's Y range at startup.
+            other if other.starts_with("--yrange=") => {
+                let v = &other["--yrange=".len()..];
+                if let Some((a, b)) = v.split_once(',') {
+                    if let (Ok(a), Ok(b)) = (a.parse::<f32>(), b.parse::<f32>()) {
+                        yrange_on_start = Some((a, b));
+                    }
+                }
+            }
             // --lowpass=<hz> applies a FIR low pass to the selected channel at startup.
             other if other.starts_with("--lowpass=") => {
                 if let Ok(hz) = other["--lowpass=".len()..].parse::<f64>() {
@@ -2422,6 +2585,18 @@ fn main() -> eframe::Result {
             }
             if chan_info_on_start {
                 app.chan_info = true;
+            }
+            if yaxis_on_start {
+                app.selected = Some(0);
+                app.yaxis_dialog = true;
+            }
+            if showhide_on_start {
+                app.showhide_dialog = true;
+            }
+            if let Some((a, b)) = yrange_on_start {
+                if !app.y_range.is_empty() {
+                    app.y_range[0] = Some((a, b));
+                }
             }
             if let Some(hz) = lowpass_on_start {
                 app.apply_filter_to_selected(smr::FilterSpec {

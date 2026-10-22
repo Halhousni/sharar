@@ -83,10 +83,11 @@ configure once and apply) from the individual filter dialogs, which is why
 ## What Sharar has now
 
 File (Open, Open by path, Close, Export CSV, Quit), Edit (three selection
-helpers), View (fit, zoom in/out, Channel Information, X Axis Range), Analysis
+helpers), View (fit, zoom in/out, Channel Information, X Axis Range, Y Axis
+Range, Show/Hide Channel), Analysis
 (digital filters, average), Cursor (Display All, Label Mode, Display Y Values,
 Move to, Search Left/Right), Window (fit), Help (keyboard help). Sample and
-Script are empty, and Y Axis Range is not built.
+Script are empty.
 
 Two notes on where things sit. Cursor placement used to appear in both the View
 and Cursor menus; it now belongs to Cursor only, which is where Spike2 keeps it.
@@ -99,10 +100,12 @@ drawn disabled rather than faked, because the axis has no log or unit model.
 1. **View > Channel Information…** — done.
 2. **The Cursor menu** — done: label modes, display all, move to, search
    left/right over the selected channel's events, and Y values on the tag.
-3. **View > X Axis Range…** — done. Still to do from this group: **Y Axis
-   Range…**, which needs a per-channel vertical offset the drawing does not
-   carry yet (it scales about zero with `gain`), and **Show/Hide Channel…**,
-   which is a dialog over the visibility flags.
+3. **View > X Axis Range…, Y Axis Range…, Show/Hide Channel…** — done. The Y
+   range needed a per-channel displayed range the drawing did not have; it now
+   carries one, and an explicit range replaces the automatic fit and the `gain`
+   together, which is what Spike2's dialog does. With Automatic ticked the
+   dialog shows the range the channel is actually drawn over, so unticking it
+   starts from what is on screen rather than from a default.
 4. **Analysis > Process…** — the named pipeline. This is a design change, not a
    dialog: it means storing a list of processes per channel instead of the
    single `Option<FilterSpec>` the app carries today.
