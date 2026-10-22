@@ -72,7 +72,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 
 | Area | State |
 |---|---|
-| Acquisition from a CED 1401 | `--record` opens a live strip chart fed by a synthetic source; the 1401 backend is a stub that reports no device attached |
+| Acquisition from a CED 1401 | `--record` opens a live strip chart fed by a synthetic source; the 1401 backend is a stub that reports no device attached. The userspace half of the stack is recovered and `docs/1401.md` records it, but the device-level protocol is still inside the driver and no capture of it exists |
 | Sampling configuration | none |
 | Channel processing | DC remove and low/high-pass digital filters; no rectification, integration or other processes |
 | Averaging | peri-stimulus average works; no smoothing, confidence bands or baselines |
@@ -89,7 +89,8 @@ smr/      .smr and .smrx reader, plus the FIR designer — no dependencies
 app/      the egui/eframe application
 tools/    inventory.py (.smr reference reader), smrx_oracle.py (.smrx check against sonpy),
           fir_oracle.py (filter check against CED's Filters.dll)
-docs/     screenshots, and filters.md on the recovered designer
+docs/     screenshots; filters.md on the recovered designer, 1401.md on the
+          acquisition stack
 ```
 
 ```sh

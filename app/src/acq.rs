@@ -1,11 +1,12 @@
 //! Acquisition: a source of samples, and a live strip-chart view for them.
 //!
-//! The 1401 backend is deliberately a stub. The protocol it needs is recovered (see the
-//! `ced1401` crate and its FINDINGS): open the device, register transfer areas, poll the
-//! character channel, and service the `Esc`-framed DMA requests the 1401 sends. None of
-//! that can be exercised here — no 1401 is attached — so rather than ship code that has
-//! never moved a byte, the hardware path returns a clear error and the sampling pipeline
-//! is verified against a synthetic source instead.
+//! The 1401 backend is deliberately a stub, and `docs/1401.md` says exactly how far the
+//! reverse engineering got. The userspace half is recovered — the character layer of
+//! `USE1432.dll` and the driver's IOCTL surface — but the device-level byte protocol is
+//! still inside `ced_us64.sys`'s URB construction, and no 1401 is attached here to
+//! capture it against. Rather than ship code that has never moved a byte, the hardware
+//! path returns a clear error and the sampling pipeline is verified against a synthetic
+//! source instead.
 
 use std::time::{Duration, Instant};
 
@@ -71,7 +72,7 @@ pub struct Ced1401Source;
 
 impl Ced1401Source {
     pub fn open() -> Result<Self, String> {
-        Err("no 1401 attached: the hardware path is not wired up yet".to_string())
+        Err("no 1401 attached (see docs/1401.md: the wire protocol is not recovered)".to_string())
     }
 }
 
