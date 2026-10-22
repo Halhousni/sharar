@@ -2679,6 +2679,50 @@ impl eframe::App for App {
                                         }
                                     }
                                 }
+                                // Gain handles: a plateau per band at its own
+                                // level, dragged vertically. Spike2 splits the
+                                // same two gestures - CChangeGap moves a gap,
+                                // the basic moves change a level.
+                                let mut gmove: Option<(usize, f64)> = None;
+                                for (k, b) in self.f_bands.iter().enumerate() {
+                                    let x0 = x_of(b.low.max(0.0));
+                                    let x1 = x_of(b.high);
+                                    let db = if b.fx > 0.0 { 20.0 * b.fx.log10() } else { -80.0 };
+                                    let y = to_y(db);
+                                    p.line_segment(
+                                        [egui::pos2(x0, y), egui::pos2(x1, y)],
+                                        egui::Stroke::new(1.0, Color32::from_rgb(120, 160, 200)),
+                                    );
+                                    let grip = egui::Rect::from_center_size(
+                                        egui::pos2((x0 + x1) * 0.5, y),
+                                        egui::vec2(9.0, 9.0),
+                                    );
+                                    let resp = ui.interact(
+                                        grip,
+                                        egui::Id::new(("bandgain", k)),
+                                        egui::Sense::drag(),
+                                    );
+                                    p.rect_filled(
+                                        grip,
+                                        2.0,
+                                        if resp.hovered() || resp.dragged() {
+                                            Color32::from_rgb(200, 120, 0)
+                                        } else {
+                                            Color32::from_rgb(120, 160, 200)
+                                        },
+                                    );
+                                    if resp.dragged() {
+                                        if let Some(ptr) = ui.ctx().pointer_interact_pos() {
+                                            let t = ((ptr.y - rect.top()) / rect.height())
+                                                .clamp(0.0, 1.0) as f64;
+                                            let db = 10.0 - t * 90.0;
+                                            gmove = Some((k, 10f64.powf(db / 20.0)));
+                                        }
+                                    }
+                                }
+                                if let Some((k, g)) = gmove {
+                                    self.f_bands[k].fx = g.clamp(1e-4, 1.5);
+                                }
                                 if let Some((k, f)) = moved {
                                     // Keep both neighbours ordered and non-empty.
                                     let lo = self.f_bands[k - 1].low + 1e-4;

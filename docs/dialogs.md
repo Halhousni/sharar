@@ -155,9 +155,11 @@ are now `freq_to_frac` and `frac_to_freq` in the app, with tests: they invert ea
 other across the band, Nyquist lands on the right edge in both, the log one is
 monotonic, and it clamps at its floor instead of running to negative infinity.
 
-What is still not ported is the gain side of the drag: handles move edges, not
-levels, because the gain belongs to a band rather than to its boundary and the
-dialog's own editor treats those as different gestures.
+Both gestures are in now: an edge handle moves a boundary, and a square handle on
+each band's plateau moves that band's level. Spike2 keeps them apart the same way
+— `CChangeGap` moves a gap, the basic moves change a level — and drawing a plateau
+per band is what makes the plot read as an editable envelope rather than as a
+curve with markers on it.
 
 ## X Axis Range, as an example of the scale of a dialog
 
