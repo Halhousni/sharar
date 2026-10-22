@@ -36,16 +36,7 @@ fn main() {
             bands.push(smr::Band::new(v[0], v[1], v[2], v[3]));
         }
 
-        let t = match jtype {
-            0 | 1 | 2 | 3 => smr::DesignType::LowPass,
-            4 => smr::DesignType::Differentiator,
-            _ => {
-                println!("-1 8 0");
-                continue;
-            }
-        };
-
-        match smr::design(nfilt, t, &bands, lgrid, flag != 0) {
+        match smr::design_raw(nfilt, jtype, &bands, lgrid, flag != 0) {
             Ok(d) => {
                 print!("{:<24} 0 {}", format!("{:.17e}", d.dev), d.coeffs.len());
                 for c in &d.coeffs {

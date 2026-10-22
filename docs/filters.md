@@ -97,10 +97,11 @@ band pass, band stop and differentiator — agree to a worst relative difference
 of **1.8e-14**, which is the last two or three bits of the mantissa. The
 deviations agree to every printed digit, and the extremal sets are identical.
 
-Five further designs use band tables that stop short of Nyquist, so they take
-the warped path. Three of them also agree to machine precision (5.7e-15,
-7.7e-13, 2.2e-12); the other two land at 1.2e-9 and 8.6e-8 relative to their
-peak coefficient. That gap is not a difference in the algorithm: the corner
+Ten further designs exercise the `FIRMake` side: explicit band tables, the
+grid default of 16, and CFIR types 5 and 6. Six of those agree to machine
+precision. The four that use a table stopping short of Nyquist take the warped
+path, and of those three agree to machine precision (5.7e-15, 7.7e-13,
+2.2e-12) while the last lands at 8.6e-8 relative to its peak coefficient. That gap is not a difference in the algorithm: the corner
 recursion multiplies by `2*wb` at every step and the warp's `acos` has an
 infinite derivative at the band edges, so a last-bit difference in `cos`
 between MSVC's maths and glibc's becomes visible. These designs also produce
@@ -113,12 +114,14 @@ it is present and prints a skip when it is not, so a fresh clone still passes.
 
 ## What this does not cover
 
-- `FIRMake`, which takes explicit band parameters and a grid size, shares
-  `docalc` and is available through `smr::design`, but has no script-level
-  wrapper here and no oracle case beyond the band tables above.
-- `CFIR` types 5, 6 and 7 (Hilbert and the other antisymmetric designs) are not
-  ported. `SetFilt` collapses any type below 4 to 0, so the four band layouts
-  above are the ones `FIRQuick` can produce.
+- `FIRMake` is ported as `smr::fir_make`. Its type code is not CFIR's: the
+  script's 1 to 4 map to 0, 4, 5 and 6 (0x180003380), the tap count is the
+  length of the caller's `coef[]` array, and the grid size stays at 16 unless
+  `nGrid` is given. `FIRQuick` is the same design path with a band table and a
+  tap count worked out for you.
+- `CFIR` type 7 is not reachable from the script and is not ported. Types 5 and
+  6 are, and both are checked against the oracle: 5 is antisymmetric (a Hilbert
+  transformer) and 6 is symmetric with the `sqrt(fx/f)` weighting in `eff`.
 - A band table that does not span 0 to Nyquist is supported, through the
   warped path in `CFIR::invfft` and the corner recursion that goes with it
   (0x180002212, ported as `corner_fix`). Two details there are easy to get

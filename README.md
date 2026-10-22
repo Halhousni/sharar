@@ -80,7 +80,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
-| Filter design | the Parks-McClellan designer behind `FIRQuick`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14, and band tables that stop short of Nyquist — which only a `FIRMake`-style call can ask for — take the same warped path and agree to about seven digits; a differentiator is available from the library but not the dialog; the IIR option is not Spike2's |
+| Filter design | the Parks-McClellan designer behind `FIRQuick` and `FIRMake`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14, as do the antisymmetric types 5 and 6 that only `FIRMake` can reach; band tables that stop short of Nyquist take the same warped path and agree to about seven digits; the dialog offers the four symmetric types, and the differentiator is library-only; the IIR option is not Spike2's |
 
 ## Layout
 

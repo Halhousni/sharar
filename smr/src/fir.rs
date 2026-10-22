@@ -817,6 +817,18 @@ pub fn design(
     if nfilt < 3 || nfilt > MAX_COEFS {
         return Err(DesignError::OutOfRange);
     }
+    design_raw(nfilt, jtype.jtype(), bands, lgrid, retry)
+}
+
+/// Design at the CFIR level: `jtype` is the number `CFIR::SetFilt` stores, not
+/// the script's type code.
+pub fn design_raw(
+    nfilt: usize,
+    jtype: i32,
+    bands: &[Band],
+    lgrid: i32,
+    retry: bool,
+) -> Result<Design, DesignError> {
     for (i, b) in bands.iter().enumerate() {
         let bad = b.low < 0.0
             || b.high <= b.low
@@ -827,7 +839,7 @@ pub fn design(
         }
     }
 
-    let mut cfm = Cfm::new(nfilt, jtype.jtype());
+    let mut cfm = Cfm::new(nfilt, jtype);
     let grids = [lgrid, lgrid / 2 + 1, lgrid * 2 - 1];
     let tries = if retry { 3 } else { 1 };
 
@@ -846,6 +858,42 @@ pub fn design(
     let coeffs = (0..cfm.nfilt).map(|i| cfm.get_coeff(i)).collect();
     let extrema = (0..cfm.r).map(|k| cfm.grid[cfm.ext[k]]).collect();
     Ok(Design { coeffs, dev, extrema })
+}
+
+/// `FIRMake(type%, param[][], coef[]{, nGrid{, extFr[]}})`: design from an
+/// explicit band table.
+///
+/// `type_code` is the script's numbering, which is not CFIR's: `FIRWin.s2l`
+/// maps 1 to CFIR 0, 2 to 4, 3 to 5 and 4 to 6 (0x180003380, an argument range
+/// check of 1 to 4). Types 1 and 4 come out symmetric and 2 and 3
+/// antisymmetric, which is how the two families are told apart without the
+/// help file:
+///
+/// | type% | CFIR | symmetry | response |
+/// |---|---|---|---|
+/// | 1 | 0 | even | whatever the band table says: low, high, band pass, band stop |
+/// | 2 | 4 | odd | differentiator, gain proportional to frequency |
+/// | 3 | 5 | odd | Hilbert transformer |
+/// | 4 | 6 | even | the type whose pass band falls off as `sqrt(fx/f)` |
+///
+/// `nfilt` is the length of the caller's `coef[]` array, which is where the
+/// script's tap count comes from. `nGrid` is the exchange's grid size; the
+/// command leaves it at 16 when it is omitted (the reset at 0x1800031c0) and
+/// `fircalc` is always called with the retry ladder enabled.
+pub fn fir_make(
+    type_code: i32,
+    bands: &[Band],
+    nfilt: usize,
+    n_grid: Option<i32>,
+) -> Result<Design, DesignError> {
+    let jtype = match type_code {
+        1 => 0,
+        2 => 4,
+        3 => 5,
+        4 => 6,
+        _ => return Err(DesignError::OutOfRange),
+    };
+    design_raw(nfilt, jtype, bands, n_grid.unwrap_or(16), true)
 }
 
 /// The band table `FIRQuick` builds for a type, a corner frequency and a

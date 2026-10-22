@@ -30,7 +30,10 @@ use std::path::{Path, PathBuf};
 mod fir;
 mod son64;
 
-pub use fir::{arr_fir, design, fir_quick, quick_bands, quick_tap_count, Band, Design, DesignError, DesignType};
+pub use fir::{
+    arr_fir, design, design_raw, fir_make, fir_quick, quick_bands, quick_tap_count, Band, Design,
+    DesignError, DesignType,
+};
 
 pub const FILE_HEADER_LEN: u64 = 512;
 pub const CHANNEL_HEADER_LEN: u64 = 140;
@@ -1249,6 +1252,26 @@ mod filter_tests {
         for i in 0..n / 2 {
             assert!((d.coeffs[i] - d.coeffs[n - 1 - i]).abs() < 1e-12, "not symmetric at {i}");
         }
+    }
+
+    #[test]
+    fn fir_make_maps_the_script_type_codes() {
+        let bands = [Band::new(0.0, 0.20, 1.0, 1.0), Band::new(0.25, 0.5, 0.0, 10.0)];
+        // Type 1 is the symmetric family: low pass by the table.
+        let a = fir_make(1, &bands, 41, None).expect("type 1");
+        let n = a.coeffs.len();
+        assert!(a.coeffs.iter().all(|c| c.is_finite()));
+        for i in 0..n / 2 {
+            assert!((a.coeffs[i] - a.coeffs[n - 1 - i]).abs() < 1e-12, "type 1 not symmetric");
+        }
+        // Type 3 is the antisymmetric family: the mirrored half changes sign.
+        let c = fir_make(3, &bands, 41, None).expect("type 3");
+        let m = c.coeffs.len();
+        let anti = (0..m / 2).all(|i| (c.coeffs[i] + c.coeffs[m - 1 - i]).abs() < 1e-9);
+        assert!(anti, "type 3 should be antisymmetric");
+        // The type code is checked against the script's 1..4 range.
+        assert_eq!(fir_make(0, &bands, 41, None), Err(DesignError::OutOfRange));
+        assert_eq!(fir_make(5, &bands, 41, None), Err(DesignError::OutOfRange));
     }
 
     #[test]
