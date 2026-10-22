@@ -14,8 +14,10 @@ use egui::{Align2, Color32, FontId, Pos2, Rect, Stroke, Vec2};
 
 use smr::{Kind, SonFile};
 
+mod acq;
+
 /// Spike2's default channel colours, in order.
-const CHANNEL_COLORS: [Color32; 8] = [
+pub(crate) const CHANNEL_COLORS: [Color32; 8] = [
     Color32::from_rgb(0, 0, 0),
     Color32::from_rgb(200, 0, 0),
     Color32::from_rgb(0, 110, 0),
@@ -94,6 +96,8 @@ struct App {
     /// Cursor pair the statistics were computed for, so they are not recomputed per frame.
     stats_key: Option<(u64, u64)>,
     status: String,
+    /// Live acquisition, when running with --record.
+    live: Option<acq::Live>,
     /// Whether the measurements panel is open.
     show_measure: bool,
     /// Result of the last peri-stimulus average.
@@ -132,6 +136,7 @@ impl App {
             stats: Vec::new(),
             stats_key: None,
             status: "No file open".to_string(),
+            live: None,
             show_measure: true,
             avg: None,
             avg_label: String::new(),
@@ -627,6 +632,11 @@ fn format_value(v: f32) -> String {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if let Some(live) = &mut self.live {
+            live.step();
+            ctx.request_repaint_after(std::time::Duration::from_millis(16));
+        }
+
         self.refresh_readouts();
         self.refresh_stats();
 
@@ -831,7 +841,9 @@ impl eframe::App for App {
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label(
-                    egui::RichText::new(if self.son.is_some() {
+                    egui::RichText::new(if self.live.is_some() {
+                        "Recording"
+                    } else if self.son.is_some() {
                         "For Help, press F1"
                     } else {
                         "Open a .smr file to begin"
@@ -860,6 +872,25 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 ui.heading("Channels");
                 ui.separator();
+                if let Some(live) = &self.live {
+                    ui.label(
+                        egui::RichText::new(format!("recording · {}", live.describe()))
+                            .small()
+                            .weak(),
+                    );
+                    for (i, title) in live.channels().iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            let (rect, _) = ui.allocate_exact_size(
+                                Vec2::new(14.0, 14.0),
+                                egui::Sense::hover(),
+                            );
+                            ui.painter()
+                                .rect_filled(rect, 2.0, CHANNEL_COLORS[i % CHANNEL_COLORS.len()]);
+                            ui.label(title);
+                        });
+                    }
+                    return;
+                }
                 let Some(son) = &self.son else {
                     ui.label("No file open.");
                     return;
@@ -1005,6 +1036,10 @@ impl eframe::App for App {
 
         // ── data view ───────────────────────────────────────────────────────
         egui::CentralPanel::default().show(ctx, |ui| {
+            if let Some(live) = &self.live {
+                live.draw(ui);
+                return;
+            }
             if self.son.is_none() {
                 ui.centered_and_justified(|ui| {
                     ui.label("Open a .smr file: File → Open…");
@@ -1922,6 +1957,7 @@ fn main() -> eframe::Result {
     let mut path: Option<PathBuf> = None;
     let mut dc_on_start = false;
     let mut avg_on_start = false;
+    let mut record_on_start = false;
     let mut export_on_start = false;
     let mut lowpass_on_start: Option<f64> = None;
     let mut filter_dialog_on_start = false;
@@ -1931,6 +1967,8 @@ fn main() -> eframe::Result {
             "--dc" => dc_on_start = true,
             // Open the peri-stimulus average for the first event channel.
             "--average" => avg_on_start = true,
+            // Live acquisition from the synthetic source (no hardware attached).
+            "--record" => record_on_start = true,
             // Open the digital-filter dialog at startup.
             "--filters" => filter_dialog_on_start = true,
             // --lowpass=<hz> applies a FIR low pass to the selected channel at startup.
@@ -1959,6 +1997,9 @@ fn main() -> eframe::Result {
         Box::new(move |cc| {
             spike2_style(&cc.egui_ctx);
             let mut app = App::new(path.clone());
+            if record_on_start {
+                app.live = Some(acq::Live::new(Box::new(acq::SyntheticSource::new(1000.0))));
+            }
             if dc_on_start {
                 app.enable_dc();
             }
