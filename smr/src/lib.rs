@@ -1,4 +1,9 @@
-//! Reader for CED Spike2 `.smr` (SON) files, versions 1 to 9.
+//! Reader for CED Spike2 `.smr` (SON) files, versions 1 to 9, and `.smrx` (SON64) files.
+//!
+//! `.smrx` is handled in [`son64`]. [`SonFile::open`] picks the reader from the file's
+//! first bytes, so callers do not need to know which format they hold.
+//!
+//! The rest of this note describes the 32-bit `.smr` layout.
 //!
 //! Layout recovered from the format as implemented by the open-source readers
 //! (`neo.rawio.Spike2RawIO`, itself derived from sonpy and Malcolm Lidierth's SON
@@ -21,6 +26,8 @@
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+
+mod son64;
 
 pub const FILE_HEADER_LEN: u64 = 512;
 pub const CHANNEL_HEADER_LEN: u64 = 140;
@@ -118,9 +125,9 @@ pub struct Block {
     /// Number of payload elements.
     pub items: i32,
     /// First tick covered by the block.
-    pub start_tick: i32,
+    pub start_tick: i64,
     /// Last tick covered by the block.
-    pub end_tick: i32,
+    pub end_tick: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -140,21 +147,29 @@ pub struct Channel {
     pub items: u64,
     /// Extra bytes per element (waveform marks); zero for plain channels.
     pub n_extra: i16,
+    /// True for `.smrx` channels, whose times are 8 bytes and whose marker head is 16.
+    pub wide: bool,
 }
 
 impl Channel {
     /// Bytes per payload element, including any per-event waveform or text payload.
     pub fn item_bytes(&self) -> usize {
+        let (time, head) = if self.wide { (8, 16) } else { (4, 8) };
         match self.kind {
             Kind::Adc => 2,
             Kind::RealWave => 4,
-            Kind::EventFall | Kind::EventRise | Kind::EventBoth => 4,
-            Kind::Marker => 8,
+            Kind::EventFall | Kind::EventRise | Kind::EventBoth => time,
+            Kind::Marker => head,
             Kind::AdcMark | Kind::RealMark | Kind::TextMark => {
-                8 + self.n_extra.max(0) as usize
+                head + self.n_extra.max(0) as usize
             }
             Kind::Empty => 1,
         }
+    }
+
+    /// Bytes before any waveform or text payload in a marker item.
+    fn head_bytes(&self) -> usize {
+        if self.wide { 16 } else { 8 }
     }
 
     pub fn is_wavemark(&self) -> bool {
@@ -496,7 +511,18 @@ pub struct SonFile {
     /// Seconds per timestamp tick.
     pub time_factor: f64,
     pub channels: Vec<Channel>,
+    /// True when the file is 64-bit `.smrx`.
+    pub son64: bool,
     file: File,
+}
+
+/// Event time at the start of an item: 8 bytes in `.smrx`, 4 in `.smr`.
+fn read_tick(chunk: &[u8], wide: bool) -> i64 {
+    if wide {
+        i64::from_le_bytes(chunk[..8].try_into().unwrap())
+    } else {
+        i64::from(i32::from_le_bytes(chunk[..4].try_into().unwrap()))
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -574,6 +600,13 @@ impl SonFile {
     pub fn open<P: AsRef<Path>>(path: P) -> io::Result<SonFile> {
         let path = path.as_ref().to_path_buf();
         let mut file = File::open(&path)?;
+
+        let mut magic = [0u8; 3];
+        let got = file.read(&mut magic)?;
+        file.seek(SeekFrom::Start(0))?;
+        if got == 3 && &magic == b"S64" {
+            return son64::open(path, file);
+        }
 
         let mut header = [0u8; FILE_HEADER_LEN as usize];
         file.read_exact(&mut header)?;
@@ -704,8 +737,8 @@ impl SonFile {
                 blocks.push(Block {
                     data_pos: pos + BLOCK_HEADER_LEN,
                     items: i32::from(block_items),
-                    start_tick,
-                    end_tick,
+                    start_tick: i64::from(start_tick),
+                    end_tick: i64::from(end_tick),
                 });
                 items += block_items.max(0) as u64;
 
@@ -734,6 +767,7 @@ impl SonFile {
                 blocks,
                 items,
                 n_extra,
+                wide: false,
             });
         }
 
@@ -744,6 +778,7 @@ impl SonFile {
             comments,
             time_factor,
             channels,
+            son64: false,
             file,
         })
     }
@@ -760,7 +795,7 @@ impl SonFile {
         let mut last = 0.0f64;
         for ch in &self.channels {
             if let Some(b) = ch.blocks.last() {
-                let t = f64::from(b.end_tick) * self.time_factor;
+                let t = b.end_tick as f64 * self.time_factor;
                 if t > last {
                     last = t;
                 }
@@ -827,6 +862,9 @@ impl SonFile {
             return Ok(Vec::new());
         }
         let stride = channel.item_bytes();
+        let wide = channel.wide;
+        let time = if wide { 8 } else { 4 };
+        let head = channel.head_bytes();
         let mut out = Vec::with_capacity(channel.items as usize);
         let tf = self.time_factor;
 
@@ -837,11 +875,16 @@ impl SonFile {
             self.file.read_exact(&mut raw)?;
 
             for chunk in raw.chunks_exact(stride) {
-                let tick = i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-                let (code, text) = if stride >= 8 {
-                    let code = i32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
-                    let label = if channel.kind == Kind::TextMark && stride > 8 {
-                        let raw = &chunk[8..];
+                let tick = read_tick(chunk, wide);
+                let (code, text) = if stride >= head {
+                    let code = i32::from_le_bytes([
+                        chunk[time],
+                        chunk[time + 1],
+                        chunk[time + 2],
+                        chunk[time + 3],
+                    ]);
+                    let label = if channel.kind == Kind::TextMark && stride > head {
+                        let raw = &chunk[head..];
                         let end = raw.iter().position(|b| *b == 0).unwrap_or(raw.len());
                         let s: String = raw[..end]
                             .iter()
@@ -857,7 +900,7 @@ impl SonFile {
                     (None, None)
                 };
                 out.push(Event {
-                    time: f64::from(tick) * tf,
+                    time: tick as f64 * tf,
                     code,
                     text,
                 });
@@ -874,6 +917,9 @@ impl SonFile {
             return Ok(Vec::new());
         }
         let stride = channel.item_bytes();
+        let wide = channel.wide;
+        let time = if wide { 8 } else { 4 };
+        let head = channel.head_bytes();
         let is_adc = channel.kind == Kind::AdcMark;
         let width = channel.n_extra.max(0) as usize;
         let elem = if is_adc { 2 } else { 4 };
@@ -890,11 +936,16 @@ impl SonFile {
             self.file.read_exact(&mut raw)?;
 
             for chunk in raw.chunks_exact(stride) {
-                let tick = i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-                let code = i32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+                let tick = read_tick(chunk, wide);
+                let code = i32::from_le_bytes([
+                    chunk[time],
+                    chunk[time + 1],
+                    chunk[time + 2],
+                    chunk[time + 3],
+                ]);
                 let mut samples = Vec::with_capacity(points);
                 for p in 0..points {
-                    let at = 8 + p * elem;
+                    let at = head + p * elem;
                     if at + elem > chunk.len() {
                         break;
                     }
@@ -911,7 +962,7 @@ impl SonFile {
                     });
                 }
                 out.push(WaveMark {
-                    time: f64::from(tick) * tf,
+                    time: tick as f64 * tf,
                     code,
                     samples,
                 });
@@ -924,7 +975,7 @@ impl SonFile {
     /// Absolute sample index for a time, on a waveform channel.
     pub fn sample_at(&self, ch: usize, seconds: f64) -> u64 {
         let channel = &self.channels[ch];
-        let tick = (seconds / self.time_factor) as i32;
+        let tick = (seconds / self.time_factor) as i64;
         let mut base = 0u64;
         for block in &channel.blocks {
             if tick < block.start_tick {
@@ -934,7 +985,7 @@ impl SonFile {
                 // Ticks and `sample_interval` are in different units: ticks are time-base
                 // units and `sample_interval` is seconds per sample, so the tick difference
                 // has to be converted to seconds before dividing.
-                let secs_into_block = f64::from(tick - block.start_tick) * self.time_factor;
+                let secs_into_block = (tick - block.start_tick) as f64 * self.time_factor;
                 let offset =
                     (secs_into_block / channel.sample_interval.max(1e-12)).round() as u64;
                 return base + offset.min(block.items.max(0) as u64);
@@ -949,7 +1000,7 @@ impl SonFile {
         self.channels[ch]
             .blocks
             .first()
-            .map(|b| f64::from(b.start_tick) * self.time_factor)
+            .map(|b| b.start_tick as f64 * self.time_factor)
             .unwrap_or(0.0)
     }
 }

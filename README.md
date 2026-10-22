@@ -1,6 +1,6 @@
 # Sharar
 
-An application to read CED Spike2 `.smr` files.
+An application to read CED Spike2 `.smr` and `.smrx` files.
 
 Sharar opens a recording from CED's Spike2 (the acquisition program Spike2 ships with the
 1401 interface) and displays it: waveform channels, event channels and markers on a shared
@@ -13,7 +13,7 @@ Windows, and has been developed and tested on Linux.
 ## Build and run
 
 ```sh
-cargo run -p sharar -- path/to/recording.smr
+cargo run -p sharar -- path/to/recording.smr   # or .smrx
 ```
 
 Command-line flags: `--dc` starts with DC remove on, `--filters` opens the filter dialog,
@@ -21,7 +21,9 @@ Command-line flags: `--dc` starts with DC remove on, `--filters` opens the filte
 a result computed, `--export` writes the visible window to CSV and reports the path, and
 `--record` opens the live strip chart on its synthetic source.
 
-Drag the window on a file, or use `File → Open…`. Keyboard: `F` fits the recording to the
+Pass a file on the command line, or use `File → Open…` (or the toolbar's Open button), which
+shows the system file picker filtered to `.smr` and `.smrx`. `File → Open by path…` takes a
+typed path instead. Keyboard: `F` fits the recording to the
 window, `+`/`-` change the selected channel's gain, `0` resets it, `D` toggles DC remove on
 the selected channel. Mouse: wheel zooms about the pointer, middle-drag pans, dragging near
 a cursor moves it.
@@ -29,6 +31,9 @@ a cursor moves it.
 ## What works
 
 - Reads SON-format `.smr` files: file header, up to 32 channel headers, chained data blocks.
+- Reads 64-bit `.smrx` files (Spike2 8 and later): header stream, string table, channel
+  records and the per-channel index tree. The format is picked from the file's first bytes.
+  Waveform and event channels are checked against CED's `sonpy`; see "Notes on the format".
 - Waveform channels (16-bit ADC and 32-bit float), drawn as a min/max envelope so a
   12,000-sample trace reads correctly in 500 pixels.
 - Event and marker channels drawn as tick rows; marker codes shown as characters and text
@@ -71,15 +76,15 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only; CSV export works |
-| `.smrx` (SON64) | not supported; Spike2 8 and later save this format by default, so recent recordings will not open |
+| `.smrx` (SON64) | waveform and event channels verified against `sonpy`; marker, text-mark, wave-mark and `RealWave` channels are implemented from the layout but not yet checked against a real file |
 | Filter design | low/high pass only; no band pass, stop bands, differentiators or scripts |
 
 ## Layout
 
 ```
-smr/      .smr reader — no dependencies
+smr/      .smr and .smrx reader — no dependencies
 app/      the egui/eframe application
-tools/    inventory.py, the reference reader used to validate smr/
+tools/    inventory.py (.smr reference reader), smrx_oracle.py (.smrx check against sonpy)
 docs/     screenshots
 ```
 
@@ -122,6 +127,30 @@ Recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO
 - The EMG example's "Memory" marker channel holds twelve markers every 6 s, from 0.00105 s
   to 65.99049 s, not the single marker `neo` reports. Spike2 lists the same twelve times, so
   the file payload and `smr` agree and `neo` keeps only the first.
+
+### `.smrx` (SON64)
+
+CED does not publish this layout. It was recovered from public recordings and checked
+against `sonpy`, CED's own Python library, on three files (`m365_1sec.smrx` from the
+`ephy_testing_data` set and two SSSort validation files from figshare): 70 + 9 + 9 channels,
+every sample and every event time equal. To repeat the check:
+
+```sh
+pip install sonpy numpy        # recent CPython only
+cargo build -p smr --examples
+python3 tools/smrx_oracle.py recording.smrx
+```
+
+- Offsets in the file header and channel records count in a "header stream": the first
+  64 KiB of the file, then the payload of each extra header block. A file with many channel
+  slots has its string table further on in the file than its stated offset.
+- Titles, units and comments are indices into a 1-based string table, not inline fields.
+- Times are 64-bit ticks. ADC samples convert as in `.smr`: `count * scale / 6553.6 + offset`.
+- Each channel owns a tree of 4 KiB index blocks (first time, child offset) over 64 KiB data
+  blocks. A data block whose channel or generation number differs from the channel record
+  is left over from a deleted channel and is skipped.
+- Spike2 resamples nothing here: waveform runs are stored as `(first tick, count, samples)`,
+  and each run becomes one block, so a recording with pauses reads the same as in `.smr`.
 
 ## Legal
 
