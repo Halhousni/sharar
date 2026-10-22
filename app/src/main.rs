@@ -87,6 +87,8 @@ struct App {
     /// Digital filter per channel, applied after DC remove.
     filters: Vec<Option<smr::FilterSpec>>,
     filter_dialog: bool,
+    /// View > Channel Information…, Spike2's read-out for the selected channel.
+    chan_info: bool,
     f_kind: smr::FilterKind,
     f_cutoff: f64,
     f_width: f64,
@@ -133,6 +135,7 @@ impl App {
             dc_window: Vec::new(),
             filters: Vec::new(),
             filter_dialog: false,
+            chan_info: false,
             f_kind: smr::FilterKind::LowPass,
             f_cutoff: 150.0,
             f_width: 100.0,
@@ -729,6 +732,12 @@ impl eframe::App for App {
                 ui.menu_button("View", |ui| {
                     if ui.button("Fit to window").clicked() {
                         self.fit();
+                    }
+                    if ui
+                        .add_enabled(self.selected.is_some(), egui::Button::new("Channel Information…"))
+                        .clicked()
+                    {
+                        self.chan_info = true;
                     }
                     if ui.button("Zoom in").clicked() {
                         let a = self.cursors[0];
@@ -1683,6 +1692,60 @@ impl eframe::App for App {
             );
         });
 
+        // ── channel information ─────────────────────────────────────────────
+        // Spike2's View > Channel Information… is the read-out its users reach
+        // for when a scale or a unit is in dispute, so it shows the same fields
+        // in the same order, plus the range that follows from the scale.
+        if self.chan_info {
+            let mut open = self.chan_info;
+            egui::Window::new("Channel Information")
+                .collapsible(false)
+                .resizable(false)
+                .open(&mut open)
+                .show(ctx, |ui| {
+                    let ch = self
+                        .selected
+                        .and_then(|i| self.son.as_ref().and_then(|s| s.channels.get(i)));
+                    let Some(ch) = ch else {
+                        ui.label("No channel selected.");
+                        return;
+                    };
+                    egui::Grid::new("chan_info").num_columns(2).show(ui, |ui| {
+                        let mut row = |k: &str, v: String| {
+                            ui.label(k);
+                            ui.label(v);
+                            ui.end_row();
+                        };
+                        row("Title", ch.title.clone());
+                        if !ch.comment.is_empty() {
+                            row("Comment", ch.comment.clone());
+                        }
+                        row("Kind", format!("{:?}", ch.kind));
+                        row("Units", ch.units.clone());
+                        let r = ch.sample_rate();
+                        row(
+                            "Rate",
+                            if (r - r.round()).abs() < 1e-9 {
+                                format!("{} Hz", r.round() as i64)
+                            } else {
+                                format!("{r:.6} Hz")
+                            },
+                        );
+                        row("Scale", format!("{}", ch.scale));
+                        row("Offset", format!("{}", ch.offset));
+                        // The ADC spans +-5 V over +-32768 counts, so the scale is
+                        // in units per volt and the range is scale * 5.
+                        if matches!(ch.kind, smr::Kind::Adc) {
+                            row("Range", format!("±{} {}", ch.scale * 5.0, ch.units.trim()));
+                        }
+                        row("Items", format!("{}", ch.items));
+                    });
+                });
+            if !open {
+                self.chan_info = false;
+            }
+        }
+
         // ── filter dialog ───────────────────────────────────────────────────
         if self.filter_dialog {
             let mut open = self.filter_dialog;
@@ -2036,6 +2099,7 @@ fn main() -> eframe::Result {
     let mut export_on_start = false;
     let mut lowpass_on_start: Option<f64> = None;
     let mut filter_dialog_on_start = false;
+    let mut chan_info_on_start = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
@@ -2046,6 +2110,8 @@ fn main() -> eframe::Result {
             "--record" => record_on_start = true,
             // Open the digital-filter dialog at startup.
             "--filters" => filter_dialog_on_start = true,
+            // Open View > Channel Information… at startup.
+            "--chan-info" => chan_info_on_start = true,
             // --lowpass=<hz> applies a FIR low pass to the selected channel at startup.
             other if other.starts_with("--lowpass=") => {
                 if let Ok(hz) = other["--lowpass=".len()..].parse::<f64>() {
@@ -2054,6 +2120,11 @@ fn main() -> eframe::Result {
             }
             // Write the visible window of the selected channel to CSV, then keep running.
             "--export" => export_on_start = true,
+            // An unknown flag is not a file name; ignoring it silently used to
+            // turn "--typo" into a failed open instead of a usage note.
+            other if other.starts_with("--") => {
+                eprintln!("sharar: unknown option {other}");
+            }
             _ => path = Some(PathBuf::from(arg)),
         }
     }
@@ -2083,6 +2154,9 @@ fn main() -> eframe::Result {
             }
             if filter_dialog_on_start {
                 app.open_filter_dialog();
+            }
+            if chan_info_on_start {
+                app.chan_info = true;
             }
             if let Some(hz) = lowpass_on_start {
                 app.apply_filter_to_selected(smr::FilterSpec {

@@ -25,6 +25,10 @@ Pass a file on the command line, or use `File → Open…` or the toolbar's Open
 the system file picker, filtered to `.smr` and `.smrx`. `File → Open by path…` takes a typed
 path instead.
 
+The menu bar carries Spike2's nine menus. The contents are not yet Spike2's 188 items:
+`docs/gui.md` records the full inventory recovered from `SONVIEW.exe` and lists what is
+missing and in what order it is worth adding.
+
 Keyboard: `F` fits the recording to the window, `+`/`-` change the selected channel's gain,
 `0` resets it, `D` toggles DC remove on the selected channel. Mouse: wheel zooms about the
 pointer, middle-drag pans, dragging near a cursor moves it.
@@ -45,7 +49,9 @@ pointer, middle-drag pans, dragging near a cursor moves it.
   reciprocal in the status bar.
 - Per-channel vertical gain, an automatic amplitude fit, a labelled scale bar, grid and zero
   line.
-- Channel list with visibility toggles and selection.
+- Channel list with visibility toggles and selection, and `View → Channel Information…`, the
+  read-out Spike2 gives for the selected channel: title, comment, kind, units, rate, scale,
+  offset, waveform range and item count.
 - Measurements between the cursors: sample count, mean, RMS, minimum, maximum and
   peak-to-peak per waveform channel, computed on the processed signal.
 - DC remove (a centred boxcar mean subtraction) per channel, off by default: the Analysis
