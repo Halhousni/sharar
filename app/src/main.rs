@@ -1163,10 +1163,38 @@ impl eframe::App for App {
                                 );
                             }
 
-                            // numeric y axis at the left edge of the band
-                            for k in 0..=4 {
-                                let v = hi - (hi - lo) * k as f32 / 4.0;
-                                let yy = band.top() + band.height() * k as f32 / 4.0;
+                            // numeric y axis at the left edge of the band. When zero is
+                            // in range it replaces the nearest tick, so the axis reads
+                            // 0 at the zero line the way Spike2's does.
+                            let zero_y = if lo < 0.0 && hi > 0.0 {
+                                Some(mid - ((0.0 - lo) / (hi - lo) - 0.5) * 2.0 * half)
+                            } else {
+                                None
+                            };
+                            let mut ticks: Vec<(f32, f32)> = (0..=4)
+                                .map(|k| {
+                                    (
+                                        hi - (hi - lo) * k as f32 / 4.0,
+                                        band.top() + band.height() * k as f32 / 4.0,
+                                    )
+                                })
+                                .collect();
+                            if let Some(zy) = zero_y {
+                                let nearest = ticks
+                                    .iter()
+                                    .enumerate()
+                                    .min_by(|a, b| {
+                                        (a.1 .1 - zy)
+                                            .abs()
+                                            .partial_cmp(&(b.1 .1 - zy).abs())
+                                            .unwrap_or(std::cmp::Ordering::Equal)
+                                    })
+                                    .map(|(i, _)| i);
+                                if let Some(i) = nearest {
+                                    ticks[i] = (0.0, zy);
+                                }
+                            }
+                            for (v, yy) in ticks {
                                 painter.line_segment(
                                     [
                                         Pos2::new(band.left(), yy),
@@ -1177,10 +1205,15 @@ impl eframe::App for App {
                                 // Keep the number clear of the tick and inside the band,
                                 // otherwise the tick reads as a minus sign.
                                 let ty = yy.clamp(band.top() + 6.0, band.bottom() - 6.0);
+                                let label = if v.abs() < 1e-9 {
+                                    "0".to_string()
+                                } else {
+                                    format_value(v)
+                                };
                                 painter.text(
                                     Pos2::new(band.left() + 9.0, ty),
                                     Align2::LEFT_CENTER,
-                                    format_value(v),
+                                    label,
                                     FontId::monospace(8.5),
                                     AXIS,
                                 );
