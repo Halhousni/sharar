@@ -179,6 +179,33 @@ So the surface is of the order of several hundred functions, not a few dozen. A
 port that runs the language but stubs the library would run almost nothing real: the
 average Spike2 script is mostly calls.
 
+## The front end that exists
+
+`smr::script` parses the language. The grammar was not written from a manual but
+read off the vendor's own scripts, and the test is that both of them parse:
+`coef.s2s` (the one written during the filter work) and `basedemo.s2s`, the 43 KB
+demonstration Spike2 ships, pulled out of the Windows VM. The demo yields 66
+top-level items — 32 `proc`, 7 `func`, 88 `var`, 7 `const`, 48 `if`, 72 loops.
+
+Each of these was found by the parser failing on it, which is a better teacher than
+syntax anyone would guess:
+
+| what | where it shows |
+|---|---|
+| member access, `View(App(3)).FileName$(1)` | a `.` token, and the `$` suffix carries through the member name |
+| comments from `'` to end of line | the very first line of the demo is one |
+| adjacent string literals concatenating across lines | a message split over four lines with no `+` between the pieces |
+| hexadecimal literals, `0x2010` | a sound flag argument |
+| compound assignment, `list$ += …` | building a string in a loop |
+| dimensions repeated rather than comma-separated, `var m[250][300]` | an FFT results array |
+| array parameters, `proc AddToWaterfall(xyh%, data[], incX%, incY%)` | the waterfall routine |
+| a bare `[]` as an expression | `ArrConst(calcArr[i%][], [])` |
+| `band`/`bor`/`bxor` | `if flags% band 1 then` |
+| `while … wend`, `docase … endcase`, `halt` | confirmed against the keyword strings in `compiler.dll` |
+
+Not present, though an outsider would expect them: `downto`, `div`, `array`,
+`begin`, `dim`, `elseif`, `endwhile`, `exit`.
+
 ## What is not known yet
 
 - the operand encoding: which words follow which opcode;

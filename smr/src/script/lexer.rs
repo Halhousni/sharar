@@ -17,10 +17,14 @@ use std::fmt;
 /// Every one of these appears as a standalone string in `compiler.dll`. Notably
 /// absent: `downto`, `div`, `array`, `begin` and `elseif` — words an outsider
 /// would guess at and the binary does not have.
+/// Everything here was checked word by word against `compiler.dll`'s strings.
+/// Absent, so not keywords however much they look like ones: `downto`, `div`,
+/// `array`, `begin`, `dim`, `elseif`, `endwhile`, `exit`.
 const KEYWORDS: &[&str] = &[
-    "and", "call", "case", "const", "do", "else", "end", "endcase", "endif", "for", "func", "if",
-    "mod", "next", "not", "or", "proc", "repeat", "return", "step", "string", "then", "to",
-    "until", "var", "while", "xor",
+    "and", "band", "bor", "break", "bxor", "call", "case", "const", "continue", "do", "docase",
+    "else", "end", "endcase",
+    "endif", "for", "func", "halt", "if", "mod", "next", "not", "or", "proc", "repeat", "return",
+    "step", "string", "then", "to", "until", "var", "wend", "while", "xor",
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,6 +38,8 @@ pub enum Tok {
     Kw(&'static str),
     /// `:=`
     Assign,
+    /// `+=`, `-=`, `*=`, `/=`
+    OpAssign(&'static str),
     Plus,
     Minus,
     Star,
@@ -167,6 +173,30 @@ pub fn lex(src: &str) -> Result<Vec<Token>, LexError> {
         {
             let start = i;
             let mut is_float = false;
+            // `0x2010` is in the demo script, so hexadecimal is part of the
+            // language even though nothing else suggested it.
+            if c == '0' && i + 1 < chars.len() && (chars[i + 1] == 'x' || chars[i + 1] == 'X') {
+                bump!();
+                bump!();
+                let hstart = i;
+                while i < chars.len() && chars[i].is_ascii_hexdigit() {
+                    bump!();
+                }
+                let hex: String = chars[hstart..i].iter().collect();
+                match i64::from_str_radix(&hex, 16) {
+                    Ok(v) => {
+                        push(Tok::Int(v), &mut out);
+                        continue;
+                    }
+                    Err(_) => {
+                        return Err(LexError {
+                            message: format!("bad hex literal 0x{hex}"),
+                            line: start_line,
+                            col: start_col,
+                        })
+                    }
+                }
+            }
             while i < chars.len() && chars[i].is_ascii_digit() {
                 bump!();
             }
@@ -251,6 +281,10 @@ pub fn lex(src: &str) -> Result<Vec<Token>, LexError> {
         let next = if i + 1 < chars.len() { Some(chars[i + 1]) } else { None };
         let two = match (c, next) {
             (':', Some('=')) => Some(Tok::Assign),
+            ('+', Some('=')) => Some(Tok::OpAssign("+")),
+            ('-', Some('=')) => Some(Tok::OpAssign("-")),
+            ('*', Some('=')) => Some(Tok::OpAssign("*")),
+            ('/', Some('=')) => Some(Tok::OpAssign("/")),
             ('<', Some('>')) => Some(Tok::Ne),
             ('<', Some('=')) => Some(Tok::Le),
             ('>', Some('=')) => Some(Tok::Ge),
