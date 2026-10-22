@@ -26,8 +26,9 @@ the system file picker, filtered to `.smr` and `.smrx`. `File → Open by path�
 path instead.
 
 The menu bar carries Spike2's nine menus. The contents are not yet Spike2's 188 items:
-`docs/gui.md` records the full inventory recovered from `SONVIEW.exe` and lists what is
-missing and in what order it is worth adding.
+`docs/gui.md` records the menu inventory recovered from `SONVIEW.exe` and lists what is
+missing and in what order it is worth adding, and `docs/dialogs.md` does the same for the
+175 dialog templates — including what Spike2's FIR dialog offers that this one does not.
 
 Keyboard: `F` fits the recording to the window, `+`/`-` change the selected channel's gain,
 `0` resets it, `D` toggles DC remove on the selected channel. Mouse: wheel zooms about the

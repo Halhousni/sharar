@@ -103,6 +103,6 @@ Window (fit), Help (keyboard help). Sample and Script are empty.
 5. **Sample** and **Script** — blocked on the 1401 backend and on an `.s2s`
    interpreter respectively; neither is a menu problem.
 
-Dialog templates (`RT_DIALOG`) have not been extracted yet. They would give the
-exact control layout of Process…, Channel Draw Mode… and the rest, which is the
-next piece of the inventory if pixel-level fidelity matters.
+Dialog templates are in `dialogs.md`: 175 of them, with the FIR dialog's 55
+controls laid out and the parameterisation difference it settles. String tables
+are the remaining inventory piece.
