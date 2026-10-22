@@ -139,10 +139,25 @@ The min and max that remain (-0.669 and 0.269) are the truncated first and last
 pixels of the window, which is the same edge effect `dc_remove` and the IIR path
 already have.
 
-Still not done is the band display beside the plot — the second half of Spike2's
-dialog, where bands are dragged rather than typed. That needs `CChangeFilter`'s
-pixel/gain mapping (`FreqToPixel`, `GainToPixel`) and its drag state machine, not
-anything in the designer.
+### The band display
+
+The plot now carries the band boundaries as draggable handles, which is the part
+of Spike2's dialog that turns a parameter form into an editor. Dragging an
+internal edge moves the boundary between two bands, clamped so the neighbours stay
+ordered and non-empty — the same constraint `CChangeFilter` enforces when a corner
+is picked up, minus its drag state machine, which has modes for moving a gap,
+moving a block and holding one side.
+
+Frequency across the plot is linear unless "Log frequency" is ticked, which is
+dialog 129's own switch. The log mapping runs from 1 mHz to Nyquist, using
+`CChangeFilter::FreqToPixel`'s 1e-3 floor in normalised frequency. Both mappings
+are now `freq_to_frac` and `frac_to_freq` in the app, with tests: they invert each
+other across the band, Nyquist lands on the right edge in both, the log one is
+monotonic, and it clamps at its floor instead of running to negative infinity.
+
+What is still not ported is the gain side of the drag: handles move edges, not
+levels, because the gain belongs to a band rather than to its boundary and the
+dialog's own editor treats those as different gestures.
 
 ## X Axis Range, as an example of the scale of a dialog
 

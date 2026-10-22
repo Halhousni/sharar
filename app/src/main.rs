@@ -69,6 +69,29 @@ struct ChanMeta {
     items: u64,
 }
 
+/// Where a frequency sits across the response plot, 0 to 1. Linear is `f/0.5`;
+/// logarithmic runs from 1 mHz to Nyquist, which is `CChangeFilter::FreqToPixel`
+/// with its floor of 1e-3 in normalised frequency.
+fn freq_to_frac(f: f64, log: bool) -> f64 {
+    if log {
+        let lo = 1e-3f64;
+        (f.max(lo).ln() - lo.ln()) / (0.5f64.ln() - lo.ln())
+    } else {
+        f / 0.5
+    }
+}
+
+/// The inverse of `freq_to_frac`, for turning a dragged pointer position back
+/// into a frequency.
+fn frac_to_freq(t: f64, log: bool) -> f64 {
+    if log {
+        let lo = 1e-3f64;
+        (lo.ln() + t * (0.5f64.ln() - lo.ln())).exp()
+    } else {
+        t * 0.5
+    }
+}
+
 /// How a cursor is tagged at the top of the plot, Spike2's Cursor > Label Mode.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CursorLabel {
@@ -146,6 +169,9 @@ struct App {
     /// Why the last preview attempt failed, so the plot can say so instead of
     /// showing an empty box.
     f_err: Option<String>,
+    /// The "Log frequency" switch dialog 129 carries. Sharar's plot is linear
+    /// unless this is ticked.
+    f_log: bool,
     f_kind: smr::FilterKind,
     f_cutoff: f64,
     f_width: f64,
@@ -211,6 +237,7 @@ impl App {
             f_bands: Vec::new(),
             f_taps: 0,
             f_err: None,
+            f_log: false,
             f_kind: smr::FilterKind::LowPass,
             f_cutoff: 150.0,
             f_width: 100.0,
@@ -2480,6 +2507,7 @@ impl eframe::App for App {
                             }
                         });
 
+                    ui.checkbox(&mut self.f_log, "Log frequency");
                     // ── response plot ──────────────────────────────────
                     // Spike2's dialog is a band editor around a response plot;
                     // this is the plot half, drawn from CFIR::FreqR.
@@ -2586,16 +2614,80 @@ impl eframe::App for App {
                                 [egui::pos2(rect.left(), zero), egui::pos2(rect.right(), zero)],
                                 egui::Stroke::new(1.0, Color32::from_gray(200)),
                             );
-                            let mut pts = Vec::with_capacity(200);
-                            for i in 0..=200 {
-                                let f = 0.5 * i as f64 / 200.0;
-                                let x = rect.left() + rect.width() * (i as f32 / 200.0);
-                                pts.push(egui::pos2(x, to_y(d.freq_db(f))));
+                            // Frequency across the plot, linear or logarithmic.
+                            // Spike2's dialog has the same choice, as "Log
+                            // frequency"; it maps through CChangeFilter's
+                            // FreqToPixel.
+                            let x_of = |f: f64| -> f32 {
+                                rect.left()
+                                    + rect.width() * (freq_to_frac(f, self.f_log) as f32).clamp(0.0, 1.0)
+                            };
+                            let f_of = |x: f32| -> f64 {
+                                let t = ((x - rect.left()) / rect.width()).clamp(0.0, 1.0) as f64;
+                                frac_to_freq(t, self.f_log)
+                            };
+                            let mut pts = Vec::with_capacity(220);
+                            for i in 0..=220 {
+                                let f = frac_to_freq(i as f64 / 220.0, self.f_log);
+                                pts.push(egui::pos2(x_of(f), to_y(d.freq_db(f))));
                             }
                             p.add(egui::Shape::line(
                                 pts,
                                 egui::Stroke::new(1.2, Color32::from_rgb(0, 90, 180)),
                             ));
+
+                            // ── band display ─────────────────────────────
+                            // Each internal edge is a handle: dragging it moves
+                            // the boundary between two bands, which is what
+                            // CChangeFilter does when a corner is picked up.
+                            if !self.f_bands.is_empty() {
+                                let mut moved: Option<(usize, f64)> = None;
+                                for k in 1..self.f_bands.len() {
+                                    let f = self.f_bands[k].low;
+                                    let x = x_of(f);
+                                    let grip = egui::Rect::from_center_size(
+                                        egui::pos2(x, rect.center().y),
+                                        egui::vec2(7.0, rect.height()),
+                                    );
+                                    let resp = ui.interact(
+                                        grip,
+                                        egui::Id::new(("bandedge", k)),
+                                        egui::Sense::drag(),
+                                    );
+                                    let col = if resp.hovered() || resp.dragged() {
+                                        Color32::from_rgb(200, 120, 0)
+                                    } else {
+                                        Color32::from_gray(90)
+                                    };
+                                    p.line_segment(
+                                        [egui::pos2(x, rect.top()), egui::pos2(x, rect.bottom())],
+                                        egui::Stroke::new(1.4, col),
+                                    );
+                                    // A grip mark at the bottom so the handle
+                                    // reads as draggable rather than as grid.
+                                    p.rect_filled(
+                                        egui::Rect::from_center_size(
+                                            egui::pos2(x, rect.bottom() - 3.0),
+                                            egui::vec2(7.0, 6.0),
+                                        ),
+                                        1.0,
+                                        col,
+                                    );
+                                    if resp.dragged() {
+                                        if let Some(ptr) = ui.ctx().pointer_interact_pos() {
+                                            moved = Some((k, f_of(ptr.x)));
+                                        }
+                                    }
+                                }
+                                if let Some((k, f)) = moved {
+                                    // Keep both neighbours ordered and non-empty.
+                                    let lo = self.f_bands[k - 1].low + 1e-4;
+                                    let hi = self.f_bands[k].high - 1e-4;
+                                    let f = f.clamp(lo, hi);
+                                    self.f_bands[k].low = f;
+                                    self.f_bands[k - 1].high = f;
+                                }
+                            }
                         }
                     }
                     ui.separator();
@@ -2901,6 +2993,39 @@ fn spike2_style(ctx: &egui::Context) {
     style.spacing.item_spacing = egui::vec2(6.0, 3.0);
     style.spacing.button_padding = egui::vec2(6.0, 2.0);
     ctx.set_style(style);
+}
+
+#[cfg(test)]
+mod axis_tests {
+    use super::{frac_to_freq, freq_to_frac};
+
+    #[test]
+    fn linear_and_log_mappings_are_inverses() {
+        for log in [false, true] {
+            for i in 1..50 {
+                let f = 0.5 * i as f64 / 50.0;
+                let back = frac_to_freq(freq_to_frac(f, log), log);
+                assert!((back - f).abs() < 1e-9, "log={log} f={f} back={back}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_ends_are_the_ends() {
+        // Nyquist sits at the right edge in both mappings.
+        assert!((freq_to_frac(0.5, false) - 1.0).abs() < 1e-12);
+        assert!((freq_to_frac(0.5, true) - 1.0).abs() < 1e-12);
+        assert!(freq_to_frac(0.0, false).abs() < 1e-12);
+        // Log clamps at its 1 mHz floor rather than going to -infinity.
+        assert!(freq_to_frac(0.0, true).abs() < 1e-12);
+        // Monotonic, which is what dragging depends on.
+        let mut prev = -1.0;
+        for i in 0..50 {
+            let t = freq_to_frac(0.5 * (i + 1) as f64 / 50.0, true);
+            assert!(t > prev);
+            prev = t;
+        }
+    }
 }
 
 fn main() -> eframe::Result {
