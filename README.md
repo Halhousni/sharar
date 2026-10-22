@@ -21,12 +21,13 @@ Command-line flags: `--dc` starts with DC remove on, `--filters` opens the filte
 a result computed, `--export` writes the visible window to CSV and reports the path, and
 `--record` opens the live strip chart on its synthetic source.
 
-Pass a file on the command line, or use `File → Open…` (or the toolbar's Open button), which
-shows the system file picker filtered to `.smr` and `.smrx`. `File → Open by path…` takes a
-typed path instead. Keyboard: `F` fits the recording to the
-window, `+`/`-` change the selected channel's gain, `0` resets it, `D` toggles DC remove on
-the selected channel. Mouse: wheel zooms about the pointer, middle-drag pans, dragging near
-a cursor moves it.
+Pass a file on the command line, or use `File → Open…` or the toolbar's Open button. Both show
+the system file picker, filtered to `.smr` and `.smrx`. `File → Open by path…` takes a typed
+path instead.
+
+Keyboard: `F` fits the recording to the window, `+`/`-` change the selected channel's gain,
+`0` resets it, `D` toggles DC remove on the selected channel. Mouse: wheel zooms about the
+pointer, middle-drag pans, dragging near a cursor moves it.
 
 ## What works
 
@@ -76,7 +77,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
 | `.s2s` scripting | none |
 | Writing `.smr` | read-only; CSV export works |
-| `.smrx` (SON64) | waveform and event channels verified against `sonpy`; marker, text-mark, wave-mark and `RealWave` channels are implemented from the layout but not yet checked against a real file |
+| `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
 | Filter design | low/high pass only; no band pass, stop bands, differentiators or scripts |
 
 ## Layout
@@ -96,8 +97,11 @@ The tests check the reader against known values from CED's own example recording
 inventories, sample rates, units, event counts and durations. Those recordings ship on the
 Spike2 CD and are not redistributed here, so those tests skip when they are absent — extract
 `data2.cab` from the CD to `testdata/` to run them fully. The parser is also covered by a
-synthetic fixture that the test helper writes itself, so scaling, block indexing and markers
-are tested on a machine without the CD.
+synthetic `.smr` fixture that the test helper writes itself, so scaling, block indexing and
+markers are tested on a machine without the CD. A second fixture, `smr/tests/synthetic_smrx.rs`,
+does the same for `.smrx`. It covers the index tree, a deleted channel slot, a stale data
+block and truncated files. `tools/smrx_oracle.py` compares the `.smrx` reader with `sonpy` on
+real recordings (see "Notes on the format").
 
 ## Checked against Spike2
 
@@ -111,7 +115,10 @@ libvirt domain in `DOM`, and `LIBVIRT_DEFAULT_URI=qemu:///session`.
 
 ## Notes on the format
 
-Recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO`:
+For `.smr`, recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO`.
+The Pascal-string and reserved-header notes apply only to the 32-bit layout. The `.smrx`
+notes follow in their own section.
+
 
 - Channel titles, comments and units are **Pascal strings** (length byte first), not
   NUL-terminated C strings.
@@ -130,8 +137,10 @@ Recovered by reading the files and cross-checking against `neo.rawio.Spike2RawIO
 
 ### `.smrx` (SON64)
 
-CED does not publish this layout. It was recovered from public recordings and checked
-against `sonpy`, CED's own Python library, on three files (`m365_1sec.smrx` from the
+CED does not publish this layout. The starting point was the public format notes in
+OpenReadout's documentation (`openreadout.github.io/openreadout/formats/ced-spike2.html`),
+which were themselves derived from public files. This reader follows those notes and checks
+them against `sonpy`, CED's own Python library, on three files (`m365_1sec.smrx` from the
 `ephy_testing_data` set and two SSSort validation files from figshare): 70 + 9 + 9 channels,
 every sample and every event time equal. To repeat the check:
 
@@ -149,8 +158,8 @@ python3 tools/smrx_oracle.py recording.smrx
 - Each channel owns a tree of 4 KiB index blocks (first time, child offset) over 64 KiB data
   blocks. A data block whose channel or generation number differs from the channel record
   is left over from a deleted channel and is skipped.
-- Spike2 resamples nothing here: waveform runs are stored as `(first tick, count, samples)`,
-  and each run becomes one block, so a recording with pauses reads the same as in `.smr`.
+- Waveform data blocks hold runs of `(first tick, count, samples)`. Each run becomes one
+  block. A recording with pauses has several runs, but none of the three test files does.
 
 ## Legal
 
