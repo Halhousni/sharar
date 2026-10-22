@@ -170,9 +170,49 @@ Sharar's view has a zoom and a fit. If the axis dialogs are worth matching, this
 is the shape to match; if not, the keyboard and wheel behaviour already covers
 the common case.
 
-## What is not extracted yet
+## String tables
 
-String tables (`RT_STRING`) hold the combo contents — the filter type names, the
-units, the process names — and would let the dialogs be rebuilt with the right
-entries rather than placeholder lists. They are the next artifact if the dialogs
-are to be built properly.
+`tools/string_dump.py` reads `RT_STRING` blocks: 16 strings per block, string `n`
+in block `n // 16 + 1`, each a WORD length and that many UTF-16 code units, with
+zero lengths as holes rather than terminators.
+
+The filter strings are the interesting block, because they say what the dialog's
+table actually is:
+
+```
+41  Low pass
+43  High pass
+48  Band 1 low        49  Band 1 high
+50  Band 2 low        51  Band 2 high
+55  Band 3 low        61  Band 1 low
+```
+
+Ten edge labels for five rows: the dialog is an **edge** table, each row a corner
+with its own frequency and gain, and a band is the pair of corners either side.
+Sharar's table is CFIR's band table, one row per band with a low and a high. The
+two describe the same shape — and the dialog could be relabelled to edges — but
+they are not the same list, which is worth knowing before adding "Band 3 low" to a
+table that has no such row.
+
+The same block carries Spike2's warning texts, which Sharar has not adopted
+because the condition that raises each one lives in `SONVIEW`'s dialog handler
+rather than in `Filters.dll`:
+
+```
+65  WARNING! - Filter spec incompatible with sampling frequency
+66  WARNING! - No data available
+67  WARNING! - Large wobbles in stop band
+71  The filtered data spanned a greater range than the input ...
+72  The filter is unstable (output is greater than input) ...
+74  This filter has lost precision due to pole positions too near the unit circle
+```
+
+Adopted, because the condition and the wording are both unambiguous:
+
+```
+340  Change the x scale so all cursors are visible      -> Cursor > Display All
+346  Create a window showing the values at the cursors  -> Cursor > Cursor Y values
+```
+
+Cursor > Display Y Values is now "Cursor Y values", which is the original's name
+for it, with the original's help text on hover.

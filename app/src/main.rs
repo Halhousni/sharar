@@ -1274,7 +1274,13 @@ impl eframe::App for App {
                 ui.menu_button("Cursor", |ui| {
                     // Spike2's Cursor menu is the largest in the program; these
                     // are the entries that act on the two cursors this view has.
-                    if ui.button("Display All").clicked() {
+                    // The tooltip texts are Spike2's own, from its string table
+                    // (ids 340 and 346), so the wording is the original's.
+                    if ui
+                        .button("Display All")
+                        .on_hover_text("Change the x scale so all cursors are visible")
+                        .clicked()
+                    {
                         self.cursors = [self.t_start, self.t_end];
                     }
                     ui.menu_button("Label Mode", |ui| {
@@ -1287,7 +1293,8 @@ impl eframe::App for App {
                             ui.selectable_value(&mut self.cursor_label, m, name);
                         }
                     });
-                    ui.checkbox(&mut self.show_y, "Display Y Values");
+                    ui.checkbox(&mut self.show_y, "Cursor Y values")
+                        .on_hover_text("Create a window showing the values at the cursors");
                     ui.menu_button("Move to", |ui| {
                         let mid = (self.t_start + self.t_end) * 0.5;
                         for (name, t) in [
