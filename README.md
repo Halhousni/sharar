@@ -90,23 +90,16 @@ inventories, sample rates, units, event counts and durations. Those recordings s
 Spike2 CD and are not redistributed here, so the tests skip when they are absent — extract
 `data2.cab` from the CD to `testdata/` to run them fully.
 
-## Reference: the real Spike2 in a VM
+## Checked against the real program
 
-The CD's example recordings and Spike2 itself run in a Windows 10 VM on this machine, and
-`tools/vm.sh` drives it over libvirt without taking over the Linux desktop:
-
-```sh
-tools/vm.sh shot out.png        # screenshot the guest display
-tools/vm.sh key KEY_ESCAPE      # send keystrokes (Linux key names)
-tools/vm.sh type "text"         # type into the focused field
-tools/vm.sh exec "dir C:\"     # run a command via the QEMU guest agent
-tools/vm.sh ps "Get-Process"    # run PowerShell via the guest agent
-```
-
-It needs `LIBVIRT_DEFAULT_URI=qemu:///session` and a guest agent, and it is how the layout
-below was checked against the program rather than against the manual alone: Spike2's data
+The layout below was checked against Spike2 itself rather than the manual alone: its data
 window carries a numeric y-axis per channel and a status bar reading `cursor, time, value`,
 and its menus are File, Edit, View, Analysis, Cursor, Sample, Script, Window, Help.
+
+`tools/vm.sh` is the harness used for that, driving a Windows guest over libvirt and the
+QEMU guest agent. It is a development aid, not part of the build, and it expects a guest of
+your own with Spike2 installed. Set `DOM` to the libvirt domain name and
+`LIBVIRT_DEFAULT_URI=qemu:///session`.
 
 ## Notes on the format
 

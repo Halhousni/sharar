@@ -5,7 +5,7 @@
 #   ./vm.sh exec "command"      run a command in the guest and print its output
 set -u
 export LIBVIRT_DEFAULT_URI=qemu:///session
-DOM=win10
+DOM=${DOM:-win10}
 
 case "${1:-}" in
   shot)

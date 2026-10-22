@@ -2,7 +2,7 @@ var coef[2047], i%, j%, n%, cut[3], wid[3], att[3], f%;
 cut[0] := 0.10; wid[0] := 0.05; att[0] := 50;
 cut[1] := 0.10; wid[1] := 0.05; att[1] := 80;
 cut[2] := 0.20; wid[2] := 0.02; att[2] := 50;
-f% := FileOpen("C:\\Users\\user\\Documents\\Spike8\\coef.txt", 8);
+f% := FileOpen("coef.txt", 8);
 View(f%);
 for i% := 0 to 2 do
     n% := FIRQuick(coef[], 0, cut[i%], wid[i%], att[i%]);
