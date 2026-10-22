@@ -69,6 +69,64 @@ struct ChanMeta {
     items: u64,
 }
 
+/// One entry in a channel's process chain, in the order Analysis > Process…
+/// applies them. Spike2's own chain is the same idea: a named list of
+/// operations a channel runs through before it is drawn.
+#[derive(Clone, PartialEq)]
+enum Process {
+    /// A running-mean DC removal over a window of samples.
+    DcRemove(usize),
+    /// A filter described by parameters, resolved when the data is read.
+    Fir(smr::FilterSpec),
+    /// A finished coefficient set, from the filter dialog's band table.
+    Coeffs(Vec<f64>),
+}
+
+impl Process {
+    fn label(&self) -> String {
+        match self {
+            Process::DcRemove(n) => format!("DC remove, {n} samples"),
+            Process::Fir(s) => format!(
+                "{} {:.2} Hz, width {:.2} Hz, {:.0} dB{}",
+                s.kind.label(),
+                s.cutoff,
+                s.width,
+                s.atten,
+                if s.iir { ", IIR" } else { "" }
+            ),
+            Process::Coeffs(c) => format!("band table design, {} taps", c.len()),
+        }
+    }
+
+    /// Run this process over a channel's samples.
+    fn apply(&self, data: &mut [f32], rate: f64) {
+        match self {
+            Process::DcRemove(n) => {
+                if *n > 1 {
+                    smr::dc_remove(data, *n)
+                }
+            }
+            Process::Fir(s) => smr::apply_filter(data, s, rate),
+            Process::Coeffs(coef) => {
+                let mut wide: Vec<f64> = data.iter().map(|v| *v as f64).collect();
+                smr::arr_fir(&mut wide, coef);
+                for (d, w) in data.iter_mut().zip(wide.iter()) {
+                    *d = *w as f32;
+                }
+            }
+        }
+    }
+
+    /// Bumped into the cache key so a chain edit invalidates cached envelopes.
+    fn tag(&self) -> u64 {
+        match self {
+            Process::DcRemove(n) => *n as u64,
+            Process::Fir(s) => s.tag(),
+            Process::Coeffs(c) => c.len() as u64 ^ c.first().map(|v| v.to_bits()).unwrap_or(0),
+        }
+    }
+}
+
 /// Where a frequency sits across the response plot, 0 to 1. Linear is `f/0.5`;
 /// logarithmic runs from 1 mHz to Nyquist, which is `CChangeFilter::FreqToPixel`
 /// with its floor of 1e-3 in normalised frequency.
@@ -121,10 +179,13 @@ struct App {
     /// `None` means the automatic fit, which is the default.
     y_range: Vec<Option<(f32, f32)>>,
     yaxis_dialog: bool,
-    /// A designed coefficient set per channel, from the filter dialog's band
-    /// table. Separate from `filters` because a band table is a design, not a
-    /// `FilterSpec`.
-    fir_coef: Vec<Option<Vec<f64>>>,
+    /// The process chain per channel, applied in order before drawing.
+    processes: Vec<Vec<Process>>,
+    /// The chain count at the time the Measurements were computed, so an edit
+    /// to any chain invalidates them.
+    chain_tag: u64,
+    /// Analysis > Process… dialog.
+    process_dialog: bool,
     /// View > Show/Hide Channel….
     showhide_dialog: bool,
     /// File > Recent Files, newest first, persisted under the config directory.
@@ -153,8 +214,6 @@ struct App {
     readouts: Vec<Option<(f32, f32)>>,
     /// DC-remove window in samples per channel; 0 means the process is off.
     dc_window: Vec<usize>,
-    /// Digital filter per channel, applied after DC remove.
-    filters: Vec<Option<smr::FilterSpec>>,
     filter_dialog: bool,
     /// View > Channel Information…, Spike2's read-out for the selected channel.
     chan_info: bool,
@@ -209,7 +268,9 @@ impl App {
             visible: Vec::new(),
             gain: Vec::new(),
             y_range: Vec::new(),
-            fir_coef: Vec::new(),
+            processes: Vec::new(),
+            chain_tag: 0,
+            process_dialog: false,
             yaxis_dialog: false,
             showhide_dialog: false,
             recent: Vec::new(),
@@ -230,7 +291,6 @@ impl App {
             caches: Vec::new(),
             readouts: Vec::new(),
             dc_window: Vec::new(),
-            filters: Vec::new(),
             filter_dialog: false,
             chan_info: false,
             f_preview: None,
@@ -319,13 +379,13 @@ impl App {
                 self.visible = vec![true; n];
                 self.gain = vec![1.0; n];
                 self.y_range = vec![None; n];
-                self.fir_coef = vec![None; n];
+                self.processes = vec![Vec::new(); n];
                 self.caches = (0..n).map(|_| None).collect();
                 self.readouts = vec![None; n];
                 self.stats = vec![None; n];
                 self.stats_key = None;
                 self.dc_window = vec![0; n];
-                self.filters = vec![None; n];
+                self.processes = vec![Vec::new(); n];
                 // A corner an eighth of the fastest rate, with a transition a fifth of
                 // that, which is the scale FIRQuick's own defaults sit at.
                 let fastest = f.channels.iter().map(|c| c.sample_rate()).fold(0.0, f64::max);
@@ -428,21 +488,15 @@ impl App {
             if dc > 1 {
                 smr::dc_remove(&mut data, dc);
             }
-            if let Some(spec) = self.filters.get(i).copied().flatten() {
+            // The channel's whole chain, in the order the user set it.
+            if let Some(chain) = self.processes.get(i) {
                 let rate = self
                     .son
                     .as_ref()
                     .and_then(|s| s.channels.get(i).map(|c| c.sample_rate()))
                     .unwrap_or(0.0);
-                smr::apply_filter(&mut data, &spec, rate);
-            }
-            // A band table's design, applied with the same convolution CED uses
-            // for its own coefficient arrays.
-            if let Some(Some(coef)) = self.fir_coef.get(i) {
-                let mut wide: Vec<f64> = data.iter().map(|v| *v as f64).collect();
-                smr::arr_fir(&mut wide, coef);
-                for (d, w) in data.iter_mut().zip(wide.iter()) {
-                    *d = *w as f32;
+                for step in chain {
+                    step.apply(&mut data, rate);
                 }
             }
 
@@ -532,14 +586,15 @@ impl App {
         }
     }
 
-    /// Apply a filter to the selected channel (used by the launch flag).
+    /// Append a step to the selected channel's chain (used by the launch flag).
     fn apply_filter_to_selected(&mut self, spec: smr::FilterSpec) {
         if let Some(i) = self.selected {
-            if let Some(f) = self.filters.get_mut(i) {
-                *f = Some(spec);
+            if let Some(chain) = self.processes.get_mut(i) {
+                chain.push(Process::Fir(spec));
             }
             self.caches[i] = None;
             self.stats_key = None;
+            self.chain_tag = self.chain_tag.wrapping_add(1);
         }
     }
 
@@ -672,11 +727,11 @@ impl App {
                 self.son = Some(f);
                 self.caches = (0..n).map(|_| None).collect();
                 self.readouts = vec![None; n];
-                self.filters = vec![None; n];
+                self.processes = vec![Vec::new(); n];
                 self.stats = vec![None; n];
                 self.stats_key = None;
                 self.y_range = vec![None; n];
-                self.fir_coef = vec![None; n];
+                self.processes = vec![Vec::new(); n];
                 self.gain = vec![1.0; n];
                 self.selected = sel.filter(|s| *s < n);
                 self.t_start = a;
@@ -800,8 +855,14 @@ impl App {
         }
 
         let dc = self.dc_window.get(channel).copied().unwrap_or(0);
-        let filter = self.filters.get(channel).copied().flatten();
-        let filter_tag = filter.map(|f| f.tag()).unwrap_or(0);
+        let chain: Vec<Process> = self
+            .processes
+            .get(channel)
+            .cloned()
+            .unwrap_or_default();
+        let filter_tag = chain
+            .iter()
+            .fold(0u64, |a, p| a.wrapping_mul(31).wrapping_add(p.tag()));
         let hit = self.caches[channel]
             .as_ref()
             .map(|c| {
@@ -826,19 +887,14 @@ impl App {
             // few pixels of a processed trace can differ slightly from Spike2's.
             smr::dc_remove(&mut data, dc);
         }
-        if let Some(spec) = filter {
+        if !chain.is_empty() {
             let rate = son
                 .channels
                 .get(channel)
                 .map(|c| c.sample_rate())
                 .unwrap_or(0.0);
-            smr::apply_filter(&mut data, &spec, rate);
-        }
-        if let Some(Some(coef)) = self.fir_coef.get(channel) {
-            let mut wide: Vec<f64> = data.iter().map(|v| *v as f64).collect();
-            smr::arr_fir(&mut wide, coef);
-            for (d, w) in data.iter_mut().zip(wide.iter()) {
-                *d = *w as f32;
+            for step in &chain {
+                step.apply(&mut data, rate);
             }
         }
 
@@ -1065,6 +1121,13 @@ impl eframe::App for App {
                     }
                 });
                 ui.menu_button("Analysis", |ui| {
+                    if ui
+                        .add_enabled(self.selected.is_some(), egui::Button::new("Process…"))
+                        .clicked()
+                    {
+                        self.process_dialog = true;
+                    }
+                    ui.separator();
                     ui.checkbox(&mut self.show_measure, "Show measurements");
                     ui.separator();
                     if let Some(i) = self.selected {
@@ -1243,16 +1306,11 @@ impl eframe::App for App {
                         ui.separator();
                         ui.label(format!("DC remove {w} samples"));
                     }
-                    if let Some(spec) = self.filters.get(i).copied().flatten() {
+                    if let Some(chain) = self.processes.get(i).filter(|c| !c.is_empty()) {
                         ui.separator();
-                        ui.label(format!(
-                            "{} {:.0} Hz {}",
-                            match spec.kind {
-                                other => other.label(),
-                            },
-                            spec.cutoff,
-                            if spec.iir { "IIR" } else { "FIR" }
-                        ));
+                        for step in chain {
+                            ui.label(egui::RichText::new(step.label()).small());
+                        }
                     }
                 }
             });
@@ -2095,6 +2153,95 @@ impl eframe::App for App {
             );
         });
 
+        // ── process chain ───────────────────────────────────────────────────
+        // Spike2's Analysis > Process… is one template per channel and source;
+        // this is the chain itself, in the order the data runs through it.
+        if self.process_dialog {
+            let mut open = self.process_dialog;
+            egui::Window::new("Process")
+                .collapsible(false)
+                .resizable(true)
+                .default_width(420.0)
+                .open(&mut open)
+                .show(ctx, |ui| {
+                    let Some(ci) = self.selected else {
+                        ui.label("Select a channel.");
+                        return;
+                    };
+                    let name = self
+                        .son
+                        .as_ref()
+                        .and_then(|s| s.channels.get(ci).map(|c| c.title.clone()))
+                        .unwrap_or_default();
+                    ui.label(egui::RichText::new(name).strong());
+                    ui.separator();
+                    let mut chain = self.processes.get(ci).cloned().unwrap_or_default();
+                    if chain.is_empty() {
+                        ui.label(egui::RichText::new("no processes").weak());
+                    }
+                    let mut changed = false;
+                    let mut move_from: Option<(usize, isize)> = None;
+                    for (k, step) in chain.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.label(format!("{}.", k + 1));
+                            ui.label(step.label());
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if ui.small_button("x").clicked() {
+                                        move_from = Some((k, isize::MIN));
+                                    }
+                                    if ui.small_button("v").clicked() && k + 1 < chain.len() {
+                                        move_from = Some((k, 1));
+                                    }
+                                    if ui.small_button("^").clicked() && k > 0 {
+                                        move_from = Some((k, -1));
+                                    }
+                                },
+                            );
+                        });
+                    }
+                    if let Some((k, dir)) = move_from {
+                        changed = true;
+                        if dir == isize::MIN {
+                            chain.remove(k);
+                        } else {
+                            let j = (k as isize + dir) as usize;
+                            chain.swap(k, j);
+                        }
+                    }
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("Add DC remove").clicked() {
+                            let w = self.dc_window.get(ci).copied().unwrap_or(0);
+                            chain.push(Process::DcRemove(if w > 1 { w } else { 101 }));
+                            changed = true;
+                        }
+                        if ui.button("Add filter…").clicked() {
+                            self.filter_dialog = true;
+                        }
+                        if ui.button("Clear").clicked() {
+                            chain.clear();
+                            changed = true;
+                        }
+                        if ui.button("Close").clicked() {
+                            self.process_dialog = false;
+                        }
+                    });
+                    if changed {
+                        if let Some(slot) = self.processes.get_mut(ci) {
+                            *slot = chain;
+                        }
+                        self.caches[ci] = None;
+                        self.stats_key = None;
+                        self.chain_tag = self.chain_tag.wrapping_add(1);
+                    }
+                });
+            if !open {
+                self.process_dialog = false;
+            }
+        }
+
         // ── X axis range ────────────────────────────────────────────────────
         // Spike2's dialog 1800 is 23 controls; these are the ones this view can
         // honour: left, right, width, and an explicit tick spacing. Its
@@ -2741,51 +2888,40 @@ impl eframe::App for App {
                         // coefficients, which are applied directly.
                         let bands_set = !self.f_bands.is_empty();
                         if ui.button("Apply to selected channel").clicked() {
-                            if bands_set {
-                                if let (Some(i), Some((_, d))) =
-                                    (self.selected, self.f_preview.as_ref())
-                                {
-                                    let coef = d.coeffs.clone();
-                                    if let Some(slot) = self.fir_coef.get_mut(i) {
-                                        *slot = Some(coef);
-                                    }
-                                    // One at a time: a spec would filter again
-                                    // on top of the design.
-                                    if let Some(spec) = self.filters.get_mut(i) {
-                                        *spec = None;
-                                    }
-                                    self.caches[i] = None;
-                                    self.stats_key = None;
-                                    self.status = "applied a band table design".to_string();
-                                }
-                            } else if let Some(i) = self.selected {
-                                if let Some(slot) = self.fir_coef.get_mut(i) {
-                                    *slot = None;
-                                }
-                                let spec = smr::FilterSpec {
+                            let step = if bands_set {
+                                self.f_preview
+                                    .as_ref()
+                                    .map(|(_, d)| Process::Coeffs(d.coeffs.clone()))
+                            } else {
+                                Some(Process::Fir(smr::FilterSpec {
                                     kind: self.f_kind,
                                     cutoff: self.f_cutoff,
                                     width: self.f_width,
                                     atten: self.f_atten,
                                     iir: self.f_iir,
-                                };
-                                if let Some(f) = self.filters.get_mut(i) {
-                                    *f = Some(spec);
+                                }))
+                            };
+                            if let (Some(i), Some(step)) = (self.selected, step) {
+                                if let Some(chain) = self.processes.get_mut(i) {
+                                    // Applied steps accumulate, which is what
+                                    // Analysis > Process… is for; the dialog
+                                    // shows the chain in the channel list.
+                                    chain.push(step);
                                 }
                                 self.caches[i] = None;
                                 self.stats_key = None;
+                                self.chain_tag = self.chain_tag.wrapping_add(1);
+                                self.status = "added a step to the process chain".to_string();
                             }
                         }
-                        if ui.button("Remove").clicked() {
+                        if ui.button("Remove last").clicked() {
                             if let Some(i) = self.selected {
-                                if let Some(f) = self.filters.get_mut(i) {
-                                    *f = None;
-                                }
-                                if let Some(c) = self.fir_coef.get_mut(i) {
-                                    *c = None;
+                                if let Some(chain) = self.processes.get_mut(i) {
+                                    chain.pop();
                                 }
                                 self.caches[i] = None;
                                 self.stats_key = None;
+                                self.chain_tag = self.chain_tag.wrapping_add(1);
                             }
                         }
                     });
@@ -3088,6 +3224,8 @@ fn main() -> eframe::Result {
     let mut bands_notch = false;
     let mut bands_kill = false;
     let mut bands_apply = false;
+    let mut process_on_start = false;
+    let mut process_chain = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
@@ -3112,6 +3250,9 @@ fn main() -> eframe::Result {
             // 12.5 Hz sine wave lives in: applying it should flatten the trace.
             "--bands=kill" => bands_kill = true,
             "--bands-apply" => bands_apply = true,
+            "--process" => process_on_start = true,
+            // Two steps in the chain, to show that they compose in order.
+            "--process-chain" => process_chain = true,
             // --yrange=<lo>,<hi> pins the first channel's Y range at startup.
             other if other.starts_with("--yrange=") => {
                 let v = &other["--yrange=".len()..];
@@ -3178,6 +3319,26 @@ fn main() -> eframe::Result {
                 println!("{}", app.copy_measurements());
                 std::process::exit(0);
             }
+            if process_chain {
+                let rate = 100.0;
+                if let Some(chain) = app.processes.get_mut(0) {
+                    chain.push(Process::DcRemove(101));
+                    chain.push(Process::Fir(smr::FilterSpec {
+                        kind: smr::FilterKind::LowPass,
+                        cutoff: 20.0,
+                        width: 5.0,
+                        atten: 50.0,
+                        iir: false,
+                    }));
+                }
+                app.selected = Some(0);
+                app.chain_tag = app.chain_tag.wrapping_add(1);
+                app.status = format!("chain: two steps at {rate} Hz");
+            }
+            if process_on_start {
+                app.selected = Some(0);
+                app.process_dialog = true;
+            }
             if bands_kill {
                 app.f_bands = vec![
                     smr::Band::new(0.0, 0.20, 0.0, 10.0),
@@ -3188,8 +3349,8 @@ fn main() -> eframe::Result {
             if bands_apply && !app.f_bands.is_empty() {
                 let n = app.f_taps.max(103);
                 if let Ok(d) = smr::design(n, smr::DesignType::LowPass, &app.f_bands, 16, true) {
-                    if let Some(slot) = app.fir_coef.get_mut(0) {
-                        *slot = Some(d.coeffs.clone());
+                    if let Some(chain) = app.processes.get_mut(0) {
+                        chain.push(Process::Coeffs(d.coeffs.clone()));
                     }
                     app.status = format!("applied band table design ({} taps)", d.coeffs.len());
                 }

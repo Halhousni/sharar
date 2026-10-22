@@ -84,10 +84,28 @@ configure once and apply) from the individual filter dialogs, which is why
 
 File (Open, Open by path, Close, Revert to Saved, Recent Files, Export CSV,
 Quit), Edit (Copy, Copy for Spreadsheet, three selection helpers), View (fit, zoom in/out, Channel Information, X Axis Range, Y Axis
-Range, Show/Hide Channel), Analysis
-(digital filters, average), Cursor (Display All, Label Mode, Display Y Values,
+Range, Show/Hide Channel), Analysis (Process…, digital filters, average), Cursor (Display All, Label Mode, Display Y Values,
 Move to, Search Left/Right), Window (fit), Help (keyboard help). Sample and
 Script are empty.
+
+### Process, and why it came before more analysis dialogs
+
+Analysis > Process… lists the chain a channel runs through, in order, with each
+step's parameters shown and buttons to move, drop or add one. This is a data-model
+change rather than a dialog over existing state: a channel used to carry a single
+`FilterSpec` or a single coefficient set, and it now carries a `Vec<Process>`
+whose variants are a DC remove, a filter described by parameters, and a finished
+coefficient set from the filter dialog's band table.
+
+That order is the point. Spike2's Process template is one dialog per channel and
+source, and its Analysis menu builds on a named pipeline rather than on
+single-purpose dialogs; adding more analysis dialogs first would have meant
+reworking each one afterwards. The filter dialog now appends a step instead of
+overwriting one, and the channel list shows the chain under each channel.
+
+Checked on the demo file with a two-step chain, DC remove then a 20 Hz low pass:
+the Measurements panel's mean goes from 1.395 V to 0.0012 V and its RMS from
+1.982 V to 1.231 V, and the status bar lists both steps.
 
 Two notes on the recent list and the clipboard: the list lives in
 `~/.config/sharar/recent`, one path per line, newest first, bounded to eight and
