@@ -60,18 +60,103 @@ how the tokeniser spells them in prompts rather than a sign of two sets.
 ## The instruction set
 
 `CScriptMgr::Disassemble` (0x404c0) walks the compiled program one instruction at a
-time through a formatter at **0x48c70**, which takes an instruction index and
-writes one line of text, returning the next index or `0xffffffff` at the end. That
-formatter is where the opcode names live, and it is the next artifact: decompiling
-it gives the full instruction set with its numbering, and after that the compiler's
-emission sites give each instruction's operands.
+time through a formatter at **0x48c70**, which takes an instruction index and writes
+one line of text, returning the next index or `0xffffffff` at the end. That
+formatter is where the opcode names come from: it dispatches through a jump table
+rather than a `switch`, so the numbering had to be read from the disassembly.
 
-It is a jump table rather than a `switch` in the decompilation, so the opcode
-dispatch has to be read from the disassembly rather than from the C.
+Recovered. `Disassemble` asks a small lookup at **0x48320** for each instruction's
+name, and that function gives the whole table away: opcodes 0 to 0x14 are formatted
+from the string `const=%d` — inline constant references — opcodes 0x15 to 0x79 come
+from a pointer array at **0x8a9e0**, indexed by `opcode - 0x14`, and anything above
+0x79 is `NotPerm`. `tools/opcode_table.py` reads that array out of the file, so the
+list below is regenerable rather than transcribed.
+
+So the opcode is a **WORD**, 0 to 121, and the operands follow it as further words:
+`Disassemble` loads `movzwl (program, ip, 2)` for the opcode and then walks a
+per-opcode operand list.
+
+The names, verbatim:
+
+| opcode | mnemonic | opcode | mnemonic |
+|---|---|---|---|
+| 20 | `Const` | 21 | `Int:=` |
+| 22 | `Flt:=` | 23 | `Int+` |
+| 24 | `Int-` | 25 | `Int*` |
+| 26 | `Int/` | 27 | `IntMod` |
+| 28 | `Float+` | 29 | `Float-` |
+| 30 | `Float*` | 31 | `Float/` |
+| 32 | `FloatMod` | 33 | `InitInt` |
+| 34 | `InitFloat` | 35 | `PopFor` |
+| 36 | `CallAsProc` | 37 | `Call` |
+| 38 | `IntProc` | 39 | `FloatProc` |
+| 40 | `StringProc` | 41 | `Return` |
+| 42 | `End` | 43 | `ReturnVar` |
+| 44 | `GetArg` | 45 | `GetLocal` |
+| 46 | `NullOp` | 47 | `Arg1` |
+| 48 | `Arg2` | 49 | `Arg3` |
+| 50 | `Arg4` | 51 | `Arg5` |
+| 52 | `Local1` | 53 | `Local2` |
+| 54 | `Local3` | 55 | `Local4` |
+| 56 | `Local5` | 57 | `StringAssign` |
+| 58 | `StringAdd` | 59 | `InitString` |
+| 60 | `JumpRelImm` | 61 | `JumpRelImmF` |
+| 62 | `Int+=` | 63 | `Int-=` |
+| 64 | `Int*=` | 65 | `Int/=` |
+| 66 | `Flt+=` | 67 | `Flt-=` |
+| 68 | `Flt*=` | 69 | `Flt/=` |
+| 70 | `String+=` | 71 | `IntEquals` |
+| 72 | `IntNotEq` | 73 | `IntGreat` |
+| 74 | `IntGtOrEq` | 75 | `IntLess` |
+| 76 | `IntLessOrEq` | 77 | `FltEquals` |
+| 78 | `FltNotEq` | 79 | `FltGreat` |
+| 80 | `FltGtOrEq` | 81 | `FltLess` |
+| 82 | `FltLessOrEq` | 83 | `Str=` |
+| 84 | `Str<>` | 85 | `Str>` |
+| 86 | `Str>=` | 87 | `Str<` |
+| 88 | `Str<=` | 89 | `IntUMinus` |
+| 90 | `IntUNot` | 91 | `FltUMinus` |
+| 92 | `FltUNot` | 93 | `VoidProc` |
+| 94 | `MakeIntFor` | 95 | `MakeFltFor` |
+| 96 | `Next` | 97 | `LogAND` |
+| 98 | `LogOR` | 99 | `LogXor` |
+| 100 | `BitAND` | 101 | `BitOR` |
+| 102 | `BitXor` | 103 | `FltLogAND` |
+| 104 | `FltLogOR` | 105 | `FltLogXor` |
+| 106 | `ResizeLocArr` | 107 | `ArrIndex` |
+| 108 | `Arr2Index` | 109 | `Arr3Index` |
+| 110 | `Arr4Index` | 111 | `Arr5Index` |
+| 112 | `MakeNDArr` | 113 | `ResizeArray` |
+| 114 | `CurView` | 115 | `GetSetView` |
+| 116 | `SetView` | 117 | `GetView` |
+| 118 | `SetViewSwap` | 119 | `MatTrans` |
+| 120 | `MatDiag` | 121 | `Halt` |
+
+Three things the names say about the language without reading the compiler:
+
+- Arithmetic is typed. `Int+` and `Float+` are separate opcodes, as are `Int:=` and
+  `Flt:=`, and so is comparison — eight of them for ints and floats, six more for
+  strings. The compiler resolves types at compile time rather than tagging values
+  at run time.
+- `GetArg`/`Arg1`..`Arg5` and `GetLocal`/`Local1`..`Local5` are separate opcodes.
+  The first five arguments and the first five locals get their own instructions
+  rather than an index operand, which is a size decision a compiler makes when the
+  common case is small.
+- Arrays are their own opcode family: `ArrIndex` through `Arr5Index`,
+  `MakeNDArr`, `ResizeArray`, `ResizeLocArr`, plus `MatTrans` and `MatDiag` for
+  matrices. This is a language with real n-dimensional arrays, not a scripting
+  veneer over lists.
+
+`JumpRelImm` and `JumpRelImmF` are the two branches — one plain, one flagged, the
+pair a `for`/`while` needs to know whether a loop is being entered or re-entered.
+`PopFor`, `MakeIntFor`, `MakeFltFor` and `Next` are the loop setup and step, and
+`CurView`, `GetView`, `SetView`, `SetViewSwap` and `GetSetView` are the script's
+grip on the data windows — which is where a port would have to meet the rest of
+Sharar rather than the interpreter.
 
 ## What is not known yet
 
-- the instruction set and its encoding (the formatter above);
+- the operand encoding: which words follow which opcode;
 - the built-in function table — Spike2 ships hundreds of functions and they are
   registered rather than compiled in, so the table is the place to look;
 - how `runtime.s2l`'s command objects are bound to script names;
