@@ -82,12 +82,20 @@ configure once and apply) from the individual filter dialogs, which is why
 
 ## What Sharar has now
 
-File (Open, Open by path, Close, Export CSV, Quit), Edit (three selection
-helpers), View (fit, zoom in/out, Channel Information, X Axis Range, Y Axis
+File (Open, Open by path, Close, Revert to Saved, Recent Files, Export CSV,
+Quit), Edit (Copy, Copy for Spreadsheet, three selection helpers), View (fit, zoom in/out, Channel Information, X Axis Range, Y Axis
 Range, Show/Hide Channel), Analysis
 (digital filters, average), Cursor (Display All, Label Mode, Display Y Values,
 Move to, Search Left/Right), Window (fit), Help (keyboard help). Sample and
 Script are empty.
+
+Two notes on the recent list and the clipboard: the list lives in
+`~/.config/sharar/recent`, one path per line, newest first, bounded to eight and
+deduplicated on open — Spike2 behaves the same way. Edit > Copy puts the cursor
+and measurement read-out on the clipboard as tab separated text and Copy for
+Spreadsheet does the same for the visible window of the selected channel;
+`--copy-dump` prints the first of those and exits, which is both how it is tested
+and how it can be used from a script.
 
 Two notes on where things sit. Cursor placement used to appear in both the View
 and Cursor menus; it now belongs to Cursor only, which is where Spike2 keeps it.

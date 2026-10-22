@@ -100,6 +100,8 @@ struct App {
     yaxis_dialog: bool,
     /// View > Show/Hide Channel….
     showhide_dialog: bool,
+    /// File > Recent Files, newest first, persisted under the config directory.
+    recent: Vec<PathBuf>,
     /// Working values for the Y Axis Range dialog.
     y_min: f32,
     y_max: f32,
@@ -171,6 +173,7 @@ impl App {
             y_range: Vec::new(),
             yaxis_dialog: false,
             showhide_dialog: false,
+            recent: Vec::new(),
             y_min: -1.0,
             y_max: 1.0,
             selected: None,
@@ -215,6 +218,9 @@ impl App {
             picker: None,
         };
         if let Some(p) = path {
+            // The recent list is read before the file is opened so the file
+            // being opened lands at the top of it.
+            app.load_recent();
             app.load(&p);
         }
         app
@@ -264,6 +270,7 @@ impl App {
     fn load(&mut self, path: &Path) {
         match SonFile::open(path) {
             Ok(f) => {
+                self.note_recent(path);
                 let duration = f.duration().max(0.001);
                 let n = f.channels.len();
                 self.visible = vec![true; n];
@@ -557,6 +564,123 @@ impl App {
     }
 
     /// Write the selected channel over the visible window as `time,value` rows.
+    /// The config file holding the recent list, `~/.config/sharar/recent`.
+    fn recent_path() -> Option<PathBuf> {
+        let base = std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
+        Some(base.join("sharar").join("recent"))
+    }
+
+    fn load_recent(&mut self) {
+        let Some(p) = Self::recent_path() else { return };
+        if let Ok(text) = std::fs::read_to_string(p) {
+            self.recent = text
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty())
+                .map(PathBuf::from)
+                .take(8)
+                .collect();
+        }
+    }
+
+    fn save_recent(&self) {
+        let Some(p) = Self::recent_path() else { return };
+        if let Some(dir) = p.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let text = self
+            .recent
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let _ = std::fs::write(p, text);
+    }
+
+    /// Move `path` to the front of the recent list, drop duplicates and bound
+    /// the length. Spike2's recent list behaves the same way.
+    fn note_recent(&mut self, path: &Path) {
+        let p = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        self.recent.retain(|r| r != &p);
+        self.recent.insert(0, p);
+        self.recent.truncate(8);
+        self.save_recent();
+    }
+
+    /// File > Revert: reopen from disk, keeping the view where it was.
+    fn revert(&mut self) {
+        let Some(path) = self.son.as_ref().map(|s| s.path.clone()) else { return };
+        let (a, b, sel) = (self.t_start, self.t_end, self.selected);
+        match SonFile::open(&path) {
+            Ok(f) => {
+                let n = f.channels.len();
+                self.son = Some(f);
+                self.caches = (0..n).map(|_| None).collect();
+                self.readouts = vec![None; n];
+                self.filters = vec![None; n];
+                self.stats = vec![None; n];
+                self.stats_key = None;
+                self.y_range = vec![None; n];
+                self.gain = vec![1.0; n];
+                self.selected = sel.filter(|s| *s < n);
+                self.t_start = a;
+                self.t_end = b;
+                self.clamp_view();
+                self.status = format!("reverted {}", path.display());
+            }
+            Err(e) => self.error = Some(format!("{}: {e}", path.display())),
+        }
+    }
+
+    /// Edit > Copy: the measurement read-out as text, the way Spike2 copies
+    /// cursor values to the clipboard.
+    fn copy_measurements(&mut self) -> String {
+        let mut out = String::new();
+        out.push_str(&format!(
+            "cursors\t{:.4}\t{:.4}\tdt\t{:.4}\n",
+            self.cursors[0],
+            self.cursors[1],
+            self.cursors[1] - self.cursors[0]
+        ));
+        let names: Vec<String> = self
+            .son
+            .as_ref()
+            .map(|s| s.channels.iter().map(|c| c.title.clone()).collect())
+            .unwrap_or_default();
+        for (i, n) in names.iter().enumerate() {
+            if let Some(Some((a, b))) = self.readouts.get(i) {
+                out.push_str(&format!("{n}\t{a:.6}\t{b:.6}\n"));
+            }
+        }
+        out
+    }
+
+    /// Edit > Copy for Spreadsheet: the visible window of the selected channel
+    /// as tab separated time and value columns.
+    fn copy_spreadsheet(&mut self) -> Option<String> {
+        let ch = self.selected?;
+        let son = self.son.as_ref()?;
+        if !son.channels[ch].kind.is_waveform() {
+            return None;
+        }
+        let a = son.sample_at(ch, self.t_start.min(self.t_end));
+        let b = son.sample_at(ch, self.t_start.max(self.t_end));
+        let interval = son.channels[ch].sample_interval;
+        let start = son.start_time(ch) + a as f64 * interval;
+        let count = (b.saturating_sub(a) as usize).min(200_000);
+        let data = self.son.as_mut()?.read_waveform(ch, a, count).ok()?;
+        let mut out = String::from("time_s\tvalue\n");
+        for (i, v) in data.iter().enumerate() {
+            let _ = std::fmt::Write::write_fmt(
+                &mut out,
+                format_args!("{:.6}\t{:.6}\n", start + i as f64 * interval, v),
+            );
+        }
+        Some(out)
+    }
+
     fn export_csv(&mut self) {
         let Some(ch) = self.selected else { return };
         let Some(son) = self.son.as_ref() else { return };
@@ -765,6 +889,35 @@ impl eframe::App for App {
                     if ui.button("Close").clicked() {
                         self.son = None;
                     }
+                    if ui
+                        .add_enabled(self.son.is_some(), egui::Button::new("Revert to Saved"))
+                        .clicked()
+                    {
+                        self.revert();
+                    }
+                    ui.menu_button("Recent Files", |ui| {
+                        if self.recent.is_empty() {
+                            ui.label(egui::RichText::new("(none)").weak());
+                        }
+                        let mut pick: Option<PathBuf> = None;
+                        for path in self.recent.clone() {
+                            let label = path
+                                .file_name()
+                                .map(|n| n.to_string_lossy().to_string())
+                                .unwrap_or_else(|| path.display().to_string());
+                            if ui
+                                .button(label)
+                                .on_hover_text(path.display().to_string())
+                                .clicked()
+                            {
+                                pick = Some(path);
+                            }
+                        }
+                        if let Some(path) = pick {
+                            self.load(&path);
+                            ui.close();
+                        }
+                    });
                     ui.separator();
                     if ui.button("Export channel (visible window) as CSV…").clicked() {
                         self.export_csv();
@@ -780,6 +933,27 @@ impl eframe::App for App {
                     }
                     if ui.button("Clear channel selection").clicked() {
                         self.visible.iter_mut().for_each(|v| *v = false);
+                    }
+                    ui.separator();
+                    if ui
+                        .add_enabled(self.son.is_some(), egui::Button::new("Copy"))
+                        .clicked()
+                    {
+                        let text = self.copy_measurements();
+                        ui.ctx().copy_text(text);
+                        self.status = "copied measurements".to_string();
+                    }
+                    if ui
+                        .add_enabled(self.selected.is_some(), egui::Button::new("Copy for Spreadsheet"))
+                        .clicked()
+                    {
+                        match self.copy_spreadsheet() {
+                            Some(text) => {
+                                ui.ctx().copy_text(text);
+                                self.status = "copied window as columns".to_string();
+                            }
+                            None => self.error = Some("select a waveform channel first".to_string()),
+                        }
                     }
                     ui.separator();
                     if ui.button("Reset channel gain").clicked() {
@@ -2517,6 +2691,7 @@ fn main() -> eframe::Result {
     let mut yaxis_on_start = false;
     let mut showhide_on_start = false;
     let mut yrange_on_start: Option<(f32, f32)> = None;
+    let mut copy_dump = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
@@ -2531,6 +2706,9 @@ fn main() -> eframe::Result {
             "--chan-info" => chan_info_on_start = true,
             "--yaxis" => yaxis_on_start = true,
             "--showhide" => showhide_on_start = true,
+            // --copy-dump prints Edit > Copy's text and exits, which is also how
+            // it can be used from a script.
+            "--copy-dump" => copy_dump = true,
             // --yrange=<lo>,<hi> pins the first channel's Y range at startup.
             other if other.starts_with("--yrange=") => {
                 let v = &other["--yrange=".len()..];
@@ -2592,6 +2770,10 @@ fn main() -> eframe::Result {
             }
             if showhide_on_start {
                 app.showhide_dialog = true;
+            }
+            if copy_dump {
+                println!("{}", app.copy_measurements());
+                std::process::exit(0);
             }
             if let Some((a, b)) = yrange_on_start {
                 if !app.y_range.is_empty() {
