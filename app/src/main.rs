@@ -98,6 +98,10 @@ struct App {
     /// `None` means the automatic fit, which is the default.
     y_range: Vec<Option<(f32, f32)>>,
     yaxis_dialog: bool,
+    /// A designed coefficient set per channel, from the filter dialog's band
+    /// table. Separate from `filters` because a band table is a design, not a
+    /// `FilterSpec`.
+    fir_coef: Vec<Option<Vec<f64>>>,
     /// View > Show/Hide Channel….
     showhide_dialog: bool,
     /// File > Recent Files, newest first, persisted under the config directory.
@@ -179,6 +183,7 @@ impl App {
             visible: Vec::new(),
             gain: Vec::new(),
             y_range: Vec::new(),
+            fir_coef: Vec::new(),
             yaxis_dialog: false,
             showhide_dialog: false,
             recent: Vec::new(),
@@ -287,6 +292,7 @@ impl App {
                 self.visible = vec![true; n];
                 self.gain = vec![1.0; n];
                 self.y_range = vec![None; n];
+                self.fir_coef = vec![None; n];
                 self.caches = (0..n).map(|_| None).collect();
                 self.readouts = vec![None; n];
                 self.stats = vec![None; n];
@@ -402,6 +408,15 @@ impl App {
                     .and_then(|s| s.channels.get(i).map(|c| c.sample_rate()))
                     .unwrap_or(0.0);
                 smr::apply_filter(&mut data, &spec, rate);
+            }
+            // A band table's design, applied with the same convolution CED uses
+            // for its own coefficient arrays.
+            if let Some(Some(coef)) = self.fir_coef.get(i) {
+                let mut wide: Vec<f64> = data.iter().map(|v| *v as f64).collect();
+                smr::arr_fir(&mut wide, coef);
+                for (d, w) in data.iter_mut().zip(wide.iter()) {
+                    *d = *w as f32;
+                }
             }
 
             let mut n = 0u64;
@@ -634,6 +649,7 @@ impl App {
                 self.stats = vec![None; n];
                 self.stats_key = None;
                 self.y_range = vec![None; n];
+                self.fir_coef = vec![None; n];
                 self.gain = vec![1.0; n];
                 self.selected = sel.filter(|s| *s < n);
                 self.t_start = a;
@@ -790,6 +806,13 @@ impl App {
                 .map(|c| c.sample_rate())
                 .unwrap_or(0.0);
             smr::apply_filter(&mut data, &spec, rate);
+        }
+        if let Some(Some(coef)) = self.fir_coef.get(channel) {
+            let mut wide: Vec<f64> = data.iter().map(|v| *v as f64).collect();
+            smr::arr_fir(&mut wide, coef);
+            for (d, w) in data.iter_mut().zip(wide.iter()) {
+                *d = *w as f32;
+            }
         }
 
         let mut low = vec![f32::INFINITY; width];
@@ -2577,16 +2600,32 @@ impl eframe::App for App {
                     }
                     ui.separator();
                     ui.horizontal(|ui| {
-                        // A band table is a design, not a FilterSpec the channel
-                        // path can carry yet, so Apply says so rather than
-                        // quietly designing something else.
+                        // Two kinds of filter reach a channel: a FilterSpec,
+                        // resolved at draw time, and a band table's finished
+                        // coefficients, which are applied directly.
                         let bands_set = !self.f_bands.is_empty();
-                        if ui
-                            .add_enabled(!bands_set, egui::Button::new("Apply to selected channel"))
-                            .on_disabled_hover_text("a band table is not applied yet; clear it to use the parameters")
-                            .clicked()
-                        {
-                            if let Some(i) = self.selected {
+                        if ui.button("Apply to selected channel").clicked() {
+                            if bands_set {
+                                if let (Some(i), Some((_, d))) =
+                                    (self.selected, self.f_preview.as_ref())
+                                {
+                                    let coef = d.coeffs.clone();
+                                    if let Some(slot) = self.fir_coef.get_mut(i) {
+                                        *slot = Some(coef);
+                                    }
+                                    // One at a time: a spec would filter again
+                                    // on top of the design.
+                                    if let Some(spec) = self.filters.get_mut(i) {
+                                        *spec = None;
+                                    }
+                                    self.caches[i] = None;
+                                    self.stats_key = None;
+                                    self.status = "applied a band table design".to_string();
+                                }
+                            } else if let Some(i) = self.selected {
+                                if let Some(slot) = self.fir_coef.get_mut(i) {
+                                    *slot = None;
+                                }
                                 let spec = smr::FilterSpec {
                                     kind: self.f_kind,
                                     cutoff: self.f_cutoff,
@@ -2605,6 +2644,9 @@ impl eframe::App for App {
                             if let Some(i) = self.selected {
                                 if let Some(f) = self.filters.get_mut(i) {
                                     *f = None;
+                                }
+                                if let Some(c) = self.fir_coef.get_mut(i) {
+                                    *c = None;
                                 }
                                 self.caches[i] = None;
                                 self.stats_key = None;
@@ -2875,6 +2917,8 @@ fn main() -> eframe::Result {
     let mut yrange_on_start: Option<(f32, f32)> = None;
     let mut copy_dump = false;
     let mut bands_notch = false;
+    let mut bands_kill = false;
+    let mut bands_apply = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
@@ -2895,6 +2939,10 @@ fn main() -> eframe::Result {
             // --bands=notch seeds a stop band in the middle, for exercising the
             // band table without clicking.
             "--bands=notch" => bands_notch = true,
+            // A table that removes everything below 20 Hz, which the demo file's
+            // 12.5 Hz sine wave lives in: applying it should flatten the trace.
+            "--bands=kill" => bands_kill = true,
+            "--bands-apply" => bands_apply = true,
             // --yrange=<lo>,<hi> pins the first channel's Y range at startup.
             other if other.starts_with("--yrange=") => {
                 let v = &other["--yrange=".len()..];
@@ -2960,6 +3008,22 @@ fn main() -> eframe::Result {
             if copy_dump {
                 println!("{}", app.copy_measurements());
                 std::process::exit(0);
+            }
+            if bands_kill {
+                app.f_bands = vec![
+                    smr::Band::new(0.0, 0.20, 0.0, 10.0),
+                    smr::Band::new(0.25, 0.5, 1.0, 1.0),
+                ];
+                app.filter_dialog = true;
+            }
+            if bands_apply && !app.f_bands.is_empty() {
+                let n = app.f_taps.max(103);
+                if let Ok(d) = smr::design(n, smr::DesignType::LowPass, &app.f_bands, 16, true) {
+                    if let Some(slot) = app.fir_coef.get_mut(0) {
+                        *slot = Some(d.coeffs.clone());
+                    }
+                    app.status = format!("applied band table design ({} taps)", d.coeffs.len());
+                }
             }
             if bands_notch {
                 app.f_bands = vec![

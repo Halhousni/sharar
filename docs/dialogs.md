@@ -123,11 +123,26 @@ against CED earlier was written with gains 1 and 0 and weights 1 and 10, which i
 exactly what the rule produces — the hand-written table and the dialog's own
 route agree.
 
-Still not done: the band table does not reach the channel. Apply is disabled
-while a table is set, because the channel path carries a `FilterSpec` and not a
-coefficient set. That is the next piece, along with the band display beside the
-plot, which needs `CChangeFilter`'s pixel/gain mapping rather than anything in
-the designer.
+### Applying a band table
+
+Apply now carries a band table to the channel: the finished coefficients go into
+a per-channel slot and are applied with `smr::arr_fir`, the port of CED's own
+convolution, at both places a channel is filtered (the envelope the plot draws and
+the statistics the Measurements panel shows). A `FilterSpec` and a coefficient set
+are mutually exclusive, so applying one clears the other — otherwise the data
+would be filtered twice, once by a spec resolved at draw time and once by a design.
+
+Checked by applying a stop band over 0 to 0.2 to the demo file, whose first
+channel is a 12.5 Hz sine wave: the trace collapses to a flat line and the panel
+goes from RMS 1.982 V to 0.0167 V, with the status bar reporting the tap count.
+The min and max that remain (-0.669 and 0.269) are the truncated first and last
+pixels of the window, which is the same edge effect `dc_remove` and the IIR path
+already have.
+
+Still not done is the band display beside the plot — the second half of Spike2's
+dialog, where bands are dragged rather than typed. That needs `CChangeFilter`'s
+pixel/gain mapping (`FreqToPixel`, `GainToPixel`) and its drag state machine, not
+anything in the designer.
 
 ## X Axis Range, as an example of the scale of a dialog
 

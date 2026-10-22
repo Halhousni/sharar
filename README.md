@@ -71,7 +71,10 @@ pointer, middle-drag pans, dragging near a cursor moves it.
   count from them. Coefficients agree with CED's own library to 1.8e-14 relative across
   nineteen designs; `docs/filters.md` records the recovered code and how it was checked.
   The dialog plots the response over 0 to Nyquist as you change the parameters, through
-  `CFIR::FreqR`, the same evaluator Spike2's dialog uses. The IIR option is a two-pole
+  `CFIR::FreqR`, the same evaluator Spike2's dialog uses, and it edits CFIR's band table
+  directly — edges with a wanted gain, weights derived the way Spike2 derives them — so a
+  hand-built table designs with the original's numbers and applies with CED's own
+  convolution. The IIR option is a two-pole
   Butterworth section, causal, and is not Spike2's; it covers only the low and high pass.
 
 ## What is not built yet
