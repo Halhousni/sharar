@@ -13,7 +13,7 @@ pub mod parser;
 pub mod print;
 
 pub use lexer::{lex, LexError, Tok, Token};
-pub use compile::{compile, CompileError, Compiled};
+pub use compile::{compile, compile_with_commands, CompileError, Compiled};
 pub use parser::{parse, Declarator, Expr, IndexArg, ParseError, Parser, Stmt};
 
 #[cfg(test)]

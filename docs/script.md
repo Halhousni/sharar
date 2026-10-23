@@ -373,14 +373,10 @@ because the DLL is not redistributable; the fixture is gitignored for the same r
 so a fresh clone skips that test and runs the unit tests in `compile.rs`, which pin
 the same rules on a handful of scripts.
 
-What is missing is the call. `runtime.s2l` registers the built-ins and the vendor
-resolves a call against them at compile time; this port now has the table (below) but
-does not yet compile a call from it, so a script that calls `Abs`, `Len`, `View(…)` or
-any other command still stops with an error naming it rather than compiling to words the
-interpreter could not run. Member calls (`View(0).MaxTime()`) fail the same way. That is
-the honest boundary: a program made of the language itself compiles to the same words
-Spike2 produces, and a program made mostly of calls — which is most real scripts — does
-not compile yet.
+`compile` is the bare compiler, as the vendor's is before `runtime.s2l` has registered
+anything, and refuses a call to a command by name. `compile_with_commands` registers the
+whole table, as Spike2 does, and compiles calls to commands (next section). Member calls
+(`View(0).MaxTime()`) and commands that take a procedure are not compiled yet.
 
 ## The command table
 
@@ -388,17 +384,18 @@ not compile yet.
 initialiser ends in one call to `CBaseCmd::IXCmd(this, name, min, max, descriptor)`,
 imported from `compiler.dll` (0x1800061d0). `tools/command_table.py` finds every such
 call, replays the few instructions that set its arguments up, and reads the name and the
-descriptor out of the file. It finds 497 commands, 495 with a fixed name in their own
-initialiser and two (`CursorLabel`, `HCursorLabel`) that share one initialiser and take
-the name from a member their constructors fill in. Names are unique without regard to
+descriptor out of the file. It finds 503 commands: most have a fixed name in their own initialiser;
+two (`CursorLabel`, `HCursorLabel`) share one and take the name from a member their
+constructors fill in; and six pairs (`XLow`/`XHigh`, `YLow`/`YHigh`, `IIRBp`/`IIRBs`,
+`IIRLp`/`IIRHp`, `IIRReson`/`IIRNotch`, `IIRName$`/`IIRComment$`) pick a name by a byte
+the constructor sets, with `cmp [this+d], v; cmovne`. Names are unique without regard to
 case, which is how the vendor's table compares them: it lower-cases a name before it
 looks it up (0x180014350).
 
 The descriptor is a run of 16-bit words that the vendor parses at registration
 (`compiler.dll` 0x180005c80) and refuses if it is malformed:
 
-- the first word is the return type: 0 none, 1 integer, 2 real, 3 string. Of the 497
-  commands, 297 return an integer, 107 a real, 41 a string and 52 nothing;
+- the first word is the return type: 0 none, 1 integer, 2 real, 3 string. 
 - then argument type words. The low seven bits are the type, at most 0x13; bits 8 to 12
   are the number of array dimensions, which only types 1 to 6 may have; 0x80 is a flag
   whose meaning is not recovered;
@@ -409,17 +406,85 @@ The descriptor is a run of 16-bit words that the vendor parses at registration
 
 The registration also carries the fewest and most arguments the command takes, and the
 vendor accepts it only if the lists agree: no list shorter than the minimum, and the
-longest exactly the maximum. All 497 satisfy that check here (it is a test in
+longest exactly the maximum. All 503 satisfy that check here (it is a test in
 `smr/src/script/commands.rs`), which is the evidence the decoding is right. The types
 that appear are 1 to 4, 6, 8 to 12 and 16 to 19 (14 and 15 are the group brackets); the meaning of 1, 2 and 3 as integer,
 real and string follows from the return types, and the rest are unnamed so far.
 
-`smr::script::commands` exposes the table as data: `all()` and `lookup(name)`.
-It describes the interface. It does not run anything, and it does not yet say how the
-engine numbers the commands. Registration (0x180006230) starts the count at 0x7a and
-gives each command the word 0x7a plus its place in the list it builds, so the words of a
-script's variables and the words of its calls both depend on that order, and it is not
-reproduced yet.
+`smr::script::commands` exposes the table as data: `all()`, `find(name)` and `word(index)`.
+
+### The order, and the numbering
+
+A command's word is `0x7a` plus its place in the list the compiler builds at registration
+(`RegisterExternalCommands`, 0x180006230), and the first word a script's own symbols can
+use follows the last command: 126 + 503 = 629. The list is `CHeadCmd::m_plstCmd`, and
+`CBaseCmd`'s constructor appends to it (every call in `runtime.s2l` passes `false`, so
+nothing is pushed to the front). So the order is the order the objects are constructed
+in. Creator functions allocate each command (`new`, then a constructor that stores the
+vtable) and call the next creator; walking them from `0x18004f200` in address order, and
+mapping each object's vtable to its `Initialize` slot (vtable + 8) and so to the
+registration found above, gives the order. `tools/command_table.py` does that and
+writes the table in that order.
+
+Registering the table in that order with the vendor compiler (see
+`tools/compile_oracle.c`: it constructs a `CBaseCmd` per command and calls the real
+`IXCmd` with the file's own descriptor) puts the first variable at 629 and `Abs`, `Len`
+and `Mid$` at 551, 447 and 516, which is the formula. That checks the numbering rule.
+It cannot check the order itself against Spike2, because `runtime.s2l` will not load
+outside Spike2 (it imports from `SONVIEW.exe`); the order is derived from the code that
+builds it.
+
+### What a call compiles to
+
+```
+args…, count, [form], command word, Call
+```
+
+`count` is the number of arguments, `form` is which of the command's argument lists the
+call fits, counted from one, and is present only when the command has more than one.
+Both are integer constants, so a pooled constant beyond 20 like any other. A command
+used as a statement that returns a value ends in `CallAsProc` rather than `Call`; one
+that returns nothing ends in `Call` either way and cannot be assigned. An argument is
+compiled as it would be anywhere else; a whole array is its symbol alone.
+
+The compiler matches the arguments against the command's argument lists in order and
+takes the first that fits (`compiler.dll` 0x180016a40, 0x180016d50, 0x180016dc0). A list
+may be longer than the arguments, never shorter. An argument is described by three
+things: how many dimensions it names (`a[]` is 1, `a[][]` is 2, a scalar 0), the type
+of its value, and whether it is a variable or an element of one. A parameter word fits
+as follows:
+
+- dimensions (0x180017030): a scalar fits a word with no dimension bits and not types
+  0x12 or 0x13. An array of rank *n* fits if the word allows it: bit `0x100 << (n-1)` of
+  the word's dimension field, where type 8 allows only rank 1, types 4, 0xc and
+  0x11 to 0x13 allow any, and type 0x10 allows ranks 1 and 2;
+- elements (0x18002d610): types 1 and 9 want integers, 2 and 10 reals, 3, 0xb and 0x13
+  strings, 6, 8, 0x10 and 0x12 either number, and 5, 7, 0xe and 0xf nothing;
+- scalar types: 1, 2, 6, 8, 9, 0x10 and 0x11 take an integer or a real, 3 and 0xb a
+  string, 10 a real, and everything else, including 4 and every word with the 0x80 flag
+  in a scalar position, takes any;
+- types 9 to 13 without the 0x80 flag are references and want a variable or an element;
+  and an array that is a variable needs the 0x80 flag.
+
+How a reference parameter is marked afterwards (`vtable + 0x60` on the argument sets a
+byte on its symbol) emits no code.
+
+Types 0xe to 0xf bracket a procedure passed as an argument (`ToolbarSet`, `Draw…`): the
+vendor checks the signature of the procedure named. That is not ported; a call to such
+a command is refused here with a message saying so.
+
+### How it was checked
+
+`tools/call_oracle.py` writes, for every command and every form it accepts, a script
+that calls it with right arguments, with fewer, with one too many, and with each of its
+first three arguments replaced by each of 22 shapes (literals, variables, a constant,
+elements, arrays of three ranks, expressions, a parenthesised variable, a call). It runs
+them through the vendor compiler with the table registered and writes the answers;
+`smr/tests/call_reference.rs` replays them through `compile_with_commands`. Of 32,034
+scripts, 14,824 compile to the same words, 17,181 are refused by both, and 29 pass a
+procedure and are refused here by name; none differ. The fixture is gitignored as the
+compiler fixture is, so a fresh clone skips that test and runs the unit tests in
+`compile.rs`, which pin the same rules on a few scripts.
 
 ## What is not known yet
 
@@ -428,8 +493,6 @@ reproduced yet.
   and 73 for one, two and three dimensions — but not in the sense that its meaning is
   understood;
 - what sets the bound at +0x30 of the code frame (probably the program length);
-- the order the engine numbers the commands in, which decides every symbol word once
-  a script calls one;
 - the argument type words 4, 6 and 8 to 19, and the 0x80 flag;
 - the type system: `TIndex`, `TArray`, `TResultArray` suggest arrays are
   first-class values with dimensions and strides, which matters for a port. Enough of
@@ -444,7 +507,7 @@ the four command slots a bare compile registers.
 
 The lexer, the parser and the compiler now exist and agree with the vendor's on
 everything they cover. Two things stand between them and a Script menu that runs a
-real script. The commands are the large one: the table now names 497 built-ins and their
+real script. The commands are the large one: the table now names 503 built-ins and their
 argument lists, but each still has its own behaviour to be read out of `runtime.s2l`,
 and the compiler does not yet emit a call. The other is the interpreter's remaining
 opcodes — the array, matrix and view families — which `Machine` currently stops on

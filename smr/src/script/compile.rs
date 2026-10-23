@@ -36,7 +36,9 @@
 
 use super::parser::{Expr, IndexArg, Stmt};
 
-/// The first word a symbol can occupy: `0x7a` plus four command slots.
+/// The first word a symbol can occupy when no commands are registered: `0x7a` plus four
+/// slots. With the command table registered it follows the last command; see
+/// [`compile_with_commands`].
 pub const SYMBOL_BASE: u16 = 0x7a + 4;
 
 // Opcodes, named from the vendor's own table (see `super::bytecode::NAMES`).
@@ -210,7 +212,9 @@ impl Const {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Compiled {
     pub code: Vec<u16>,
-    /// Symbol names in word order, from [`SYMBOL_BASE`] up.
+    /// The word the first symbol occupies.
+    pub first_word: u16,
+    /// Symbol names in word order, from `first_word` up.
     pub symbols: Vec<String>,
     /// The string pool, in word order, after the symbols.
     pub strings: Vec<String>,
@@ -226,7 +230,7 @@ impl Compiled {
         self.symbols
             .iter()
             .position(|n| n == name)
-            .map(|i| SYMBOL_BASE + i as u16)
+            .map(|i| self.first_word + i as u16)
     }
 }
 
@@ -296,9 +300,24 @@ struct Gen {
     frame: Option<Frame>,
     routine: Option<usize>,
     loops: Vec<Loop>,
+    /// Whether the command table is registered, as it is when Spike2 compiles.
+    commands: bool,
 }
 
+/// Compile with no commands registered: a bare compiler, as the vendor's is when nothing
+/// has loaded `runtime.s2l`. Symbols start at [`SYMBOL_BASE`].
 pub fn compile(src: &str) -> Result<Compiled, CompileError> {
+    compile_impl(src, false)
+}
+
+/// Compile as Spike2 does, with every command in [`super::commands`] registered. A
+/// command takes the word `0x7a` plus its place in the table, so the script's own
+/// symbols start after the last of them.
+pub fn compile_with_commands(src: &str) -> Result<Compiled, CompileError> {
+    compile_impl(src, true)
+}
+
+fn compile_impl(src: &str, commands: bool) -> Result<Compiled, CompileError> {
     let stmts = super::parser::parse(src).map_err(|e| CompileError(e.to_string()))?;
     let mut g = Gen {
         code: Vec::new(),
@@ -308,6 +327,7 @@ pub fn compile(src: &str) -> Result<Compiled, CompileError> {
         frame: None,
         routine: None,
         loops: Vec::new(),
+        commands,
     };
     collect(&mut g, &stmts)?;
 
@@ -358,7 +378,8 @@ fn finish(mut g: Gen) -> Compiled {
     ints.sort();
     floats.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-    let s_base = SYMBOL_BASE + g.symbols.len() as u16;
+    let first_word = g.base();
+    let s_base = first_word + g.symbols.len() as u16;
     let i_base = s_base + strings.len() as u16;
     let f_base = i_base + ints.len() as u16;
     for (at, c) in &g.pending {
@@ -372,6 +393,7 @@ fn finish(mut g: Gen) -> Compiled {
     }
     Compiled {
         code: g.code,
+        first_word,
         symbols: g.symbols.iter().map(|s| s.name.clone()).collect(),
         strings,
         ints,
@@ -412,6 +434,9 @@ fn collect(g: &mut Gen, stmts: &[Stmt]) -> Result<(), CompileError> {
         };
         if g.symbols.iter().any(|x| x.name == *name) {
             return Err(CompileError(format!("duplicate name {name}")));
+        }
+        if g.commands && super::commands::find(name).is_some() {
+            return Err(CompileError(format!("reuse of built-in script function name {name}")));
         }
         let args = params
             .iter()
@@ -569,6 +594,11 @@ fn fold(e: &Expr, lookup: &impl Fn(&str) -> Option<Const>) -> Result<Option<Cons
 }
 
 impl Gen {
+    /// The word the first symbol occupies.
+    fn base(&self) -> u16 {
+        SYMBOL_BASE + if self.commands { super::commands::count() as u16 } else { 0 }
+    }
+
     fn emit(&mut self, w: u16) -> usize {
         self.code.push(w);
         self.code.len() - 1
@@ -676,7 +706,7 @@ impl Gen {
         let i = self
             .index_of(name)
             .ok_or_else(|| CompileError(format!("unknown name {name}")))?;
-        let w = SYMBOL_BASE + i as u16;
+        let w = self.base() + i as u16;
         self.emit(w);
         Ok(w)
     }
@@ -790,6 +820,12 @@ fn gen_stmt(g: &mut Gen, s: &Stmt, top: bool) -> Result<bool, CompileError> {
         Stmt::Expr(e) => {
             if let Expr::Call(callee, args) = e {
                 if let Expr::Name(name) = &**callee {
+                    if g.commands && g.index_of(name).is_none() {
+                        if let Some((i, cmd)) = super::commands::find(name) {
+                            gen_command(g, i, &cmd, args, true)?;
+                            return Ok(false);
+                        }
+                    }
                     let kind = g.symbol(name)?.kind;
                     if matches!(kind, Kind::Proc | Kind::Func(_)) && !g.routines.iter().any(|r| &r.name == name) {
                         return Err(CompileError(format!("unknown command {name}")));
@@ -797,7 +833,7 @@ fn gen_stmt(g: &mut Gen, s: &Stmt, top: bool) -> Result<bool, CompileError> {
                     if matches!(kind, Kind::Proc | Kind::Func(_)) {
                         gen_args(g, name, args)?;
                         g.emit(args.len() as u16);
-                        let w = SYMBOL_BASE + g.index_of(name).unwrap() as u16;
+                        let w = g.base() + g.index_of(name).unwrap() as u16;
                         g.emit(w);
                         g.emit(if matches!(kind, Kind::Func(_)) { O_CALL_AS_PROC } else { O_CALL });
                         return Ok(false);
@@ -1048,20 +1084,26 @@ fn gen_args(g: &mut Gen, name: &str, args: &[Expr]) -> Result<(), CompileError> 
 /// Emit code leaving one value on the stack, and return its type.
 fn gen_expr(g: &mut Gen, e: &Expr) -> Result<Ty, CompileError> {
     // A whole array passed as an argument is its symbol alone.
-    if let Expr::Index(base, IndexArg::Whole) = e {
-        if let Expr::Name(name) = &**base {
-            let ty = g.array_ty(name)?;
-            g.emit_ref(name)?;
-            return Ok(ty);
-        }
+    if let Some((name, _)) = whole_array(e) {
+        let ty = g.array_ty(name)?;
+        g.emit_ref(name)?;
+        return Ok(ty);
     }
 
     if let Expr::Call(callee, args) = e {
         if let Expr::Name(name) = &**callee {
+            if g.commands && g.index_of(name).is_none() {
+                if let Some((i, cmd)) = super::commands::find(name) {
+                    return match gen_command(g, i, &cmd, args, false)? {
+                        Some(t) => Ok(t),
+                        None => Err(CompileError(format!("{name} has no value"))),
+                    };
+                }
+            }
             if g.routines.iter().any(|r| &r.name == name) {
                 gen_args(g, name, args)?;
                 g.emit(args.len() as u16);
-                let w = SYMBOL_BASE + g.index_of(name).unwrap() as u16;
+                let w = g.base() + g.index_of(name).unwrap() as u16;
                 g.emit(w);
                 g.emit(O_CALL);
                 return match g.symbol(name)?.kind {
@@ -1138,6 +1180,181 @@ fn gen_expr(g: &mut Gen, e: &Expr) -> Result<Ty, CompileError> {
         }
         other => Err(CompileError(format!("cannot compile {other:?}"))),
     }
+}
+
+/// What the vendor's matcher asks of an argument: how many array dimensions it names,
+/// the type of its value (1 integer, 2 real, 3 string), and whether it is a variable or
+/// an element of one, which is what a reference parameter needs.
+#[derive(Debug, Clone, Copy)]
+struct ArgInfo {
+    rank: usize,
+    ty: u8,
+    lvalue: bool,
+}
+
+fn ty_code(t: Ty) -> u8 {
+    match t {
+        Ty::Int => 1,
+        Ty::Float => 2,
+        Ty::Str => 3,
+    }
+}
+
+/// A whole array written `a[]`, `a[][]`, …: its name and how many pairs of brackets.
+fn whole_array(e: &Expr) -> Option<(&str, usize)> {
+    match e {
+        Expr::Index(base, IndexArg::Whole) => match &**base {
+            Expr::Name(n) => Some((n, 1)),
+            inner => whole_array(inner).map(|(n, k)| (n, k + 1)),
+        },
+        _ => None,
+    }
+}
+
+/// Is this a variable, or an element of an array, that the script may write to?
+fn is_lvalue(g: &Gen, e: &Expr) -> bool {
+    match e {
+        Expr::Paren(inner) => is_lvalue(g, inner),
+        Expr::Name(n) => {
+            if let Some(f) = &g.frame {
+                if f.args.iter().any(|a| &a.name == n && !a.array)
+                    || f.locals.iter().any(|(l, _)| l == n)
+                {
+                    return true;
+                }
+            }
+            g.symbol(n).map(|s| matches!(s.kind, Kind::Var) && !s.is_array() && s.value.is_none()).unwrap_or(false)
+        }
+        Expr::Index(..) => {
+            let mut cur = e;
+            while let Expr::Index(base, arg) = cur {
+                if !matches!(arg, IndexArg::One(_)) {
+                    return false;
+                }
+                cur = base;
+            }
+            matches!(cur, Expr::Name(_))
+        }
+        _ => false,
+    }
+}
+
+/// Compile the argument to learn what it is, then take the code back out.
+fn arg_info(g: &mut Gen, e: &Expr) -> Result<ArgInfo, CompileError> {
+    if let Some((name, rank)) = whole_array(e) {
+        return Ok(ArgInfo { rank, ty: ty_code(g.array_ty(name)?), lvalue: false });
+    }
+    let (code, pending) = (g.code.len(), g.pending.len());
+    let ty = gen_expr(g, e);
+    g.code.truncate(code);
+    g.pending.truncate(pending);
+    Ok(ArgInfo { rank: 0, ty: ty_code(ty?), lvalue: is_lvalue(g, e) })
+}
+
+/// Do the dimensions an argument has suit this parameter word? (compiler.dll 0x180017030)
+fn dims_fit(word: u16, rank: usize) -> bool {
+    let t = word & 0x7f;
+    let mut m = word & 0x1f00;
+    if rank == 0 {
+        return m == 0 && t != 0x12 && t != 0x13;
+    }
+    if t == 8 {
+        m = 0x100;
+    } else if t == 4 || t == 0xc || (0x11..0x14).contains(&t) {
+        m = 0x1f00;
+    } else if t == 0x10 {
+        m = 0x300;
+    }
+    m & (0x100 << (rank - 1)) != 0
+}
+
+/// Do the elements of an array suit this parameter word? (compiler.dll 0x18002d610)
+fn elem_fits(word: u16, ty: u8) -> bool {
+    match word & 0x7f {
+        9 | 1 => ty == 1,
+        2 | 10 => ty == 2,
+        3 | 0xb | 0x13 => ty == 3,
+        5 | 7 | 0xe | 0xf => false,
+        6 | 8 | 0x10 | 0x12 => ty == 1 || ty == 2,
+        _ => true,
+    }
+}
+
+/// Does one argument suit one parameter word? (compiler.dll 0x180016dc0)
+fn arg_fits(word: u16, a: ArgInfo) -> bool {
+    if !dims_fit(word, a.rank) {
+        return false;
+    }
+    if a.rank != 0 {
+        return elem_fits(word, a.ty) && (!a.lvalue || word & 0x80 != 0);
+    }
+    // Types 9 to 13 without the 0x80 flag are references, which want a variable.
+    if !a.lvalue && word & 0x80 == 0 && (9..14).contains(&word) {
+        return false;
+    }
+    let numeric = a.ty == 1 || a.ty == 2;
+    match word {
+        10 => a.ty == 2,
+        0 => true,
+        1 | 2 | 6 | 8 | 9 | 0x10 | 0x11 => numeric,
+        3 | 0xb => a.ty == 3,
+        w if w > 0x11 => w != 0x13,
+        _ => true,
+    }
+}
+
+/// The first variant of `cmd` whose argument list the arguments fit, counted from one.
+/// An argument list may be shorter than the variant, never longer.
+fn match_variant(cmd: &super::commands::Command, args: &[ArgInfo]) -> Result<usize, CompileError> {
+    if args.len() < cmd.min_args as usize || args.len() > cmd.max_args as usize {
+        return Err(CompileError(format!("{}: wrong number of arguments", cmd.name)));
+    }
+    for (i, v) in cmd.variants.iter().enumerate() {
+        if v.contains(&super::commands::GROUP_OPEN) {
+            return Err(CompileError(format!(
+                "{} takes a procedure as an argument, which is not compiled yet",
+                cmd.name
+            )));
+        }
+        if args.len() <= v.len() && args.iter().zip(v.iter()).all(|(a, &w)| arg_fits(w, *a)) {
+            return Ok(i + 1);
+        }
+    }
+    Err(CompileError(format!("{}: wrong number of arguments or argument type mismatch", cmd.name)))
+}
+
+/// A call to a built-in: the arguments, how many there are, which variant of the command
+/// they fit when it has more than one, the command's word, and `Call`. A command used as
+/// a statement that returns a value ends in `CallAsProc` instead. Returns the type of
+/// the value, if there is one.
+fn gen_command(
+    g: &mut Gen,
+    index: usize,
+    cmd: &super::commands::Command,
+    args: &[Expr],
+    as_statement: bool,
+) -> Result<Option<Ty>, CompileError> {
+    let mut infos = Vec::with_capacity(args.len());
+    for a in args {
+        infos.push(arg_info(g, a)?);
+    }
+    let variant = match_variant(cmd, &infos)?;
+    for a in args {
+        gen_expr(g, a)?;
+    }
+    g.emit_const(&Const::Int(args.len() as i64));
+    if cmd.variants.len() > 1 {
+        g.emit_const(&Const::Int(variant as i64));
+    }
+    g.emit(super::commands::word(index));
+    let ret = match cmd.ret {
+        super::commands::Ret::Void => None,
+        super::commands::Ret::Int => Some(Ty::Int),
+        super::commands::Ret::Real => Some(Ty::Float),
+        super::commands::Ret::Str => Some(Ty::Str),
+    };
+    g.emit(if as_statement && ret.is_some() { O_CALL_AS_PROC } else { O_CALL });
+    Ok(ret)
 }
 
 fn binary_op(op: &str, l: Ty, r: Ty) -> Result<u16, CompileError> {
@@ -1278,5 +1495,47 @@ mod tests {
     fn a_call_the_command_table_owns_is_refused_by_name() {
         let e = compile("var a%;\na% := Abs(-3);").unwrap_err().0;
         assert!(e.contains("Abs"), "{e}");
+    }
+
+    // The words below are what compiler.dll produced with the command table registered
+    // (tools/call_oracle.py); `smr/tests/call_reference.rs` checks thousands more.
+    fn with(src: &str) -> Vec<u16> {
+        compile_with_commands(src).unwrap().code
+    }
+
+    #[test]
+    fn symbols_start_after_the_last_command() {
+        let c = compile_with_commands("var a%;\nvar b;").unwrap();
+        assert_eq!(c.word_of("a%"), Some(126 + 503));
+        assert_eq!(c.word_of("b"), Some(126 + 503 + 1));
+    }
+
+    #[test]
+    fn a_call_is_its_arguments_their_count_the_command_and_call() {
+        // Abs is command 429, so its word is 0x7a + 429 = 551.
+        assert_eq!(with("var x;\nx := Abs(1.5);"), [629, 630, 1, 551, 37, 22, 121]);
+        // Mid$ has one form: no variant number.
+        assert_eq!(with("var s$;\ns$ := Mid$(\"hello\",2,3);"), [629, 630, 2, 3, 3, 516, 37, 57, 121]);
+    }
+
+    #[test]
+    fn a_command_with_several_forms_says_which_one_the_call_fits() {
+        // Len(s$) is its first form; Len on a real array its second, on a string array its third.
+        assert_eq!(with("var n%;\nn% := Len(\"abc\");"), [629, 630, 1, 1, 447, 37, 21, 121]);
+        assert_eq!(with("var a[3];\nvar n%;\nn% := Len(a[]);"), [630, 629, 1, 2, 447, 37, 21, 121]);
+        assert_eq!(with("var a$[3];\nvar n%;\nn% := Len(a$[]);"), [630, 629, 1, 3, 447, 37, 21, 121]);
+    }
+
+    #[test]
+    fn a_command_used_as_a_statement_discards_its_value() {
+        // CallAsProc for one that returns a value, Call for one that returns none.
+        assert_eq!(with("Len(\"x\");"), [629, 1, 1, 447, 36, 121]);
+        assert_eq!(with("var i%;\nEval(i%);"), [629, 1, 122, 37, 121]);
+    }
+
+    #[test]
+    fn a_command_that_returns_nothing_cannot_be_assigned() {
+        let e = compile_with_commands("var r%;\nr% := Eval(1);").unwrap_err().0;
+        assert!(e.contains("Eval"), "{e}");
     }
 }

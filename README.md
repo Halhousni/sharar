@@ -92,7 +92,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Channel processing | DC remove and FIR filters (low pass, high pass, band pass, band stop) in a per-channel process chain under `Analysis → Process…`; no rectification, integration or other processes |
 | Averaging | peri-stimulus average works; no smoothing, confidence bands or baselines |
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
-| `.s2s` scripting | a parser and a compiler for the language, checked word for word against Spike2's own compiler on 75 scripts — statements, expressions, procedures, arrays and the constant pools — plus a stack machine for the arithmetic, comparison, assignment, jump and loop opcodes. The names, argument counts, return types and argument lists of all 497 built-ins are recovered (`smr::script::commands`), but a call is not compiled from them yet, so a script that calls a built-in (`Abs`, `View(…)`, `Len`) does not compile, and none of the built-ins' behaviour is ported; no run of a compiled program; the Script menu is a placeholder |
+| `.s2s` scripting | a parser and a compiler for the language, checked word for word against Spike2's own compiler on 75 scripts — statements, expressions, procedures, arrays and the constant pools — plus a stack machine for the arithmetic, comparison, assignment, jump and loop opcodes. All 503 built-ins are recovered with their numbering, argument lists and return types (`smr::script::commands`), and calls to them compile to Spike2's words (32,034 generated calls checked, none differ). Not done: commands that take a procedure, member calls such as `View(0).MaxTime()`, any built-in's behaviour, and running a compiled program; the Script menu is a placeholder |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
 | Filter design | the Parks-McClellan designer behind `FIRQuick` and `FIRMake`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14 or better, as do the antisymmetric types 5 and 6 that only `FIRMake` can reach; band tables that stop short of Nyquist take the same warped path and agree to between 2e-12 and 8.6e-8 relative; the dialog offers the four symmetric types, and the differentiator is library-only; the IIR option is not Spike2's |
@@ -106,7 +106,8 @@ tools/    inventory.py (.smr reference reader), smrx_oracle.py (.smrx check agai
           fir_oracle.py (filter check against CED's Filters.dll), compile_oracle.py
           (script compiler check against CED's compiler.dll) and compile_cases/, the
           scripts both compilers are given; command_table.py (reads the built-in command
-          table out of runtime.s2l), oracle/ (runs a script inside Spike2 itself)
+          table out of runtime.s2l), call_oracle.py (checks calls to them against the vendor's
+          compiler) and compile_oracle.c, the harness both oracles run, oracle/ (runs a script inside Spike2 itself)
 docs/     screenshot; gui.md and dialogs.md on the menus and dialogs, filters.md on the
           recovered designer, script.md on the script engine and its command table,
           1401.md on the acquisition stack

@@ -7,6 +7,10 @@
 //! `tools/command_table.py` reads the registrations out of the file and writes
 //! `commands_table.rs`; `docs/script.md` says how.
 //!
+//! The table is in registration order, and that order is part of the interface: the
+//! engine numbers a command 0x7a plus its place in it, and the first word a script's own
+//! symbols can use follows the last command.
+//!
 //! What is here is the vendor's own description of the interface, not an
 //! implementation. Nothing in it runs a command: that is the interpreter's job, and
 //! each command's behaviour still has to be read from `runtime.s2l`.
@@ -54,7 +58,7 @@ impl Command {
     }
 }
 
-/// All commands, in the order the initialisers sit in `runtime.s2l`.
+/// All commands, in the order the engine registers them.
 pub fn all() -> impl Iterator<Item = Command> {
     table::TABLE.iter().map(|&(name, min_args, max_args, ret, variants)| Command {
         name,
@@ -70,10 +74,25 @@ pub fn all() -> impl Iterator<Item = Command> {
     })
 }
 
-/// The command a script name refers to. Names compare without regard to case, as
-/// they do in the vendor's compiler, which lower-cases a name before it looks it up.
+/// The word the engine gives the command at `index` in [`all`].
+pub fn word(index: usize) -> u16 {
+    0x7a + index as u16
+}
+
+/// How many commands there are.
+pub fn count() -> usize {
+    table::TABLE.len()
+}
+
+/// The command a script name refers to, and its place in [`all`]. Names compare without
+/// regard to case, as they do in the vendor's compiler, which lower-cases a name before
+/// it looks it up.
+pub fn find(name: &str) -> Option<(usize, Command)> {
+    all().enumerate().find(|(_, c)| c.name.eq_ignore_ascii_case(name))
+}
+
 pub fn lookup(name: &str) -> Option<Command> {
-    all().find(|c| c.name.eq_ignore_ascii_case(name))
+    find(name).map(|(_, c)| c)
 }
 
 #[cfg(test)]
@@ -82,11 +101,23 @@ mod tests {
 
     #[test]
     fn the_table_holds_what_the_runtime_registers() {
-        assert_eq!(all().count(), 497);
+        assert_eq!(all().count(), 503);
         let mut names: Vec<_> = all().map(|c| c.name.to_ascii_lowercase()).collect();
         names.sort();
         names.dedup();
-        assert_eq!(names.len(), 497, "names are unique without regard to case");
+        assert_eq!(names.len(), 503, "names are unique without regard to case");
+    }
+
+    #[test]
+    fn a_command_is_numbered_from_0x7a_in_registration_order() {
+        // Checked against compiler.dll with the table registered in this order: Eval is
+        // the first command, Sound the second, Abs the 430th.
+        assert_eq!(find("Eval").map(|(i, _)| word(i)), Some(0x7a));
+        assert_eq!(find("Sound").map(|(i, _)| word(i)), Some(0x7b));
+        assert_eq!(find("Abs").map(|(i, _)| word(i)), Some(551));
+        assert_eq!(find("Mid$").map(|(i, _)| word(i)), Some(516));
+        assert_eq!(find("Len").map(|(i, _)| word(i)), Some(447));
+        assert_eq!(find("XHigh").map(|(i, _)| word(i)), Some(164));
     }
 
     #[test]
