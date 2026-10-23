@@ -431,11 +431,11 @@ FileClose();\r\n";
     /// passes.
     #[test]
     fn lexes_spike2s_own_demo_script() {
-        let path = std::path::Path::new("vmbin/basedemo.s2s");
-        let Ok(src) = std::fs::read_to_string(path) else {
-            eprintln!("skipping: {} not present", path.display());
+        let Some(src) = super::super::parser::tests::demo_script() else {
+            eprintln!("skipping: demo script not present");
             return;
         };
+        eprintln!("found the demo script ({} bytes)", src.len());
         let toks = lex(&src).expect("the demo script should lex");
         // 43 KB of script: a couple of thousand tokens at least.
         assert!(toks.len() > 1500, "only {} tokens", toks.len());

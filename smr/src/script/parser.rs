@@ -19,8 +19,10 @@ pub enum Expr {
     Str(String),
     /// A bare name, with its type suffix if it has one.
     Name(String),
-    /// `name[idx]`, `name[a, b]`, or the slice `name[:n]`.
-    Index(Box<Expr>, Option<Box<Expr>>),
+    /// `name[arg]`. The argument says which of the four forms it was, because
+    /// `a[]`, `a[1]`, `a[:2]` and `a[1:2]` are different things and the printer
+    /// has to be able to write them back.
+    Index(Box<Expr>, IndexArg),
     /// `expr.name` — the member's own name is in the second field.
     Member(Box<Expr>, String),
     /// `callee(args)`.
@@ -30,6 +32,18 @@ pub enum Expr {
     Empty,
     Unary(&'static str, Box<Expr>),
     Binary(&'static str, Box<Expr>, Box<Expr>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum IndexArg {
+    /// `a[]` — the whole array.
+    Whole,
+    /// `a[expr]`
+    One(Box<Expr>),
+    /// `a[:expr]`
+    From(Box<Expr>),
+    /// `a[lo:hi]`
+    Range(Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -512,21 +526,15 @@ impl Parser {
             if self.eat(&Tok::LBracket) {
                 // `a[:n]` is a slice from the start; `a[]` is the whole array.
                 let idx = if self.eat(&Tok::Colon) {
-                    let hi = self.expr()?;
-                    Some(Box::new(hi))
+                    IndexArg::From(Box::new(self.expr()?))
                 } else if *self.peek() == Tok::RBracket {
-                    None
+                    IndexArg::Whole
                 } else {
                     let first = self.expr()?;
                     if self.eat(&Tok::Colon) {
-                        let hi = self.expr()?;
-                        Some(Box::new(Expr::Binary(
-                            ":",
-                            Box::new(first),
-                            Box::new(hi),
-                        )))
+                        IndexArg::Range(Box::new(first), Box::new(self.expr()?))
                     } else {
-                        Some(Box::new(first))
+                        IndexArg::One(Box::new(first))
                     }
                 };
                 if !self.eat(&Tok::RBracket) {
@@ -592,8 +600,22 @@ impl Parser {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
+
+    /// CED's demo script, if it has been pulled from the VM. It is CED's file, so
+    /// it lives in gitignored `vmbin/`; the tests that use it skip when it is
+    /// absent. Cargo runs tests from the package directory, so both depths are
+    /// tried.
+    pub fn demo_script() -> Option<String> {
+        for p in ["vmbin/basedemo.s2s", "../vmbin/basedemo.s2s"] {
+            if let Ok(s) = std::fs::read_to_string(p) {
+                eprintln!("found the demo script at {p}");
+                return Some(s);
+            }
+        }
+        None
+    }
 
     fn ok(src: &str) -> Vec<Stmt> {
         parse(src).unwrap_or_else(|e| panic!("parse failed: {e}"))
@@ -611,17 +633,44 @@ mod tests {
 
     #[test]
     fn spike2s_own_demo_parses() {
-        let path = std::path::Path::new("vmbin/basedemo.s2s");
-        let Ok(src) = std::fs::read_to_string(path) else {
-            eprintln!("skipping: {} not present", path.display());
+        let Some(src) = demo_script() else {
+            eprintln!("skipping: demo script not present");
             return;
         };
         let items = super::parse(&src).expect("the demo script should parse");
-        let count = |f: &dyn Fn(&Stmt) -> bool| items.iter().filter(|s| f(s)).count();
-        assert_eq!(count(&|s| matches!(s, Stmt::Proc(..))), 32);
-        assert_eq!(count(&|s| matches!(s, Stmt::Func(..))), 7);
-        assert_eq!(count(&|s| matches!(s, Stmt::Var(_))), 88);
-        assert_eq!(count(&|s| matches!(s, Stmt::Const(_))), 7);
+        // Recursive: most of the declarations are inside procs.
+        fn tally(stmts: &[Stmt], acc: &mut [usize; 4]) {
+            for s in stmts {
+                match s {
+                    Stmt::Var(_) => acc[0] += 1,
+                    Stmt::Const(_) => acc[1] += 1,
+                    Stmt::Proc(..) => acc[2] += 1,
+                    Stmt::Func(..) => acc[3] += 1,
+                    _ => {}
+                }
+                match s {
+                    Stmt::If(_, a, b) => {
+                        tally(a, acc);
+                        tally(b, acc);
+                    }
+                    Stmt::While(_, b) | Stmt::For { body: b, .. } => tally(b, acc),
+                    Stmt::Repeat(b, _) => tally(b, acc),
+                    Stmt::Proc(_, _, b) | Stmt::Func(_, _, b) => tally(b, acc),
+                    Stmt::Case(arms) => {
+                        for (_, b) in arms {
+                            tally(b, acc);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let mut acc = [0usize; 4];
+        tally(&items, &mut acc);
+        assert_eq!(acc[2], 32, "procs");
+        assert_eq!(acc[3], 7, "funcs");
+        assert_eq!(acc[0], 88, "vars");
+        assert_eq!(acc[1], 7, "consts");
         // The member call that made the lexer grow a Dot token.
         let has_member = items.iter().any(|s| format!("{s:?}").contains("Member"));
         assert!(has_member, "no member access found");
