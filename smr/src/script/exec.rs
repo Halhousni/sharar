@@ -772,4 +772,210 @@ mod tests {
     fn an_unported_opcode_stops_with_its_address() {
         assert_eq!(m(&[1, 0x24], &[]).run(), Stop::Unported { op: 0x24, at: 1 });
     }
+
+    // ── checked against Spike2 ─────────────────────────────────────────────
+    //
+    // tools/oracle/t1.s2s and t2.s2s were run in Spike2 8.10 and wrote their
+    // variables to a file; the numbers below are what came back. The programs
+    // here are hand-assembled equivalents, because the compiler is not ported:
+    // they check the run-time rules, not Spike2's own instruction layout.
+
+    /// A tiny assembler: symbols are pushed by word, forward jumps patched later.
+    struct Asm {
+        w: Vec<u16>,
+        sym: Vec<Item>,
+    }
+
+    impl Asm {
+        fn new(vars: usize) -> Self {
+            Asm { w: Vec::new(), sym: (0..vars).map(Item::Var).collect() }
+        }
+        fn v(&mut self, i: usize) -> &mut Self {
+            self.w.push(SYM + i as u16);
+            self
+        }
+        fn k(&mut self, x: f64) -> &mut Self {
+            self.sym.push(Item::Val(Value::Flt(x)));
+            self.w.push(SYM + (self.sym.len() - 1) as u16);
+            self
+        }
+        fn op(&mut self, o: &[u16]) -> &mut Self {
+            self.w.extend_from_slice(o);
+            self
+        }
+        /// Emit an opcode with a placeholder operand; returns the operand index.
+        fn fwd(&mut self, o: u16) -> usize {
+            self.w.extend_from_slice(&[o, 0]);
+            self.w.len() - 1
+        }
+        /// Point a forward operand at the current end.
+        fn land(&mut self, at: usize) {
+            self.w[at] = (self.w.len() - (at + 1)) as u16;
+        }
+        fn back(&mut self, o: u16, to: usize) {
+            self.w.push(o);
+            let after = self.w.len() + 1;
+            self.w.push((to as i32 - after as i32) as i16 as u16);
+        }
+        fn machine(&self, vars: &[Value]) -> Machine {
+            let mut x = Machine::new(self.w.clone(), vars.len());
+            x.vars = vars.to_vec();
+            x.symbols = self.sym.clone();
+            x
+        }
+    }
+
+    /// The oracle file, if this machine has pulled it from the guest.
+    fn oracle(name: &str) -> Option<Vec<u8>> {
+        for d in ["vmbin/oracle", "../vmbin/oracle"] {
+            if let Ok(b) = std::fs::read(format!("{d}/{name}")) {
+                eprintln!("found {d}/{name}");
+                return Some(b);
+            }
+        }
+        eprintln!("skipping the file comparison: {name} not present");
+        None
+    }
+
+    #[test]
+    fn t1_matches_spike2() {
+        let (a, b, s, i, c, x, y, z) = (0, 1, 2, 3, 4, 5, 6, 7);
+        let mut p = Asm::new(8);
+        p.v(a).op(&[7, 3, 2, 0x19, 0x18, 0x15]); // a% := 7 - 3*2
+        p.v(s).op(&[0, 0x15]); // s% := 0
+        p.v(i).op(&[1, 10, 1]);
+        let skip = p.fwd(0x5e); // for i% := 1 to 10
+        p.v(s).v(i).op(&[0x3e, 0x60]); // s% += i% next
+        p.land(skip);
+        p.v(b).op(&[4, 0x15]).v(c).op(&[0, 0x15]);
+        let top = p.w.len();
+        p.v(b).op(&[0, 0x49]); // while b% > 0
+        let out = p.fwd(0x3d);
+        p.v(b).op(&[1, 0x3f]).v(c).op(&[2, 0x3e]); // b% -= 1; c% += 2
+        p.back(0x3c, top); // wend
+        p.land(out);
+        p.v(x).k(1.5).op(&[0x16]); // x := 1.5
+        p.v(y).v(x).op(&[2, 0x1e]).k(0.25).op(&[0x1d, 0x16]); // y := x*2 - 0.25
+        p.v(z).op(&[0, 0x16]);
+        p.v(x).op(&[1, 0]).k(-0.25);
+        let skip = p.fwd(0x5f); // for x := 1 to 0 step -0.25
+        p.v(z).v(x).op(&[0x42, 0x60]); // z += x next
+        p.land(skip);
+        p.op(&[0x79]);
+
+        let int = Value::Int(0);
+        let flt = Value::Flt(0.0);
+        let mut m = p.machine(&[int, int, int, int, int, flt, flt, flt]);
+        assert_eq!(m.run(), Stop::Done);
+        let want = [
+            Value::Int(1),
+            Value::Int(0),
+            Value::Int(55),
+            Value::Int(11),
+            Value::Int(8),
+            Value::Flt(-0.25),
+            Value::Flt(2.75),
+            Value::Flt(2.5),
+        ];
+        assert_eq!(m.vars, want);
+
+        // Spike2 wrote five i32 and three f64 with BWrite.
+        if let Some(bin) = oracle("t1.bin") {
+            assert_eq!(bin.len(), 44);
+            for (k, w) in want.iter().enumerate() {
+                let got = if k < 5 {
+                    Value::Int(i32::from_le_bytes(bin[4 * k..4 * k + 4].try_into().unwrap()) as i64)
+                } else {
+                    let o = 20 + 8 * (k - 5);
+                    Value::Flt(f64::from_le_bytes(bin[o..o + 8].try_into().unwrap()))
+                };
+                assert_eq!(got, *w, "variable {k}");
+            }
+        }
+    }
+
+    /// The single-expression cases of t2, each as Spike2 reported it.
+    #[test]
+    fn t2_matches_spike2() {
+        let nan = Value::Flt(f64::NAN);
+        let one = Value::Flt(1.0);
+        let top = |words: &[u16], vars: &[Value]| -> Result<Value, Stop> {
+            let mut x = m(words, vars);
+            match x.run() {
+                Stop::Done => {}
+                s => return Err(s),
+            }
+            match x.stack.last() {
+                Some(Item::Val(v)) => Ok(*v),
+                other => panic!("{other:?}"),
+            }
+        };
+        let i = |v: i64| Ok(Value::Int(v));
+        let mut got = Vec::new();
+        for op in [0x4d, 0x4e, 0x51, 0x4f, 0x52, 0x50] {
+            got.push(top(&[SYM, SYM + 1, op], &[nan, one])); // r[0]..r[5]
+        }
+        got.push(top(&[SYM, 0x5c], &[nan])); // r[6] not n
+        // `n and 1` stopped Spike2 with "Integer Overflow": the compiler chose the
+        // int LogAND, and NaN does not convert.
+        got.push(top(&[SYM, 1, 0x61], &[nan]));
+        let mut k = m(&[SYM, SYM + 1, 0x15], &[Value::Int(0), Value::Flt(-2.7)]);
+        k.run();
+        got.push(Ok(k.vars[0])); // r[9]
+        got.push(top(&[SYM, 3, 0x1b], &[Value::Int(-7)])); // -7 mod 3
+        got.push(top(&[7, SYM, 0x1b], &[Value::Int(-3)])); // 7 mod -3
+        got.push(top(&[SYM, 2, 0x1a], &[Value::Int(-7)])); // -7 / 2
+        got.push(top(&[SYM, SYM + 1, 0x20], &[Value::Flt(-7.5), Value::Flt(2.0)])); // r[13]
+        got.push(top(&[6, 3, 0x64], &[])); // 6 band 3
+        got.push(top(&[6, 3, 0x66], &[])); // 6 bxor 3
+        got.push(top(&[2, 0, 0x63], &[])); // 2 xor 0
+        let want = [
+            i(1),
+            i(0),
+            i(0),
+            i(0),
+            i(0),
+            i(0),
+            i(1),
+            Err(Stop::Error(ERR_OVERFLOW)),
+            i(-2),
+            i(-1),
+            i(1),
+            i(-3),
+            Ok(Value::Flt(-1.5)),
+            i(2),
+            i(5),
+            i(1),
+        ];
+        assert_eq!(got, want);
+
+        // Skipped int loop leaves the variable at the start; float loop ends at 2.5.
+        let mut p = Asm::new(1);
+        p.v(0).op(&[5, 3, 1]);
+        let s = p.fwd(0x5e);
+        p.op(&[0x60]);
+        p.land(s);
+        let mut x = p.machine(&[Value::Int(0)]);
+        x.run();
+        assert_eq!(x.vars[0], Value::Int(5));
+        let mut p = Asm::new(1);
+        p.v(0).op(&[1, 2]).k(0.5);
+        let s = p.fwd(0x5f);
+        p.op(&[0x60]);
+        p.land(s);
+        let mut x = p.machine(&[Value::Flt(0.0)]);
+        x.run();
+        assert_eq!(x.vars[0], Value::Flt(2.5));
+
+        // t2.bin is r[0..20] as f64; r[7] and r[8] were set to -1 after the
+        // overflow case was split out, and r[19] stays 0 because its loop is skipped.
+        if let Some(bin) = oracle("t2.bin") {
+            let r: Vec<f64> = bin.chunks(8).map(|c| f64::from_le_bytes(c.try_into().unwrap())).collect();
+            let file = [
+                1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, -1.0, -2.0, -1.0, 1.0, -3.0, -1.5, 5.0, 2.5,
+                2.0, 5.0, 1.0, 0.0,
+            ];
+            assert_eq!(r, file);
+        }
+    }
 }

@@ -286,6 +286,39 @@ and `Halt` on a word stream, with a test for each rule above and small programs
 stops the run with its address rather than guessing. Variables are supplied by the
 caller, because the symbol tables the compiler builds are not ported yet.
 
+## Checked against Spike2
+
+`tools/oracle/run.sh <name>` copies `tools/oracle/<name>.s2s` into the Windows
+guest, restarts Spike2 with a one-line `startup.s2s` that runs it, and pulls back
+the binary file the script writes with `BWrite`. Two scripts have been run in
+Spike2 8.10:
+
+- `t1.s2s`: assignment, integer arithmetic, a `for` loop summing 1 to 10, a
+  `while` loop, float arithmetic and a downward float loop. Spike2 returned
+  a% = 1, b% = 0, s% = 55, i% = 11, c% = 8, x = -0.25, y = 2.75, z = 2.5.
+- `t2.s2s`: NaN against the six comparisons and `not`, `-2.7` stored in an int,
+  `mod` and `/` with negative operands, float `mod`, a loop skipped on entry, a
+  float loop with step 0.5, and `band`, `bxor`, `xor`.
+
+Spike2 agreed with every rule read from the DLL: NaN = 1 is true and the ordered
+comparisons are false, `not NaN` is 1, `-2.7` truncates to -2, `-7 mod 3` is -1,
+`7 mod -3` is 1, `-7 / 2` is -3, `-7.5 mod 2.0` is -1.5, a skipped loop leaves the
+variable at its start, and the float loop ends one step past its limit at 2.5.
+`n and 1` with a NaN `n` stopped the script with "Integer Overflow", which is the
+-7011 that converting NaN to an int raises.
+
+The tests `t1_matches_spike2` and `t2_matches_spike2` run hand-assembled
+equivalents through `Machine` and compare with those numbers, and with the files
+themselves when `vmbin/oracle/` holds them. Changing the NaN rule for `=` makes
+the second one fail.
+
+What this does not check is the instruction layout. The programs are assembled
+by hand because the compiler is not ported, so the order Spike2's compiler emits
+operands in, and which opcodes it picks, are still only read from the DLL.
+`DebugOpts(1, 1)` is the option whose label is "Write compiled code to
+'default.cod'" (string `0x2a26 + option` in `runtime.s2l`), but setting it from a
+startup script wrote no such file anywhere on the guest's disk.
+
 ## What is not known yet
 
 - what the `MakeNDArr` and `ResizeArray` operands count;
