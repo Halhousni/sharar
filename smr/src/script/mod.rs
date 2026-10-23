@@ -4,6 +4,7 @@
 //! `docs/script.md` records what has been recovered from them. This module is the
 //! front end: a lexer, and a parser for the grammar Spike2's own scripts use.
 
+pub mod bytecode;
 pub mod lexer;
 pub mod parser;
 pub mod print;

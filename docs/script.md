@@ -206,9 +206,40 @@ syntax anyone would guess:
 Not present, though an outsider would expect them: `downto`, `div`, `array`,
 `begin`, `dim`, `elseif`, `endwhile`, `exit`.
 
+## The operand encoding
+
+Read from the same formatter at 0x48c70, whose comparison ladder (0x48d6d to
+0x49129) decides per opcode whether to read a second word. Every instruction is one
+or two words. Eight opcodes take an operand word:
+
+| opcode | operand | printed as |
+|---|---|---|
+| `GetArg` 44, `GetLocal` 45 | slot `n`, 1-based | `[n]:` and the name of slot `n - 1` |
+| `JumpRelImm` 60, `JumpRelImmF` 61 | one word | signed 16-bit decimal |
+| `MakeIntFor` 94, `MakeFltFor` 95 | one word | unsigned decimal |
+| `MakeNDArr` 112, `ResizeArray` 113 | one word | unsigned octal, after `oct:` |
+
+The rest take none. `Arg1`..`Arg5` and `Local1`..`Local5` carry slot 0 to 4 in the
+opcode. `IntProc`, `FloatProc`, `StringProc` and `VoidProc` take no operand: the
+listing looks up the instruction's own address in the procedure table and prints
+the name it finds. Words 0 to 20 print as `const=N`. Words above 121 are symbol
+references. The word minus 122 indexes one table at offset 0xb0 of the manager, and
+past its end a second one at 0x80, whose entries can carry an int, a float or a
+string that the listing prints beside the name.
+
+The formatter also decides where a listing line ends. It ends after assignments,
+calls, returns, jumps, the compound assignments, the loop opcodes, the array-index
+and resize opcodes, `CurView`, `SetView` and `Halt`. Other instructions are joined
+by a space, so one line is roughly one statement in postfix order.
+
+`smr::script::bytecode` holds this as a decoder and a formatter, with a test that
+compares its name table with the DLL.
+
 ## What is not known yet
 
-- the operand encoding: which words follow which opcode;
+- what the operands mean at run time: whether a jump is relative to the opcode or
+  to the next word, and what the `MakeIntFor` and `MakeNDArr` words count;
+- which tables the symbol words index;
 - the built-in function table — Spike2 ships hundreds of functions and they are
   registered rather than compiled in, so the table is the place to look;
 - how `runtime.s2l`'s command objects are bound to script names;
