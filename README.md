@@ -72,8 +72,8 @@ pointer, middle-drag pans, dragging near a cursor moves it.
   exchange in `Filters.dll`, with the band table, the tap count and the defaults that
   `FIRWin.s2l` builds for `FIRQuick`. You give it a corner frequency, a transition width and
   the stop-band attenuation in dB, exactly as Spike2 does, and it derives the coefficient
-  count from them. Coefficients agree with CED's own library to 1.8e-14 relative across
-  nineteen designs; `docs/filters.md` records the recovered code and how it was checked.
+  count from them. Coefficients agree with CED's own library on thirty designs: twenty-six to
+  1e-14 relative or better, and four warped band tables to between 2e-12 and 8.6e-8; `docs/filters.md` records the recovered code and how it was checked.
   The dialog plots the response over 0 to Nyquist as you change the parameters, through
   `CFIR::FreqR`, the same evaluator Spike2's dialog uses, and it edits CFIR's band table
   directly — edges with a wanted gain, weights derived the way Spike2 derives them — so a
@@ -95,7 +95,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | `.s2s` scripting | a parser for the language, tested on CED's demo script; a stack machine for the arithmetic, comparison, assignment, jump and loop opcodes, run on hand-assembled code; no compiler, no procedures, arrays, strings or built-in functions, and the Script menu is a placeholder |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
-| Filter design | the Parks-McClellan designer behind `FIRQuick` and `FIRMake`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14, as do the antisymmetric types 5 and 6 that only `FIRMake` can reach; band tables that stop short of Nyquist take the same warped path and agree to about seven digits; the dialog offers the four symmetric types, and the differentiator is library-only; the IIR option is not Spike2's |
+| Filter design | the Parks-McClellan designer behind `FIRQuick` and `FIRMake`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14 or better, as do the antisymmetric types 5 and 6 that only `FIRMake` can reach; band tables that stop short of Nyquist take the same warped path and agree to between 2e-12 and 8.6e-8 relative; the dialog offers the four symmetric types, and the differentiator is library-only; the IIR option is not Spike2's |
 
 ## Layout
 

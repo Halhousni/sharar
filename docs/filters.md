@@ -92,7 +92,7 @@ scaled by the DC gain.
 `tools/fir_oracle.py` runs the same designs through this port and through CED's
 own `Filters.dll`, the latter under Wine through a small Windows harness
 (`cfir_oracle.c`) that calls `CFIR::fircalc` and `CFIR::GetCoeff` directly.
-Nineteen designs — odd and even lengths from 3 to 255 taps, low pass, high pass,
+Twenty designs — odd and even lengths from 3 to 255 taps, low pass, high pass,
 band pass, band stop and differentiator — agree to a worst relative difference
 of **1.8e-14**, which is the last two or three bits of the mantissa. The
 deviations agree to every printed digit, and the extremal sets are identical.
