@@ -508,8 +508,8 @@ the four command slots a bare compile registers.
 The lexer, the parser and the compiler now exist and agree with the vendor's on
 everything they cover. Two things stand between them and a Script menu that runs a
 real script. The commands are the large one: the table now names 503 built-ins and their
-argument lists, but each still has its own behaviour to be read out of `runtime.s2l`,
-and the compiler does not yet emit a call. The other is the interpreter's remaining
+argument lists and the compiler emits calls to them, but each still has its own
+behaviour to be read out of `runtime.s2l`. The other is the interpreter's remaining
 opcodes — the array, matrix and view families — which `Machine` currently stops on
 by name. A partial engine that runs most scripts but differs in a corner is worse
 than no Script menu, because a script that runs is trusted, which is why each piece
