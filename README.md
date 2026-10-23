@@ -19,7 +19,11 @@ cargo run -p sharar -- path/to/recording.smr   # or .smrx
 Command-line flags: `--dc` starts with DC remove on, `--filters` opens the filter dialog,
 `--lowpass=<hz>` applies a FIR low pass at startup, `--average` opens the average dialog with
 a result computed, `--export` writes the visible window to CSV and reports the path, and
-`--record` opens the live strip chart on its synthetic source.
+`--record` opens the live strip chart on its synthetic source. The other flags in
+`app/src/main.rs` (`--chan-info`, `--yaxis`, `--yrange=<lo>,<hi>`, `--showhide`, `--copy-dump`,
+`--bands=notch`, `--bands=kill`, `--bands-apply`, `--process`, `--process-chain`,
+`--two-views`, `--views-check`) are development switches. Each opens one dialog or state at
+startup, and `--copy-dump` prints Edit → Copy's text and exits.
 
 Pass a file on the command line, or use `File → Open…` or the toolbar's Open button. Both show
 the system file picker, filtered to `.smr` and `.smrx`. `File → Open by path…` takes a typed
@@ -85,10 +89,10 @@ This is an early slice of a large program, not a finished replacement for Spike2
 |---|---|
 | Acquisition from a CED 1401 | `--record` opens a live strip chart fed by a synthetic source; the 1401 backend is a stub that reports no device attached. The userspace half of the stack is recovered and `docs/1401.md` records it, but the device-level protocol is still inside the driver and no capture of it exists |
 | Sampling configuration | none |
-| Channel processing | DC remove and low/high-pass digital filters; no rectification, integration or other processes |
+| Channel processing | DC remove and FIR filters (low pass, high pass, band pass, band stop) in a per-channel process chain under `Analysis → Process…`; no rectification, integration or other processes |
 | Averaging | peri-stimulus average works; no smoothing, confidence bands or baselines |
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
-| `.s2s` scripting | none |
+| `.s2s` scripting | a parser for the language, tested on CED's demo script; no compiler or runtime, and the Script menu is a placeholder |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
 | Filter design | the Parks-McClellan designer behind `FIRQuick` and `FIRMake`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14, as do the antisymmetric types 5 and 6 that only `FIRMake` can reach; band tables that stop short of Nyquist take the same warped path and agree to about seven digits; the dialog offers the four symmetric types, and the differentiator is library-only; the IIR option is not Spike2's |
@@ -96,7 +100,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 ## Layout
 
 ```
-smr/      .smr and .smrx reader, plus the FIR designer — no dependencies
+smr/      .smr and .smrx reader, the FIR designer and the script parser — no dependencies
 app/      the egui/eframe application
 tools/    inventory.py (.smr reference reader), smrx_oracle.py (.smrx check against sonpy),
           fir_oracle.py (filter check against CED's Filters.dll)
@@ -141,7 +145,7 @@ notes follow in their own section.
   the channel list is mostly empty slots.
 - Filters follow the arrangement the CD's manual describes: the FIR type is set by a pass
   band edge and a transition gap, and the number of coefficients follows from the narrower of
-  the bands. This implementation exposes the tap count directly instead of deriving it.
+  the bands.
 - ADC samples convert to units as `count * scale / 6553.6 + offset`. `scale` is in units per
   volt and a 16-bit ADC spans ±5 V, so a channel's full-scale range is `scale * 5`. Spike2
   reports that range in its channel information, and `neo` uses the same divisor. An earlier

@@ -1,6 +1,6 @@
 # Spike2's script engine
 
-Sharar has no Script menu. This is the first pass at what one would run: the
+Sharar's Script menu is a placeholder. This is the first pass at what it would run: the
 engine is not in `SONVIEW.exe` at all, it is two libraries beside it.
 
 | file | size | what it is |
@@ -220,5 +220,6 @@ Not present, though an outsider would expect them: `downto`, `div`, `array`,
 A language is not a dialog. Sharar would need a lexer, a parser, a compiler and a
 runtime, each of which has to agree with this one — and a partial engine that runs
 most scripts but differs in a corner is worse than no Script menu, because a script
-that runs is trusted. That is why this file exists before any code: the estimate
-depends on how large the built-in table is, and that is measurable.
+that runs is trusted. That is why this file was written before the parser: the
+estimate depends on how large the built-in table is, and that is measurable. The
+parser now exists. The compiler and the runtime do not.

@@ -38,8 +38,9 @@ other document types (script window, result view, and so on); 128 is a stub.
 | Window | 11 |
 | Help | — |
 
-188 items in the data window alone. Sharar has nine menus with 18 items
-between them, so the menu *bar* matches and the *contents* do not.
+188 items in the data window alone. Sharar has nine menus with 39 items
+between them, plus one Window entry per open view. Sample, Script and Help hold
+no commands. The menu *bar* matches and the *contents* do not.
 
 ## What the data window's menus contain
 
