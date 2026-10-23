@@ -92,7 +92,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Channel processing | DC remove and FIR filters (low pass, high pass, band pass, band stop) in a per-channel process chain under `Analysis → Process…`; no rectification, integration or other processes |
 | Averaging | peri-stimulus average works; no smoothing, confidence bands or baselines |
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
-| `.s2s` scripting | a parser for the language, tested on CED's demo script; a stack machine for the arithmetic, comparison, assignment, jump and loop opcodes, run on hand-assembled code; no compiler, no procedures, arrays, strings or built-in functions, and the Script menu is a placeholder |
+| `.s2s` scripting | a parser and a compiler for the language, checked word for word against Spike2's own compiler on 75 scripts — statements, expressions, procedures, arrays and the constant pools — plus a stack machine for the arithmetic, comparison, assignment, jump and loop opcodes. No command table, so a script that calls a built-in (`Abs`, `View(…)`, `Len`) does not compile; no run of a compiled program; the Script menu is a placeholder |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
 | Filter design | the Parks-McClellan designer behind `FIRQuick` and `FIRMake`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14 or better, as do the antisymmetric types 5 and 6 that only `FIRMake` can reach; band tables that stop short of Nyquist take the same warped path and agree to between 2e-12 and 8.6e-8 relative; the dialog offers the four symmetric types, and the differentiator is library-only; the IIR option is not Spike2's |
@@ -103,7 +103,9 @@ This is an early slice of a large program, not a finished replacement for Spike2
 smr/      .smr and .smrx reader, the FIR designer and the script parser — no dependencies
 app/      the egui/eframe application
 tools/    inventory.py (.smr reference reader), smrx_oracle.py (.smrx check against sonpy),
-          fir_oracle.py (filter check against CED's Filters.dll)
+          fir_oracle.py (filter check against CED's Filters.dll), compile_oracle.py
+          (script compiler check against CED's compiler.dll) and compile_cases/, the
+          scripts both compilers are given
 docs/     screenshots; filters.md on the recovered designer, script.md on the
           script engine, 1401.md on the acquisition stack
 ```
@@ -118,7 +120,10 @@ Spike2 CD and are not redistributed here, so those tests skip when they are abse
 `data2.cab` from the CD to `testdata/` to run them fully. The parser is also covered by a
 synthetic `.smr` fixture that the test helper writes itself, so scaling, block indexing and
 markers are tested on a machine without the CD. A second fixture, `smr/tests/synthetic_smrx.rs`,
-does the same for `.smrx`. It covers the index tree, a deleted channel slot, a stale data
+does the same for `.smrx`. The script compiler is checked the same way:
+`tools/compile_oracle.py` runs Spike2's own compiler over every file in
+`tools/compile_cases` and writes the words it produced to
+`testdata/compile_reference.txt`; the test skips when that fixture is absent. It covers the index tree, a deleted channel slot, a stale data
 block and truncated files. `tools/smrx_oracle.py` compares the `.smrx` reader with `sonpy` on
 real recordings (see "Notes on the format").
 

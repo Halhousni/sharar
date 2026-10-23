@@ -1,0 +1,4 @@
+const k% := 2 + 30;
+const j% := k% * 30;
+var a%;
+a% := j%; a% := k%;

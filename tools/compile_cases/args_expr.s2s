@@ -1,0 +1,4 @@
+var i%,y,s$;
+P(i%+1,y*2,s$+"a");
+proc P(a%,b,c$)
+end;

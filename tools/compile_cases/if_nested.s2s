@@ -1,0 +1,2 @@
+var a%,b%;
+if a% = 1 then if b% = 2 then a% := 3 endif else b% := 4 endif;

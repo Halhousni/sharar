@@ -1,0 +1,2 @@
+var a%,b%,c%,d%;
+a% := b% band c% = d%; a% := b% + c% band d%; a% := b% band c% + d%;

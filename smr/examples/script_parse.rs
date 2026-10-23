@@ -12,10 +12,10 @@ fn count(stmts: &[smr::script::Stmt], acc: &mut [usize; 10]) {
             Func(..) => acc[3] += 1,
             If(..) => acc[4] += 1,
             While(..) | Repeat(..) | For { .. } => acc[5] += 1,
-            Case(_) => acc[6] += 1,
+            Case(..) => acc[6] += 1,
             Assign(..) => acc[7] += 1,
             Expr(_) => acc[8] += 1,
-            Return(_) | Halt | Keyword(_) => acc[9] += 1,
+            Return(_) | Halt | Keyword(_) | CompoundAssign(..) | Resize(..) => acc[9] += 1,
         }
         match s {
             If(_, a, b) => {
@@ -25,7 +25,7 @@ fn count(stmts: &[smr::script::Stmt], acc: &mut [usize; 10]) {
             While(_, b) | For { body: b, .. } => count(b, acc),
             Repeat(b, _) => count(b, acc),
             Proc(_, _, b) | Func(_, _, b) => count(b, acc),
-            Case(arms) => {
+            Case(arms, _) => {
                 for (_, b) in arms {
                     count(b, acc);
                 }

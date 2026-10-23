@@ -24,7 +24,7 @@ const KEYWORDS: &[&str] = &[
     "and", "band", "bor", "break", "bxor", "call", "case", "const", "continue", "do", "docase",
     "else", "end", "endcase",
     "endif", "for", "func", "halt", "if", "mod", "next", "not", "or", "proc", "repeat", "return",
-    "step", "string", "then", "to", "until", "var", "wend", "while", "xor",
+    "resize", "step", "string", "then", "to", "until", "var", "wend", "while", "xor",
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,6 +61,10 @@ pub enum Tok {
     RParen,
     LBracket,
     RBracket,
+    /// `?` and `:` in `cond ? a : b`.
+    Question,
+    /// `&` before a parameter name: passed by reference.
+    Amp,
     /// End of input; the lexer always ends with exactly one of these.
     End,
 }
@@ -207,6 +211,22 @@ pub fn lex(src: &str) -> Result<Vec<Token>, LexError> {
                     bump!();
                 }
             }
+            // An exponent is part of the literal: `1e30`, `1.5e-3`.
+            if i < chars.len() && (chars[i] == 'e' || chars[i] == 'E') {
+                let mut j = i + 1;
+                if j < chars.len() && (chars[j] == '+' || chars[j] == '-') {
+                    j += 1;
+                }
+                if j < chars.len() && chars[j].is_ascii_digit() {
+                    is_float = true;
+                    while i < j {
+                        bump!();
+                    }
+                    while i < chars.len() && chars[i].is_ascii_digit() {
+                        bump!();
+                    }
+                }
+            }
             let text: String = chars[start..i].iter().collect();
             if is_float {
                 match text.parse::<f64>() {
@@ -313,6 +333,8 @@ pub fn lex(src: &str) -> Result<Vec<Token>, LexError> {
             ')' => Some(Tok::RParen),
             '[' => Some(Tok::LBracket),
             ']' => Some(Tok::RBracket),
+            '?' => Some(Tok::Question),
+            '&' => Some(Tok::Amp),
             _ => None,
         };
         match one {

@@ -1,0 +1,2 @@
+var x,a%;
+x := a% + x; x := x / a%; a% := a% mod 3; x := x mod 2;

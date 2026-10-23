@@ -1,0 +1,2 @@
+var a%;
+a% := 6 xor 3; a% := 6 and 3; a% := 6 or 0; a% := 6 band 3; a% := 6 bor 3; a% := 6 bxor 3;

@@ -1,0 +1,6 @@
+var i%;
+i% := F(5);
+func F(n%)
+if n% <= 1 then return 1 endif;
+return n% * F(n%-1);
+end;

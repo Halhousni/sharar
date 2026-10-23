@@ -1,0 +1,2 @@
+var x,a%,b%,c%;
+a% := b% xor c%; a% := b% and c%; a% := b% or c%; a% := x and b%;

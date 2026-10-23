@@ -11,13 +11,17 @@ use super::parser::{Declarator, Expr, IndexArg, Stmt};
 /// Parenthesise by precedence so the printed text re-parses to the same tree.
 fn prec(e: &Expr) -> u8 {
     match e {
+        // The levels are the vendor compiler's, which is not quite the usual
+        // ladder: `bor`/`bxor` sit with `or`, and a comparison binds tighter than
+        // `band`.
+        Expr::Ternary(..) => 0,
         Expr::Binary(op, ..) => match *op {
-            "or" | "xor" => 1,
-            "and" => 2,
+            "or" | "xor" | "bor" | "bxor" => 1,
+            "and" | "band" => 2,
             "=" | "<>" | "<" | ">" | "<=" | ">=" => 3,
-            "+" | "-" | "band" | "bor" | "bxor" => 4,
+            "+" | "-" => 4,
             "*" | "/" | "mod" => 5,
-            _ => 6,
+            _ => 7,
         },
         Expr::Unary(..) => 6,
         _ => 7,
@@ -99,6 +103,18 @@ pub fn expr(e: &Expr, out: &mut String) {
             out.push(' ');
             expr_prec(r, p + 1, out);
         }
+        Expr::Ternary(c, a, b) => {
+            expr_prec(c, 1, out);
+            out.push_str(" ? ");
+            expr_prec(a, 0, out);
+            out.push_str(" : ");
+            expr_prec(b, 0, out);
+        }
+        Expr::Paren(inner) => {
+            out.push('(');
+            expr(inner, out);
+            out.push(')');
+        }
     }
 }
 
@@ -175,6 +191,24 @@ fn stmt(s: &Stmt, indent: usize, out: &mut String) {
             expr(r, out);
             out.push(';');
         }
+        Stmt::CompoundAssign(l, op, r) => {
+            expr(l, out);
+            out.push(' ');
+            out.push_str(op);
+            out.push_str("= ");
+            expr(r, out);
+            out.push(';');
+        }
+        Stmt::Resize(target, dims) => {
+            out.push_str("resize ");
+            expr(target, out);
+            for d in dims {
+                out.push('[');
+                expr(d, out);
+                out.push(']');
+            }
+            out.push(';');
+        }
         Stmt::Expr(e) => {
             expr(e, out);
             out.push(';');
@@ -230,7 +264,7 @@ fn stmt(s: &Stmt, indent: usize, out: &mut String) {
             out.push_str(&"  ".repeat(indent));
             out.push_str("next;");
         }
-        Stmt::Case(arms) => {
+        Stmt::Case(arms, otherwise) => {
             out.push_str("docase\n");
             for (cond, body) in arms {
                 out.push_str(&"  ".repeat(indent + 1));
@@ -238,6 +272,11 @@ fn stmt(s: &Stmt, indent: usize, out: &mut String) {
                 expr(cond, out);
                 out.push_str(" then\n");
                 stmts(body, indent + 2, out);
+            }
+            if !otherwise.is_empty() {
+                out.push_str(&"  ".repeat(indent + 1));
+                out.push_str("else\n");
+                stmts(otherwise, indent + 2, out);
             }
             out.push_str(&"  ".repeat(indent));
             out.push_str("endcase;");

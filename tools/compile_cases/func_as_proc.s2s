@@ -1,0 +1,5 @@
+var a%;
+F(1);
+func F(n%)
+return n%*2;
+end;

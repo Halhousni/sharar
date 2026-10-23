@@ -1,0 +1,2 @@
+var x,z%;
+for x := 1 to 0 step -0.25 do z% += 1 next;

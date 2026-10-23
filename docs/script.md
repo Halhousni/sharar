@@ -284,7 +284,8 @@ Read from their methods:
 and `Halt` on a word stream, with a test for each rule above and small programs
 (a for loop summing 1 to 10, a while loop from the two jumps). Any other opcode
 stops the run with its address rather than guessing. Variables are supplied by the
-caller, because the symbol tables the compiler builds are not ported yet.
+caller; `smr::script::compile` builds the word stream and the symbol tables that go
+with it, as the next section records.
 
 ## Checked against Spike2
 
@@ -319,22 +320,95 @@ operands in, and which opcodes it picks, are still only read from the DLL.
 'default.cod'" (string `0x2a26 + option` in `runtime.s2l`), but setting it from a
 startup script wrote no such file anywhere on the guest's disk.
 
+## The compiler
+
+`smr::script::compile` turns a parsed script into the words the interpreter runs. It
+is a port of the vendor's code generator, class by class: every syntax-tree class in
+`compiler.dll` has one generator as its first virtual method, and every generator
+writes through a single emitter, so the layout was recoverable rather than guessed.
+
+| the vendor's class | generator | what it emits |
+|---|---|---|
+| `CExpLitInt` / `CExpLitFloat` / `CExpLitString` | 0x8000, 0x1b690, 0x8410 | a constant word, or a pool entry above the symbols |
+| `CExpBinaryOp`, `CExpUnaryOp` | 0x7af0, 0x2db60 | the typed opcode for the operator |
+| `CAssignStatement` | 0x8150 | the target's reference, the value, `Int:=` or its float/string twin |
+| `CIfStatement`, `CWhileStatement`, `CRepeatStatement` | 0x7410, 0x30e60, 0x30c70 | a test and `JumpRelImmF`/`JumpRelImm`, with the offset patched |
+| `CForStatement` | 0x6c80 | `MakeIntFor`/`MakeFltFor`, the body, `Next`, and the skipped length |
+| `CProcFuncStatement`, `CCallStatement` | 0x6a00, 0x7e60 | the entry word, or arguments, count, target and `Call` |
+| `CExpArray`, `CResizeStatement` | 0x18580, 0x4f50 | the reference and `ArrNIndex`, or `ResizeArray` and a dimension mask |
+| `CDoCaseStatement`, `CBreakContinueStatement`, `CHaltStatement` | 0x5780, 0x30a00, 0x304e0 | `docase` chains, `PopFor` and jumps, `Halt` |
+
+Some rules are the vendor's rather than the language's. Each was read off the
+generator and then confirmed against the vendor's compiler, and each is reproduced
+deliberately:
+
+- A symbol occupies a word from 126 up, variables and constants in declaration order
+  and then the routines. Constants follow, pooled: strings, then integers, then
+  floats, each sorted. Integers 0 to 20 and whole floats 0 to 20 are their own
+  opcodes and take no pool entry.
+- Constant expressions fold at compile time with 64-bit integers, and an overflow or
+  a division by zero is a compile error. A unary operator folds only through a bare
+  literal, so `not 1` is the constant 0 while `not (2-1)` is the constant 1 followed
+  by `IntUNot`.
+- `xor` of two constants folds as a logical operation, but the same operator on two
+  variables compiles to `BitXor`.
+- A comparison binds tighter than `band` and `and`, so `flags% band 1 = 1` is
+  `flags% band (1 = 1)`.
+- `and`, `or` and `xor` between floats use the integer opcodes.
+- `if` with a constant condition keeps only the branch it takes. `while 0` disappears
+  and `while 1` drops its test. A `docase` arm with a constant-false condition keeps
+  the test and drops the body.
+- Code after `break` or `continue` in the same block is dropped; code after `halt` is
+  kept. `break` in a `for` loop emits `PopFor` first.
+- A declaration's initialiser compiles as an assignment unless it folds, which is why
+  `var a% := 25` emits nothing and `var a% := b%` emits the store.
+
+How it was checked. `tools/compile_oracle.py` runs the vendor's own compiler over
+every case in `tools/compile_cases` and writes the words it produced as a fixture;
+`smr/tests/compile_reference.rs` compiles the same files with this port and compares
+word for word. All 75 cases match, and the two cases the vendor refuses (a `break`
+outside a loop and a call to a built-in) are refused here too. The harness that calls
+the vendor compiler is `compile_oracle.c` beside CED's DLLs, outside this repository,
+because the DLL is not redistributable; the fixture is gitignored for the same reason,
+so a fresh clone skips that test and runs the unit tests in `compile.rs`, which pin
+the same rules on a handful of scripts.
+
+What is missing is the command table. `runtime.s2l` registers several hundred
+built-ins, and the vendor resolves a call against it at compile time; this port has
+no such table, so a script that calls `Abs`, `Len`, `View(…)` or any other command
+stops with an error naming it rather than compiling to words the interpreter could
+not run. Member calls (`View(0).MaxTime()`) fail the same way. That is the honest
+boundary: a program made of the language itself compiles to the same words Spike2
+produces, and a program made mostly of calls — which is most real scripts — does not
+compile yet.
+
 ## What is not known yet
 
-- what the `MakeNDArr` and `ResizeArray` operands count;
+- what the `MakeNDArr` operand counts. `ResizeArray`'s operand is settled in the
+  sense that it can be reproduced — one bit per dimension, three apart, giving 1, 9
+  and 73 for one, two and three dimensions — but not in the sense that its meaning is
+  understood;
 - what sets the bound at +0x30 of the code frame (probably the program length);
-- which tables the symbol words index;
 - the built-in function table — Spike2 ships hundreds of functions and they are
   registered rather than compiled in, so the table is the place to look;
 - how `runtime.s2l`'s command objects are bound to script names;
 - the type system: `TIndex`, `TArray`, `TResultArray` suggest arrays are
-  first-class values with dimensions and strides, which matters for a port.
+  first-class values with dimensions and strides, which matters for a port. Enough of
+  it is now visible to compile: an array is a slot, an element is `ArrNIndex` on a
+  reference, and a parameter is passed as the slot itself.
 
-## What a port would need, honestly
+The symbol words are settled: they index the global table and then the external
+command table, in that order, which is why the first variable is 126 — `0x7a` plus
+the four command slots a bare compile registers.
 
-A language is not a dialog. Sharar would need a lexer, a parser, a compiler and a
-runtime, each of which has to agree with this one — and a partial engine that runs
-most scripts but differs in a corner is worse than no Script menu, because a script
-that runs is trusted. That is why this file was written before the parser: the
-estimate depends on how large the built-in table is, and that is measurable. The
-parser now exists. The compiler and the runtime do not.
+## What a port would still need
+
+The lexer, the parser and the compiler now exist and agree with the vendor's on
+everything they cover. Two things stand between them and a Script menu that runs a
+real script. The command table is the large one: several hundred built-ins, each
+with its own argument list and its own behaviour, registered from `runtime.s2l`
+rather than compiled into the language. The other is the interpreter's remaining
+opcodes — the array, matrix and view families — which `Machine` currently stops on
+by name. A partial engine that runs most scripts but differs in a corner is worse
+than no Script menu, because a script that runs is trusted, which is why each piece
+is checked against Spike2 rather than against a reading of the manual.

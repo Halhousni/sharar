@@ -5,12 +5,14 @@
 //! front end: a lexer, and a parser for the grammar Spike2's own scripts use.
 
 pub mod bytecode;
+pub mod compile;
 pub mod exec;
 pub mod lexer;
 pub mod parser;
 pub mod print;
 
 pub use lexer::{lex, LexError, Tok, Token};
+pub use compile::{compile, CompileError, Compiled};
 pub use parser::{parse, Declarator, Expr, IndexArg, ParseError, Parser, Stmt};
 
 #[cfg(test)]

@@ -1,0 +1,7 @@
+var a%;
+P(a%);
+proc P(n%)
+var k% := n%;
+k% := 2;
+a% := k%;
+end;

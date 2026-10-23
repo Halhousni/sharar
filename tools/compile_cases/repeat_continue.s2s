@@ -1,0 +1,2 @@
+var a%;
+repeat if a% then continue endif; a% += 1 until a% > 3;

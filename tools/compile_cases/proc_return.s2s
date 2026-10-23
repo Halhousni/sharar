@@ -1,0 +1,6 @@
+var a%;
+P();
+proc P()
+if a% then return endif;
+a% := 1;
+end;

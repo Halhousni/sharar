@@ -1,0 +1,7 @@
+var i%,s$;
+i% := Fi%(); s$ := Fs$(); func Fi%()
+return 3;
+end;
+func Fs$()
+return "x";
+end;

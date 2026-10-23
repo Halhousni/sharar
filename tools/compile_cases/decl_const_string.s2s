@@ -1,0 +1,3 @@
+const s$ := "hi";
+var t$;
+t$ := s$;

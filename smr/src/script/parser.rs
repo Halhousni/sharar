@@ -32,6 +32,12 @@ pub enum Expr {
     Empty,
     Unary(&'static str, Box<Expr>),
     Binary(&'static str, Box<Expr>, Box<Expr>),
+    /// `cond ? a : b`. The vendor's generator emits both arms with jumps between,
+    /// and keeps only the chosen arm when the condition folds.
+    Ternary(Box<Expr>, Box<Expr>, Box<Expr>),
+    /// A parenthesised expression. Kept as its own node because the compiler folds
+    /// `not 1` but not `not (1)`: parentheses stop a unary operator looking through.
+    Paren(Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,6 +64,11 @@ pub enum Stmt {
     Func(String, Vec<String>, Vec<Stmt>),
     /// `lvalue := expr;`
     Assign(Expr, Expr),
+    /// `lvalue += expr;` — a compound assignment has its own opcode, so it is not
+    /// the same tree as `lvalue := lvalue + expr`.
+    CompoundAssign(Expr, &'static str, Expr),
+    /// `resize a[10]` or `resize m[4][5]`.
+    Resize(Expr, Vec<Expr>),
     /// A call written as a statement, with or without a semicolon.
     Expr(Expr),
     If(Expr, Vec<Stmt>, Vec<Stmt>),
@@ -70,7 +81,7 @@ pub enum Stmt {
         step: Option<Expr>,
         body: Vec<Stmt>,
     },
-    Case(Vec<(Expr, Vec<Stmt>)>),
+    Case(Vec<(Expr, Vec<Stmt>)>, Vec<Stmt>),
     Return(Option<Expr>),
     Halt,
     /// `break`, `continue` — single-word statements.
@@ -265,25 +276,50 @@ impl Parser {
         }
         if self.eat_kw("docase") {
             let mut arms = Vec::new();
+            let mut otherwise = Vec::new();
             loop {
                 self.semi();
                 if self.eat_kw("endcase") {
                     break;
                 }
+                if self.eat_kw("else") {
+                    // `docase ... else ... endcase`: the vendor's generator emits
+                    // this body with no test of its own, after the arms' jumps.
+                    otherwise = self.block_until(&["endcase"])?;
+                    continue;
+                }
                 if !self.eat_kw("case") {
-                    return self.err("expected case or endcase");
+                    return self.err("expected case, else or endcase");
                 }
                 let cond = self.expr()?;
                 if !self.eat_kw("then") {
                     return self.err("expected then");
                 }
-                let body = self.block_until(&["case", "endcase"])?;
+                let body = self.block_until(&["case", "else", "endcase"])?;
                 arms.push((cond, body));
             }
-            return Ok(Stmt::Case(arms));
+            return Ok(Stmt::Case(arms, otherwise));
         }
         if self.eat_kw("halt") {
             return Ok(Stmt::Halt);
+        }
+        if self.eat_kw("resize") {
+            // `resize a[10]` and `resize m[4][5]`; the dimensions stay a list.
+            let target = self.expr()?;
+            let mut dims = Vec::new();
+            let mut base = target;
+            loop {
+                match base {
+                    Expr::Index(b, IndexArg::One(i)) => {
+                        dims.push(*i);
+                        base = *b;
+                    }
+                    other => {
+                        dims.reverse();
+                        return Ok(Stmt::Resize(other, dims));
+                    }
+                }
+            }
         }
         if self.eat_kw("break") {
             return Ok(Stmt::Keyword("break"));
@@ -292,8 +328,13 @@ impl Parser {
             return Ok(Stmt::Keyword("continue"));
         }
         if self.eat_kw("return") {
-            // `return;` is legal, and so is `return iBut%=2;` — a comparison.
-            if *self.peek() == Tok::Semi {
+            // `return;` is legal, and so is `return iBut%=2;` — a comparison. So is
+            // a bare `return` before the end of a block.
+            if *self.peek() == Tok::Semi
+                || matches!(self.peek(), Tok::End)
+                || matches!(self.peek(), Tok::Kw(k)
+                    if ["endif", "else", "endcase", "end", "next", "wend", "until"].contains(k))
+            {
                 return Ok(Stmt::Return(None));
             }
             let e = self.expr()?;
@@ -307,11 +348,12 @@ impl Parser {
             return Ok(Stmt::Assign(e, rhs));
         }
         if let Tok::OpAssign(op) = self.peek().clone() {
-            // `list$ += " " + Str$(...)` is how the demo builds a string.
+            // `list$ += " " + Str$(...)` is how the demo builds a string. Kept as
+            // its own statement: the compiler has a single opcode for it, and
+            // rewriting it as `x := x + y` would evaluate the target twice.
             self.i += 1;
             let rhs = self.expr()?;
-            let combined = Expr::Binary(op, Box::new(e.clone()), Box::new(rhs));
-            return Ok(Stmt::Assign(e, combined));
+            return Ok(Stmt::CompoundAssign(e, op, rhs));
         }
         Ok(Stmt::Expr(e))
     }
@@ -343,7 +385,11 @@ impl Parser {
                     // A parameter can be an array: `proc AddToWaterfall(xyh%,
                     // data[], incX%, incY%)`. The brackets are kept on the name so
                     // the distinction is not lost.
+                    let by_ref = self.eat(&Tok::Amp);
                     let mut nm = self.name()?;
+                    if by_ref {
+                        nm.insert(0, '&');
+                    }
                     while self.eat(&Tok::LBracket) {
                         if !self.eat(&Tok::RBracket) {
                             return self.err("expected ] in an array parameter");
@@ -399,8 +445,29 @@ impl Parser {
     }
 
     // ── expressions ────────────────────────────────────────────────────────
+    //
+    // The levels are the vendor compiler's, read from the order its generator
+    // emits in, not from what the operators usually mean. `? :` is loosest and
+    // right-associative; `or`/`xor`/`bor`/`bxor` share one level; `and`/`band`
+    // share the next; then comparisons; then `+`/`-`; then `*`/`/`/`mod`; then the
+    // unary operators; then member and index access. A comparison binding tighter
+    // than `band` is the odd one, and it is the vendor's: `flags% band 1 = 1`
+    // compiles as `flags% band (1 = 1)`.
     fn expr(&mut self) -> PResult<Expr> {
-        self.logic_or()
+        self.ternary()
+    }
+
+    fn ternary(&mut self) -> PResult<Expr> {
+        let cond = self.logic_or()?;
+        if self.eat(&Tok::Question) {
+            let a = self.ternary()?;
+            if !self.eat(&Tok::Colon) {
+                return self.err("expected : in a conditional expression");
+            }
+            let b = self.ternary()?;
+            return Ok(Expr::Ternary(Box::new(cond), Box::new(a), Box::new(b)));
+        }
+        Ok(cond)
     }
 
     fn logic_or(&mut self) -> PResult<Expr> {
@@ -410,6 +477,10 @@ impl Parser {
                 "or"
             } else if self.eat_kw("xor") {
                 "xor"
+            } else if self.eat_kw("bor") {
+                "bor"
+            } else if self.eat_kw("bxor") {
+                "bxor"
             } else {
                 return Ok(left);
             };
@@ -419,29 +490,18 @@ impl Parser {
     }
 
     fn logic_and(&mut self) -> PResult<Expr> {
-        let mut left = self.unary()?;
+        let mut left = self.comparison()?;
         loop {
-            if !self.eat_kw("and") {
+            let op = if self.eat_kw("and") {
+                "and"
+            } else if self.eat_kw("band") {
+                "band"
+            } else {
                 return Ok(left);
-            }
-            let right = self.unary()?;
-            left = Expr::Binary("and", Box::new(left), Box::new(right));
+            };
+            let right = self.comparison()?;
+            left = Expr::Binary(op, Box::new(left), Box::new(right));
         }
-    }
-
-    fn unary(&mut self) -> PResult<Expr> {
-        if self.eat_kw("not") {
-            let e = self.unary()?;
-            return Ok(Expr::Unary("not", Box::new(e)));
-        }
-        if self.eat(&Tok::Minus) {
-            // Always a unary node: folding `-0.005` into a literal here would end
-            // the expression at the literal, so `step -0.005*scl` would stop at
-            // -0.005 and then fail looking for `do`.
-            let e = self.unary()?;
-            return Ok(Expr::Unary("-", Box::new(e)));
-        }
-        self.comparison()
     }
 
     fn comparison(&mut self) -> PResult<Expr> {
@@ -465,14 +525,9 @@ impl Parser {
     fn additive(&mut self) -> PResult<Expr> {
         let mut left = self.multiplicative()?;
         loop {
-            // `band`/`bor`/`bxor` sit with + and -, which is the level that makes
-            // `if flags% band 1 = 1 then` mean what it reads like.
             let op = match self.peek() {
                 Tok::Plus => "+",
                 Tok::Minus => "-",
-                Tok::Kw("band") => "band",
-                Tok::Kw("bor") => "bor",
-                Tok::Kw("bxor") => "bxor",
                 _ => return Ok(left),
             };
             self.i += 1;
@@ -482,7 +537,7 @@ impl Parser {
     }
 
     fn multiplicative(&mut self) -> PResult<Expr> {
-        let mut left = self.postfix()?;
+        let mut left = self.unary()?;
         loop {
             let op = if self.eat(&Tok::Star) {
                 "*"
@@ -493,9 +548,24 @@ impl Parser {
             } else {
                 return Ok(left);
             };
-            let right = self.postfix()?;
+            let right = self.unary()?;
             left = Expr::Binary(op, Box::new(left), Box::new(right));
         }
+    }
+
+    fn unary(&mut self) -> PResult<Expr> {
+        if self.eat_kw("not") {
+            let e = self.unary()?;
+            return Ok(Expr::Unary("not", Box::new(e)));
+        }
+        if self.eat(&Tok::Minus) {
+            // Always a unary node: folding `-0.005` into a literal here would end
+            // the expression at the literal, so `step -0.005*scl` would stop at
+            // -0.005 and then fail looking for `do`.
+            let e = self.unary()?;
+            return Ok(Expr::Unary("-", Box::new(e)));
+        }
+        self.postfix()
     }
 
     fn postfix(&mut self) -> PResult<Expr> {
@@ -579,7 +649,7 @@ impl Parser {
                 if !self.eat(&Tok::RParen) {
                     return self.err("expected )");
                 }
-                Ok(e)
+                Ok(Expr::Paren(Box::new(e)))
             }
             Tok::LBracket => {
                 self.i += 1;
@@ -656,10 +726,11 @@ pub mod tests {
                     Stmt::While(_, b) | Stmt::For { body: b, .. } => tally(b, acc),
                     Stmt::Repeat(b, _) => tally(b, acc),
                     Stmt::Proc(_, _, b) | Stmt::Func(_, _, b) => tally(b, acc),
-                    Stmt::Case(arms) => {
+                    Stmt::Case(arms, otherwise) => {
                         for (_, b) in arms {
                             tally(b, acc);
                         }
+                        tally(otherwise, acc);
                     }
                     _ => {}
                 }
@@ -704,9 +775,11 @@ pub mod tests {
     fn hex_and_compound_assignment() {
         let items = ok("x := 1+2+0x2010; s$ += \" more\";");
         assert!(matches!(&items[0], Stmt::Assign(_, Expr::Binary("+", ..))));
+        // A compound assignment keeps its own node: the compiler has one opcode for
+        // it, and rewriting it as `s$ := s$ + …` would evaluate the target twice.
         match &items[1] {
-            Stmt::Assign(_, Expr::Binary("+", _, _)) => {}
-            other => panic!("+= should become a binary +, got {other:?}"),
+            Stmt::CompoundAssign(_, "+", _) => {}
+            other => panic!("+= should stay a compound assignment, got {other:?}"),
         }
     }
 

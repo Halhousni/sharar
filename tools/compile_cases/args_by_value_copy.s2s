@@ -1,0 +1,5 @@
+var a%,g%,b%;
+b% := 400;
+P(a%, b%);
+proc P(&x%, y%)
+end;

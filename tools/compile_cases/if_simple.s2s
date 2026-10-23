@@ -1,0 +1,2 @@
+var a%;
+if a% > 1 then a% := 2 endif;
