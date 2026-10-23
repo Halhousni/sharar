@@ -235,10 +235,39 @@ by a space, so one line is roughly one statement in postfix order.
 `smr::script::bytecode` holds this as a decoder and a formatter, with a test that
 compares its name table with the DLL.
 
+## How the interpreter runs an opcode
+
+There is no dispatch switch. A builder at 0x19c0 allocates one C++ object per
+opcode, in opcode order, and each class's third virtual method executes it. The
+classes carry RTTI names, so each opcode's class is named in the DLL:
+`TJumpImmediateOperator`, `TJumpImmediateIfFalse`, `TMakeFor`, `TNext`, and for
+assignment `TAssign<CInterpreter::AssignInteger>`. Comparing vtables shows that
+slot 2 is the only one that differs between them.
+
+The control-flow opcodes, read from those methods:
+
+- `JumpRelImm` (0xaf10) adds its signed operand to the index of the word after
+  the operand. A target below -2 raises error -7016. A target past the end of the
+  code is ignored and execution carries on, which looks like a bug and is kept.
+- `JumpRelImmF` (0xd900) pops a value and jumps only when it is exactly zero. A
+  float NaN counts as true and does not jump.
+- `MakeIntFor` and `MakeFltFor` are one class with an int flag (0xb100). They pop
+  the step, the limit, the start and the loop variable, set the variable to the
+  start, and raise -7030 for a zero step (and, for floats, a NaN step). If the
+  start is already past the limit, they skip forward by the unsigned operand.
+  Otherwise they push a loop record that remembers where the operand was.
+- `Next` (0xc4f0) adds the step. While the variable has not passed the limit it
+  jumps back to the word after `MakeFor`'s operand. When the loop ends it pops the
+  record. For floats the comparison is the compiled one: a NaN keeps an upward loop
+  running and ends a downward one.
+
+`smr::script::exec` holds these five as tested functions. They are not yet an
+interpreter: the stack, the variables and the other 96 opcodes are not ported.
+
 ## What is not known yet
 
-- what the operands mean at run time: whether a jump is relative to the opcode or
-  to the next word, and what the `MakeIntFor` and `MakeNDArr` words count;
+- what the `MakeNDArr` and `ResizeArray` operands count;
+- what sets the bound at +0x30 of the code frame (probably the program length);
 - which tables the symbol words index;
 - the built-in function table — Spike2 ships hundreds of functions and they are
   registered rather than compiled in, so the table is the place to look;
