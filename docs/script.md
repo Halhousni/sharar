@@ -373,14 +373,53 @@ because the DLL is not redistributable; the fixture is gitignored for the same r
 so a fresh clone skips that test and runs the unit tests in `compile.rs`, which pin
 the same rules on a handful of scripts.
 
-What is missing is the command table. `runtime.s2l` registers several hundred
-built-ins, and the vendor resolves a call against it at compile time; this port has
-no such table, so a script that calls `Abs`, `Len`, `View(…)` or any other command
-stops with an error naming it rather than compiling to words the interpreter could
-not run. Member calls (`View(0).MaxTime()`) fail the same way. That is the honest
-boundary: a program made of the language itself compiles to the same words Spike2
-produces, and a program made mostly of calls — which is most real scripts — does not
-compile yet.
+What is missing is the call. `runtime.s2l` registers the built-ins and the vendor
+resolves a call against them at compile time; this port now has the table (below) but
+does not yet compile a call from it, so a script that calls `Abs`, `Len`, `View(…)` or
+any other command still stops with an error naming it rather than compiling to words the
+interpreter could not run. Member calls (`View(0).MaxTime()`) fail the same way. That is
+the honest boundary: a program made of the language itself compiles to the same words
+Spike2 produces, and a program made mostly of calls — which is most real scripts — does
+not compile yet.
+
+## The command table
+
+`runtime.s2l` has no list of its commands. Each command is a C++ object whose
+initialiser ends in one call to `CBaseCmd::IXCmd(this, name, min, max, descriptor)`,
+imported from `compiler.dll` (0x1800061d0). `tools/command_table.py` finds every such
+call, replays the few instructions that set its arguments up, and reads the name and the
+descriptor out of the file. It finds 497 commands, 495 with a fixed name in their own
+initialiser and two (`CursorLabel`, `HCursorLabel`) that share one initialiser and take
+the name from a member their constructors fill in. Names are unique without regard to
+case, which is how the vendor's table compares them: it lower-cases a name before it
+looks it up (0x180014350).
+
+The descriptor is a run of 16-bit words that the vendor parses at registration
+(`compiler.dll` 0x180005c80) and refuses if it is malformed:
+
+- the first word is the return type: 0 none, 1 integer, 2 real, 3 string. Of the 497
+  commands, 297 return an integer, 107 a real, 41 a string and 52 nothing;
+- then argument type words. The low seven bits are the type, at most 0x13; bits 8 to 12
+  are the number of array dimensions, which only types 1 to 6 may have; 0x80 is a flag
+  whose meaning is not recovered;
+- `5` ends one argument list and `7` ends the descriptor. A command has one list per
+  form it accepts: `Len` has five, whose words are 3, 390, 387, and the pairs 18,1 and 19,1;
+- `0xe` … `0xf` brackets a group of arguments that are written back, and the group
+  counts as one argument.
+
+The registration also carries the fewest and most arguments the command takes, and the
+vendor accepts it only if the lists agree: no list shorter than the minimum, and the
+longest exactly the maximum. All 497 satisfy that check here (it is a test in
+`smr/src/script/commands.rs`), which is the evidence the decoding is right. The types
+that appear are 1 to 4, 6, 8 to 12 and 16 to 19 (14 and 15 are the group brackets); the meaning of 1, 2 and 3 as integer,
+real and string follows from the return types, and the rest are unnamed so far.
+
+`smr::script::commands` exposes the table as data: `all()` and `lookup(name)`.
+It describes the interface. It does not run anything, and it does not yet say how the
+engine numbers the commands. Registration (0x180006230) starts the count at 0x7a and
+gives each command the word 0x7a plus its place in the list it builds, so the words of a
+script's variables and the words of its calls both depend on that order, and it is not
+reproduced yet.
 
 ## What is not known yet
 
@@ -389,9 +428,9 @@ compile yet.
   and 73 for one, two and three dimensions — but not in the sense that its meaning is
   understood;
 - what sets the bound at +0x30 of the code frame (probably the program length);
-- the built-in function table — Spike2 ships hundreds of functions and they are
-  registered rather than compiled in, so the table is the place to look;
-- how `runtime.s2l`'s command objects are bound to script names;
+- the order the engine numbers the commands in, which decides every symbol word once
+  a script calls one;
+- the argument type words 4, 6 and 8 to 19, and the 0x80 flag;
 - the type system: `TIndex`, `TArray`, `TResultArray` suggest arrays are
   first-class values with dimensions and strides, which matters for a port. Enough of
   it is now visible to compile: an array is a slot, an element is `ArrNIndex` on a
@@ -405,9 +444,9 @@ the four command slots a bare compile registers.
 
 The lexer, the parser and the compiler now exist and agree with the vendor's on
 everything they cover. Two things stand between them and a Script menu that runs a
-real script. The command table is the large one: several hundred built-ins, each
-with its own argument list and its own behaviour, registered from `runtime.s2l`
-rather than compiled into the language. The other is the interpreter's remaining
+real script. The commands are the large one: the table now names 497 built-ins and their
+argument lists, but each still has its own behaviour to be read out of `runtime.s2l`,
+and the compiler does not yet emit a call. The other is the interpreter's remaining
 opcodes — the array, matrix and view families — which `Machine` currently stops on
 by name. A partial engine that runs most scripts but differs in a corner is worse
 than no Script menu, because a script that runs is trusted, which is why each piece

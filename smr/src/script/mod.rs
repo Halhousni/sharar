@@ -5,6 +5,7 @@
 //! front end: a lexer, and a parser for the grammar Spike2's own scripts use.
 
 pub mod bytecode;
+pub mod commands;
 pub mod compile;
 pub mod exec;
 pub mod lexer;
