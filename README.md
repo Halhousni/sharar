@@ -92,7 +92,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Channel processing | DC remove and FIR filters (low pass, high pass, band pass, band stop) in a per-channel process chain under `Analysis → Process…`; no rectification, integration or other processes |
 | Averaging | peri-stimulus average works; no smoothing, confidence bands or baselines |
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
-| `.s2s` scripting | a parser for the language, tested on CED's demo script; no compiler or runtime, and the Script menu is a placeholder |
+| `.s2s` scripting | a parser for the language, tested on CED's demo script; a stack machine for the arithmetic, comparison, assignment, jump and loop opcodes, run on hand-assembled code; no compiler, no procedures, arrays, strings or built-in functions, and the Script menu is a placeholder |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
 | Filter design | the Parks-McClellan designer behind `FIRQuick` and `FIRMake`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14, as do the antisymmetric types 5 and 6 that only `FIRMake` can reach; band tables that stop short of Nyquist take the same warped path and agree to about seven digits; the dialog offers the four symmetric types, and the differentiator is library-only; the IIR option is not Spike2's |

@@ -261,8 +261,30 @@ The control-flow opcodes, read from those methods:
   record. For floats the comparison is the compiled one: a NaN keeps an upward loop
   running and ends a downward one.
 
-`smr::script::exec` holds these five as tested functions. They are not yet an
-interpreter: the stack, the variables and the other 96 opcodes are not ported.
+The builder also names every other opcode's class. The arithmetic, comparison,
+logical and assignment opcodes are template instances over a `CInterpreter` member,
+so the RTTI gives the operation directly: `TBinaryOperator<IntegerAdd>`,
+`TBinaryOperator<FloatLess>`, `TAssign<AssignFloatDiv>`, `TUnaryOperator<FloatNot>`.
+Read from their methods:
+
+- Ints are 64-bit. `+` and `-` wrap. `*` multiplies, divides back, and raises -7011
+  if the quotient differs. `/` and `mod` raise -7012 for a zero divisor.
+  `i64::MIN / -1` is not checked and faults in hardware.
+- Float `/` and `mod` (C `fmod`) raise -7012 for a zero or NaN divisor.
+- A float read as an int truncates, and raises -7011 outside ±2^63 or for NaN.
+- Comparisons push the int 0 or 1. `FltEquals` uses `ucomisd` with `je`, so a NaN
+  compares equal to anything and `FltNotEq` is false. The ordered float comparisons
+  are false for NaN.
+- `LogAND`, `LogOR` and `LogXor` give 0 or 1; `BitAND`, `BitOR` and `BitXor` work on
+  the bits. The float logical forms and `FltUNot` treat NaN as zero.
+- Assignment pops the value, then the variable. Compound assignment reads the
+  variable, combines it with the value, and writes it back.
+
+`smr::script::exec::Machine` runs these opcodes, the two jumps, the loop opcodes
+and `Halt` on a word stream, with a test for each rule above and small programs
+(a for loop summing 1 to 10, a while loop from the two jumps). Any other opcode
+stops the run with its address rather than guessing. Variables are supplied by the
+caller, because the symbol tables the compiler builds are not ported yet.
 
 ## What is not known yet
 

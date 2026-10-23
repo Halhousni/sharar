@@ -18,6 +18,13 @@
 /// Error codes the vendor raises through 0x2d840.
 pub const ERR_BAD_JUMP: i32 = -7016;
 pub const ERR_ZERO_STEP: i32 = -7030;
+/// Integer overflow in `*`, or a float out of range when converted to an int.
+pub const ERR_OVERFLOW: i32 = -7011;
+/// Division or modulus by zero, int or float.
+pub const ERR_DIV_ZERO: i32 = -7012;
+/// Not a script error: `i64::MIN / -1` and `i64::MIN mod -1` reach `idiv`
+/// unchecked, so the vendor takes a hardware divide fault. The port reports it.
+pub const FAULT_IDIV: i32 = i32::MIN;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value {
@@ -110,7 +117,7 @@ impl Code {
         // The record keeps the operand's own index; Next resumes one word later.
         let reentry = self.ip - 1;
         let lp = if int {
-            let (s, l, st) = (as_int(start), as_int(limit), as_int(step));
+            let (s, l, st) = (to_int(start)?, to_int(limit)?, to_int(step)?);
             *var = Value::Int(s);
             if st == 0 {
                 return Err(RunError(ERR_ZERO_STEP));
@@ -187,10 +194,355 @@ fn as_int(v: Value) -> i64 {
     }
 }
 
-fn as_flt(v: Value) -> f64 {
+/// A value read as an int (0xadf0 for a float). Out of range is -7011, NaN
+/// included (`comisd` then `jb` is taken when unordered). The upper test is `ja`
+/// against 2^63, so 2^63 itself passes and `cvttsd2si` returns the indefinite
+/// integer, `i64::MIN`; Rust's `as` would saturate to `i64::MAX` instead.
+pub fn to_int(v: Value) -> Result<i64, RunError> {
+    match v {
+        Value::Int(i) => Ok(i),
+        Value::Flt(f) => {
+            const LIM: f64 = 9.223372036854775807e18; // 2^63 as stored
+            if f > LIM || f < -LIM || f.is_nan() {
+                Err(RunError(ERR_OVERFLOW))
+            } else if f == LIM {
+                Ok(i64::MIN)
+            } else {
+                Ok(f as i64)
+            }
+        }
+    }
+}
+
+pub fn as_flt(v: Value) -> f64 {
     match v {
         Value::Int(i) => i as f64,
         Value::Flt(f) => f,
+    }
+}
+
+/// One stack entry. The vendor's stack holds objects; a port needs three kinds:
+/// a value, a reference to a variable (what assignment and `MakeFor` pop), and
+/// the loop record `MakeFor` pushes for `Next`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Item {
+    Val(Value),
+    Var(usize),
+    Loop(ForLoop, usize),
+}
+
+/// What stopped a run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stop {
+    /// `Halt`, or the end of the code.
+    Done,
+    /// A vendor run-time error code.
+    Error(i32),
+    /// An opcode this port does not execute yet, at a word index.
+    Unported { op: u16, at: usize },
+}
+
+/// A stack machine for the opcodes whose execute methods have been read: the
+/// constant words, the int and float arithmetic, the comparisons, the logical and
+/// bitwise operators, the unary operators, assignment and compound assignment,
+/// the two jumps, `MakeIntFor`/`MakeFltFor`/`Next` and `Halt`. Everything else
+/// stops with [`Stop::Unported`] rather than guessing.
+///
+/// Symbol words (above 0x79) are resolved through `symbols`, indexed by
+/// `word - 0x7a`. The vendor indexes two tables there and the port cannot build
+/// them until the compiler is ported, so tests supply the list.
+#[derive(Debug, Clone)]
+pub struct Machine {
+    pub code: Code,
+    pub stack: Vec<Item>,
+    pub vars: Vec<Value>,
+    pub symbols: Vec<Item>,
+}
+
+fn int_result(b: bool) -> Value {
+    Value::Int(b as i64)
+}
+
+/// `ucomisd x, 0` then `jne`: NaN compares equal to zero, so it reads as false.
+fn flt_truthy(x: f64) -> bool {
+    !(x == 0.0 || x.is_nan())
+}
+
+/// 0xb080: wrapping multiply, then divide back to detect overflow.
+fn int_mul(l: i64, r: i64) -> Result<i64, RunError> {
+    let p = l.wrapping_mul(r);
+    if r != 0 {
+        let q = p.checked_div(r).ok_or(RunError(FAULT_IDIV))?;
+        if q != l {
+            return Err(RunError(ERR_OVERFLOW));
+        }
+    }
+    Ok(p)
+}
+
+fn int_div(l: i64, r: i64) -> Result<i64, RunError> {
+    if r == 0 {
+        return Err(RunError(ERR_DIV_ZERO));
+    }
+    l.checked_div(r).ok_or(RunError(FAULT_IDIV))
+}
+
+fn int_mod(l: i64, r: i64) -> Result<i64, RunError> {
+    if r == 0 {
+        return Err(RunError(ERR_DIV_ZERO));
+    }
+    // A divisor of 0x4000 takes a masked shortcut that gives the same truncated
+    // remainder as idiv.
+    l.checked_rem(r).ok_or(RunError(FAULT_IDIV))
+}
+
+/// Float divide and modulus test the divisor with `ucomisd`/`je`, so a NaN
+/// divisor raises the same error as zero.
+fn flt_div_check(r: f64) -> Result<(), RunError> {
+    if r == 0.0 || r.is_nan() {
+        Err(RunError(ERR_DIV_ZERO))
+    } else {
+        Ok(())
+    }
+}
+
+impl Machine {
+    pub fn new(words: Vec<u16>, vars: usize) -> Self {
+        Machine {
+            code: Code::new(words),
+            stack: Vec::new(),
+            vars: vec![Value::Int(0); vars],
+            symbols: Vec::new(),
+        }
+    }
+
+    fn pop(&mut self) -> Item {
+        self.stack.pop().expect("stack underflow: the compiler would not emit this")
+    }
+
+    /// A popped operand, read through a variable reference if it is one.
+    fn value(&mut self) -> Value {
+        match self.pop() {
+            Item::Val(v) => v,
+            Item::Var(i) => self.vars[i],
+            Item::Loop(..) => panic!("a loop record is not a value"),
+        }
+    }
+
+    fn var(&mut self) -> usize {
+        match self.pop() {
+            Item::Var(i) => i,
+            other => panic!("expected a variable, got {other:?}"),
+        }
+    }
+
+    fn int(&mut self) -> Result<i64, RunError> {
+        let v = self.value();
+        to_int(v)
+    }
+
+    fn flt(&mut self) -> f64 {
+        let v = self.value();
+        as_flt(v)
+    }
+
+    fn push(&mut self, v: Value) {
+        self.stack.push(Item::Val(v));
+    }
+
+    /// Store into a variable, converting to the variable's own type the way the
+    /// typed setter does: an int variable takes `to_int`, a float one `cvtsi2sd`.
+    fn store(&mut self, i: usize, v: Value) -> Result<(), RunError> {
+        self.vars[i] = match self.vars[i] {
+            Value::Int(_) => Value::Int(to_int(v)?),
+            Value::Flt(_) => Value::Flt(as_flt(v)),
+        };
+        Ok(())
+    }
+
+    /// Execute one instruction. The right-hand operand is on top of the stack.
+    pub fn step(&mut self) -> Result<Option<Stop>, RunError> {
+        let at = self.code.ip as usize;
+        let Some(&op) = self.code.words.get(at) else {
+            return Ok(Some(Stop::Done));
+        };
+        self.code.ip += 1;
+        match op {
+            // The builder's first loop: 21 integer constants, 0 to 20.
+            0..=0x14 => self.push(Value::Int(op as i64)),
+            0x15 | 0x16 => {
+                let v = self.value();
+                let i = self.var();
+                self.store(i, v)?;
+            }
+            0x17..=0x1b => {
+                let r = self.int()?;
+                let l = self.int()?;
+                let v = match op {
+                    0x17 => l.wrapping_add(r),
+                    0x18 => l.wrapping_sub(r),
+                    0x19 => int_mul(l, r)?,
+                    0x1a => int_div(l, r)?,
+                    _ => int_mod(l, r)?,
+                };
+                self.push(Value::Int(v));
+            }
+            0x1c..=0x20 => {
+                let r = self.flt();
+                let l = self.flt();
+                let v = match op {
+                    0x1c => l + r,
+                    0x1d => l - r,
+                    0x1e => l * r,
+                    0x1f => {
+                        flt_div_check(r)?;
+                        l / r
+                    }
+                    _ => {
+                        flt_div_check(r)?;
+                        l % r // C fmod: the sign follows the dividend, as Rust's %
+                    }
+                };
+                self.push(Value::Flt(v));
+            }
+            0x3c => self.code.jump()?,
+            0x3d => {
+                let c = self.value();
+                self.code.jump_if_false(c)?;
+            }
+            0x3e..=0x45 => {
+                let r = self.value();
+                let i = self.var();
+                let cur = self.vars[i];
+                let v = match op {
+                    0x3e => Value::Int(to_int(cur)?.wrapping_add(to_int(r)?)),
+                    0x3f => Value::Int(to_int(cur)?.wrapping_sub(to_int(r)?)),
+                    0x40 => Value::Int(int_mul(to_int(cur)?, to_int(r)?)?),
+                    0x41 => Value::Int(int_div(to_int(cur)?, to_int(r)?)?),
+                    0x42 => Value::Flt(as_flt(cur) + as_flt(r)),
+                    0x43 => Value::Flt(as_flt(cur) - as_flt(r)),
+                    0x44 => Value::Flt(as_flt(cur) * as_flt(r)),
+                    _ => {
+                        let r = as_flt(r);
+                        flt_div_check(r)?;
+                        Value::Flt(as_flt(cur) / r)
+                    }
+                };
+                self.store(i, v)?;
+            }
+            0x47..=0x4c => {
+                let r = self.int()?;
+                let l = self.int()?;
+                let b = match op {
+                    0x47 => l == r,
+                    0x48 => l != r,
+                    0x49 => l > r,
+                    0x4a => l >= r,
+                    0x4b => l < r,
+                    _ => l <= r,
+                };
+                self.push(int_result(b));
+            }
+            0x4d..=0x52 => {
+                let r = self.flt();
+                let l = self.flt();
+                let b = match op {
+                    // ucomisd then je/jne: unordered sets ZF, so NaN is "equal".
+                    0x4d => l == r || l.is_nan() || r.is_nan(),
+                    0x4e => !(l == r || l.is_nan() || r.is_nan()),
+                    // comisd with ja/setae/seta: unordered gives 0, as Rust does.
+                    0x4f => l > r,
+                    0x50 => l >= r,
+                    0x51 => l < r,
+                    _ => l <= r,
+                };
+                self.push(int_result(b));
+            }
+            0x59 => {
+                let v = self.int()?;
+                self.push(Value::Int(v.wrapping_neg()));
+            }
+            0x5a => {
+                let v = self.int()?;
+                self.push(int_result(v == 0));
+            }
+            0x5b => {
+                let v = self.flt();
+                self.push(Value::Flt(-v)); // xorpd with the sign bit
+            }
+            0x5c => {
+                let v = self.flt();
+                self.push(int_result(!flt_truthy(v)));
+            }
+            0x5e | 0x5f => {
+                let step = self.value();
+                let limit = self.value();
+                let start = self.value();
+                let i = self.var();
+                let mut var = self.vars[i];
+                let r = self.code.make_for(&mut var, start, limit, step, op == 0x5e);
+                // The variable is written before the step is checked.
+                self.vars[i] = var;
+                if let Some(lp) = r? {
+                    self.stack.push(Item::Loop(lp, i));
+                }
+            }
+            0x60 => {
+                let Some(&Item::Loop(lp, i)) = self.stack.last() else {
+                    panic!("Next without a loop record");
+                };
+                let mut var = self.vars[i];
+                let again = self.code.next(&lp, &mut var)?;
+                self.vars[i] = var;
+                if !again {
+                    self.stack.pop();
+                }
+            }
+            0x61..=0x66 => {
+                let r = self.int()?;
+                let l = self.int()?;
+                let v = match op {
+                    0x61 => (l != 0 && r != 0) as i64,
+                    0x62 => (l != 0 || r != 0) as i64,
+                    0x63 => ((l != 0) != (r != 0)) as i64,
+                    0x64 => l & r,
+                    0x65 => l | r,
+                    _ => l ^ r,
+                };
+                self.push(Value::Int(v));
+            }
+            0x67..=0x69 => {
+                let r = flt_truthy(self.flt());
+                let l = flt_truthy(self.flt());
+                let b = match op {
+                    0x67 => l && r,
+                    0x68 => l || r,
+                    _ => l != r,
+                };
+                self.push(int_result(b));
+            }
+            0x79 => return Ok(Some(Stop::Done)),
+            0x7a.. => {
+                let k = (op - 0x7a) as usize;
+                match self.symbols.get(k) {
+                    Some(&it) => self.stack.push(it),
+                    None => return Ok(Some(Stop::Unported { op, at })),
+                }
+            }
+            _ => return Ok(Some(Stop::Unported { op, at })),
+        }
+        Ok(None)
+    }
+
+    /// Run until `Halt`, the end of the code, an error, or an unported opcode.
+    pub fn run(&mut self) -> Stop {
+        loop {
+            match self.step() {
+                Ok(None) => {}
+                Ok(Some(s)) => return s,
+                Err(RunError(e)) => return Stop::Error(e),
+            }
+        }
     }
 }
 
@@ -319,5 +671,105 @@ mod tests {
         }
         let want: Vec<Value> = [1.0, 0.75, 0.5, 0.25, 0.0].map(Value::Flt).into();
         assert_eq!(seen, want);
+    }
+
+    // ── the stack machine ──────────────────────────────────────────────────
+
+    const SYM: u16 = 0x7a;
+
+    fn m(words: &[u16], vars: &[Value]) -> Machine {
+        let mut m = Machine::new(words.to_vec(), vars.len());
+        m.vars = vars.to_vec();
+        m.symbols = (0..vars.len()).map(Item::Var).collect();
+        m
+    }
+
+    #[test]
+    fn assignment_and_arithmetic() {
+        // a% := 7 - 3*2 ; the right operand is on top
+        let mut x = m(&[SYM, 7, 3, 2, 0x19, 0x18, 0x15, 0x79], &[Value::Int(0)]);
+        assert_eq!(x.run(), Stop::Done);
+        assert_eq!(x.vars[0], Value::Int(1));
+    }
+
+    #[test]
+    fn a_for_loop_sums_one_to_ten() {
+        // s% := 0; for i% := 1 to 10 do s% += i% next; halt
+        let words = [
+            SYM, 0, 0x15, // s% := 0
+            SYM + 1, 1, 10, 1, 0x5e, 4, // MakeIntFor, skip to Halt if empty
+            SYM, SYM + 1, 0x3e, // s% += i%
+            0x60, // Next
+            0x79,
+        ];
+        let mut x = m(&words, &[Value::Int(0), Value::Int(0)]);
+        assert_eq!(x.run(), Stop::Done);
+        assert_eq!(x.vars, [Value::Int(55), Value::Int(11)]);
+        assert!(x.stack.is_empty(), "Next pops the record when the loop ends");
+    }
+
+    #[test]
+    fn a_while_loop_from_the_two_jumps() {
+        // while n% > 0 do n% -= 1; c% += 2 wend
+        let words = [
+            SYM, 0, 0x49, 0x3d, 8, // n% > 0, JumpRelImmF +8 → word 13
+            SYM, 1, 0x3f, // n% -= 1
+            SYM + 1, 2, 0x3e, // c% += 2
+            0x3c, (-13i16) as u16, // back to word 0
+            0x79,
+        ];
+        let mut x = m(&words, &[Value::Int(4), Value::Int(0)]);
+        assert_eq!(x.run(), Stop::Done);
+        assert_eq!(x.vars, [Value::Int(0), Value::Int(8)]);
+    }
+
+    #[test]
+    fn division_by_zero_and_overflow_raise_the_vendor_codes() {
+        assert_eq!(m(&[5, 0, 0x1a], &[]).run(), Stop::Error(ERR_DIV_ZERO));
+        assert_eq!(m(&[5, 0, 0x1b], &[]).run(), Stop::Error(ERR_DIV_ZERO));
+        let mut x = m(&[SYM, SYM, 0x19], &[Value::Int(1 << 40)]);
+        assert_eq!(x.run(), Stop::Error(ERR_OVERFLOW));
+        // Float: zero and NaN divisors both raise -7012.
+        let mut x = m(&[SYM, SYM + 1, 0x1f], &[Value::Flt(1.0), Value::Flt(0.0)]);
+        assert_eq!(x.run(), Stop::Error(ERR_DIV_ZERO));
+        let mut x = m(&[SYM, SYM + 1, 0x1f], &[Value::Flt(1.0), Value::Flt(f64::NAN)]);
+        assert_eq!(x.run(), Stop::Error(ERR_DIV_ZERO));
+    }
+
+    #[test]
+    fn nan_comparisons_follow_the_compiled_flags() {
+        let n = Value::Flt(f64::NAN);
+        let one = Value::Flt(1.0);
+        let cmp = |op: u16, l: Value, r: Value| {
+            let mut x = m(&[SYM, SYM + 1, op], &[l, r]);
+            x.run();
+            x.stack.last().copied()
+        };
+        let t = Some(Item::Val(Value::Int(1)));
+        let f = Some(Item::Val(Value::Int(0)));
+        assert_eq!(cmp(0x4d, n, one), t, "FltEquals: NaN = 1 is true");
+        assert_eq!(cmp(0x4e, n, one), f, "FltNotEq: NaN <> 1 is false");
+        for op in 0x4f..=0x52 {
+            assert_eq!(cmp(op, n, one), f, "ordered comparison {op:#x}");
+        }
+        assert_eq!(cmp(0x67, n, one), f, "FltLogAND treats NaN as false");
+        assert_eq!(cmp(0x68, n, Value::Flt(0.0)), f, "FltLogOR treats NaN as false");
+        let mut x = m(&[SYM, 0x5c], &[n]);
+        x.run();
+        assert_eq!(x.stack.last().copied(), t, "FltUNot: not NaN is true");
+    }
+
+    #[test]
+    fn an_int_variable_rejects_an_out_of_range_float() {
+        let mut x = m(&[SYM, SYM + 1, 0x15], &[Value::Int(0), Value::Flt(1e19)]);
+        assert_eq!(x.run(), Stop::Error(ERR_OVERFLOW));
+        let mut x = m(&[SYM, SYM + 1, 0x15], &[Value::Int(0), Value::Flt(-2.7)]);
+        assert_eq!(x.run(), Stop::Done);
+        assert_eq!(x.vars[0], Value::Int(-2), "truncation, cvttsd2si");
+    }
+
+    #[test]
+    fn an_unported_opcode_stops_with_its_address() {
+        assert_eq!(m(&[1, 0x24], &[]).run(), Stop::Unported { op: 0x24, at: 1 });
     }
 }
