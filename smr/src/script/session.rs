@@ -86,6 +86,16 @@ impl Session {
     }
 }
 
+/// Ticks between samples of a waveform channel, read off its first block with more than
+/// one sample, since the interval the reader keeps is not always set.
+fn ticks_per_sample(ch: &crate::Channel) -> i64 {
+    ch.blocks
+        .iter()
+        .find(|b| b.items > 1)
+        .map(|b| ((b.end_tick - b.start_tick) as f64 / (b.items - 1) as f64).round() as i64)
+        .unwrap_or(0)
+}
+
 fn kind_code(k: Kind) -> i64 {
     match k {
         Kind::Empty => 0,
@@ -234,26 +244,34 @@ impl Host for Session {
                     return Ok(None);
                 }
                 let Some(idx) = self.chan_pos(n) else { return some(V::Flt(NO_CHANNEL)) };
-                let ch = &self.view().unwrap().file.channels[idx];
-                let kind = ch.kind;
-                let interval = ch.sample_interval;
-                let start = self.view().unwrap().file.start_time(idx);
+                // A time past the largest tick a file can hold finds nothing.
+                if (t / self.view().unwrap().file.time_factor).abs() > i32::MAX as f64 {
+                    return some(V::Flt(-1.0));
+                }
+                let kind = self.view().unwrap().file.channels[idx].kind;
+                let tf = self.view().unwrap().file.time_factor;
                 let next = name == "NextTime";
                 let times: Vec<f64> = if kind.is_waveform() {
-                    // The times of the samples after `start`, not materialised.
-                    let f = &self.view().unwrap().file;
-                    let chn = &f.channels[idx];
-                    let total = chn.blocks.iter().map(|b| b.items.max(0) as u64).sum::<u64>();
-                    let k = if next {
-                        ((t - start) / interval).floor() + 1.0
-                    } else {
-                        ((t - start) / interval).ceil() - 1.0
-                    };
-                    let k = k.max(0.0);
-                    if (k as u64) < total && (k >= 0.0) && ((next && t < start + interval * (total as f64 - 1.0)) || (!next && t > start)) {
-                        return some(V::Flt(start + k * interval));
+                    // Samples sit at start + k * interval ticks; find the first after (or last
+                    // before) the time without listing them.
+                    let ch = &self.view().unwrap().file.channels[idx];
+                    let dt = ticks_per_sample(ch);
+                    let first = ch.blocks.first().map(|b| b.start_tick).unwrap_or(0);
+                    let total: i64 = ch.blocks.iter().map(|b| b.items.max(0) as i64).sum();
+                    if dt <= 0 || total == 0 {
+                        return some(V::Flt(-1.0));
                     }
-                    return some(V::Flt(-1.0));
+                    let tick = t / tf;
+                    let k = if next {
+                        ((tick - first as f64) / dt as f64).floor() as i64 + 1
+                    } else {
+                        ((tick - first as f64) / dt as f64).ceil() as i64 - 1
+                    };
+                    let k = if next { k.max(0) } else { k.min(total - 1) };
+                    if k < 0 || k >= total {
+                        return some(V::Flt(-1.0));
+                    }
+                    return some(V::Flt((first + k * dt) as f64 * tf));
                 } else {
                     let file = &mut self.view_mut().unwrap().file;
                     file.read_events(idx).map(|e| e.into_iter().map(|e| e.time).collect()).unwrap_or_default()
@@ -264,6 +282,46 @@ impl Host for Session {
                     times.iter().copied().rev().find(|&x| x < t)
                 };
                 some(V::Flt(hit.unwrap_or(-1.0)))
+            }
+            "Count" if args.len() == 3 => {
+                let (n, t0, t1) = (int(mem, &args[0])?, flt(mem, &args[1])?, flt(mem, &args[2])?);
+                if self.view().is_none() {
+                    return Ok(None);
+                }
+                let Some(idx) = self.chan_pos(n) else { return some(V::Flt(0.0)) };
+                let tf = self.view().unwrap().file.time_factor;
+                // Times are whole ticks; a range runs from its first tick up to, not
+                // including, its last.
+                let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64);
+                let kind = self.view().unwrap().file.channels[idx].kind;
+                if kind.is_waveform() {
+                    // On a waveform channel `Count` is the mean of the samples whose ticks
+                    // fall in the range.
+                    let file = &mut self.view_mut().unwrap().file;
+                    let ch = &file.channels[idx];
+                    let dt = ticks_per_sample(ch);
+                    let first = ch.blocks.first().map(|b| b.start_tick).unwrap_or(0);
+                    let total: i64 = ch.blocks.iter().map(|b| b.items.max(0) as i64).sum();
+                    if dt <= 0 || b <= a {
+                        return some(V::Flt(0.0));
+                    }
+                    let ceil_div = |x: i64| -> i64 { (x + dt - 1).div_euclid(dt) };
+                    let lo = ceil_div(a - first).max(0);
+                    let hi = ceil_div(b - first).min(total);
+                    if hi <= lo {
+                        return some(V::Flt(0.0));
+                    }
+                    let data = file.read_waveform(idx, lo as u64, (hi - lo) as usize).unwrap_or_default();
+                    let sum: f64 = data.iter().map(|&v| v as f64).sum();
+                    return some(V::Flt(sum / data.len() as f64));
+                }
+                let file = &mut self.view_mut().unwrap().file;
+                let events = file.read_events(idx).unwrap_or_default();
+                let n = events.iter().filter(|e| {
+                    let k = (e.time / tf).round() as i64;
+                    k >= a && k < b
+                }).count();
+                some(V::Flt(n as f64))
             }
             _ => Ok(None),
         }

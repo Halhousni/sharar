@@ -9,5 +9,9 @@ for c% := 1 to 12 do
   next
   res[(c% - 1) * 12 + 6] := LastTime(c%, 1e6);
   res[(c% - 1) * 12 + 7] := Count(c%, 0, 10);
+  res[(c% - 1) * 12 + 8] := LastTime(c%, 200);
+  res[(c% - 1) * 12 + 9] := NextTime(c%, 200);
+  res[(c% - 1) * 12 + 10] := NextTime(c%, 1e6);
+  res[(c% - 1) * 12 + 11] := LastTime(c%, 0);
 next
 FileClose();
