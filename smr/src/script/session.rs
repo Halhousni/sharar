@@ -408,6 +408,29 @@ impl Session {
             }
             "FrontView" => some(V::Int(self.current)),
             "Modified" => some(V::Int(0)),
+            "FileTimeDate" if args.len() >= 1 => {
+                // When the file was made: seconds, minutes, hours, day, month, year, and the
+                // day of the week (0 is Monday), into an array or into variables.
+                let td = self.view().unwrap().file.time_date;
+                let (y, m, d) = (td[6] as i64, td[5] as i64, td[4] as i64);
+                // 0 = Monday, from the day number counted from 1 January 1970 (a Thursday).
+                let days = days_from_civil(y, m, d);
+                let wd = (days + 3).rem_euclid(7);
+                let vals = [td[1] as i64, td[2] as i64, td[3] as i64, d, m, y, wd];
+                if let Some((mut data, _)) = mem.array(&args[0]) {
+                    for (k, slot) in data.iter_mut().enumerate().take(7) {
+                        *slot = V::Int(vals[k]);
+                    }
+                    mem.set_array(&args[0], data)?;
+                } else {
+                    for (a, v) in args.iter().zip(vals) {
+                        if let Arg::Ref(r) = a {
+                            mem.store(*r, V::Int(v))?;
+                        }
+                    }
+                }
+                none
+            }
             "FileSize" => some(V::Int(std::fs::metadata(&self.view().unwrap().file.path).map(|m| m.len() as i64).unwrap_or(0))),
             "FileName$" => {
                 let n = if args.is_empty() { 0 } else { int(mem, &args[0])? };
@@ -1162,7 +1185,7 @@ impl Host for Session {
             }
             "XRange" | "XLow" | "XHigh" | "YRange" | "YLow" | "YHigh" | "Draw" | "DrawAll" | "Optimise"
             | "Window" | "WindowVisible" | "WindowTitle$" | "FrontView" | "FileName$" | "FileComment$"
-            | "FileSize" | "Modified" | "ViewStandard"
+            | "FileSize" | "Modified" | "ViewStandard" | "FileTimeDate"
                 if self.view().is_some() =>
             {
                 self.display_command(name, args, mem)
@@ -1234,4 +1257,14 @@ impl Host for Session {
             _ => Ok(None),
         }
     }
+}
+
+/// Days from 1 January 1970 to a civil date (Howard Hinnant's algorithm).
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
 }

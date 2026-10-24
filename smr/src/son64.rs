@@ -326,6 +326,7 @@ pub(crate) fn open(path: PathBuf, mut file: File) -> io::Result<SonFile> {
         system_id: 64,
         creator,
         comments,
+        time_date: [0; 7],
         time_factor: tick,
         channels,
         file,

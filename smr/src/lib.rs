@@ -514,6 +514,8 @@ pub struct SonFile {
     pub system_id: i16,
     pub creator: String,
     pub comments: Vec<String>,
+    /// When the file was made: hundredths of a second, seconds, minutes, hours, day, month, year.
+    pub time_date: [u16; 7],
     /// Seconds per timestamp tick.
     pub time_factor: f64,
     pub channels: Vec<Channel>,
@@ -640,9 +642,10 @@ impl SonFile {
         let _os_format = r.i16();
         let _max_ftime = r.i32();
         let mut dtime_base = r.f64();
-        let _datetime_detail = r.u8();
-        let _datetime_year = r.i16();
-        r.skip(57);
+        // The date and time the file was made: hundredths, seconds, minutes, hours, day, month, year.
+        let td = (r.u8(), r.u8(), r.u8(), r.u8(), r.u8(), r.u8(), r.i16());
+        let time_date = [td.0 as u16, td.1 as u16, td.2 as u16, td.3 as u16, td.4 as u16, td.5 as u16, td.6 as u16];
+        r.skip(52);
         // The five comment lines are Pascal strings, as stored (so `FileComment$` can return
         // them as they are); an empty line keeps its place.
         let mut comments = Vec::new();
@@ -798,6 +801,7 @@ impl SonFile {
             system_id,
             creator,
             comments,
+            time_date,
             time_factor,
             channels,
             son64: false,

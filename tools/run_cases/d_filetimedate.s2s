@@ -1,0 +1,11 @@
+var res[40], h%, a%[7], s%, m%, hr%, d%, mo%, y%, i%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+FileTimeDate(a%[]);
+for i% := 0 to 6 do res[i%] := a%[i%] next
+FileTimeDate(s%, m%, hr%, d%, mo%, y%);
+res[10] := s%; res[11] := m%; res[12] := hr%; res[13] := d%; res[14] := mo%; res[15] := y%;
+View(h%); FileClose();
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\EMG Waveform.smr", 0, 0);
+FileTimeDate(a%[]);
+for i% := 0 to 6 do res[20 + i%] := a%[i%] next
+View(h%); FileClose();
