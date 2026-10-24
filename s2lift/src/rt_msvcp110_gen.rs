@@ -4,13 +4,13 @@
 use crate::mach::*;
 use crate::Svc;
 
-pub(super) fn f_180001004(m: &mut M, s: &mut dyn Svc) {
-    m.trace_enter(0x180001004);
-    let mut pc: u64 = 0x180001004;
+pub(super) fn f_480001004(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x480001004);
+    let mut pc: u64 = 0x480001004;
     loop {
         match pc {
-            0x180001004 => {
-                m.block(0x180001004);
+            0x480001004 => {
+                m.block(0x480001004);
                 // 180001004 ret 0
                 m.pop(); return;
             }
@@ -19,13 +19,13 @@ pub(super) fn f_180001004(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
-pub(super) fn f_18000eae8(m: &mut M, s: &mut dyn Svc) {
-    m.trace_enter(0x18000eae8);
-    let mut pc: u64 = 0x18000eae8;
+pub(super) fn f_48000eae8(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x48000eae8);
+    let mut pc: u64 = 0x48000eae8;
     loop {
         match pc {
-            0x18000eae8 => {
-                m.block(0x18000eae8);
+            0x48000eae8 => {
+                m.block(0x48000eae8);
                 // 18000eae8 movzx edx, word ptr [rcx + 6]
                 { let v = m.ld(m.ea(1, -1, 1, 6), 2); m.sr(2, 4, false, v); }
                 // 18000eaec mov eax, 0x7ff0
@@ -35,90 +35,90 @@ pub(super) fn f_18000eae8(m: &mut M, s: &mut dyn Svc) {
                 // 18000eaf4 cmp dx, ax
                 m.sub(m.gr(2, 2, false), m.gr(0, 2, false), 2);
                 // 18000eaf7 jne 0x18000eb1d
-                if m.cc("ne") { pc = 0x18000eb1d; continue; }
-                pc = 0x18000eaf9; continue;
+                if m.cc("ne") { pc = 0x48000eb1d; continue; }
+                pc = 0x48000eaf9; continue;
             }
-            0x18000eaf9 => {
-                m.block(0x18000eaf9);
+            0x48000eaf9 => {
+                m.block(0x48000eaf9);
                 // 18000eaf9 test byte ptr [rcx + 6], 0xf
                 m.and(m.ld(m.ea(1, -1, 1, 6), 1), 0xfu64, 1);
                 // 18000eafd jne 0x18000eb17
-                if m.cc("ne") { pc = 0x18000eb17; continue; }
-                pc = 0x18000eaff; continue;
+                if m.cc("ne") { pc = 0x48000eb17; continue; }
+                pc = 0x48000eaff; continue;
             }
-            0x18000eaff => {
-                m.block(0x18000eaff);
+            0x48000eaff => {
+                m.block(0x48000eaff);
                 // 18000eaff xor eax, eax
                 { let v = m.xor(m.gr(0, 4, false), m.gr(0, 4, false), 4); m.sr(0, 4, false, v); }
                 // 18000eb01 cmp word ptr [rcx + 4], ax
                 m.sub(m.ld(m.ea(1, -1, 1, 4), 2), m.gr(0, 2, false), 2);
                 // 18000eb05 jne 0x18000eb17
-                if m.cc("ne") { pc = 0x18000eb17; continue; }
-                pc = 0x18000eb07; continue;
+                if m.cc("ne") { pc = 0x48000eb17; continue; }
+                pc = 0x48000eb07; continue;
             }
-            0x18000eb07 => {
-                m.block(0x18000eb07);
+            0x48000eb07 => {
+                m.block(0x48000eb07);
                 // 18000eb07 cmp word ptr [rcx + 2], ax
                 m.sub(m.ld(m.ea(1, -1, 1, 2), 2), m.gr(0, 2, false), 2);
                 // 18000eb0b jne 0x18000eb17
-                if m.cc("ne") { pc = 0x18000eb17; continue; }
-                pc = 0x18000eb0d; continue;
+                if m.cc("ne") { pc = 0x48000eb17; continue; }
+                pc = 0x48000eb0d; continue;
             }
-            0x18000eb0d => {
-                m.block(0x18000eb0d);
+            0x48000eb0d => {
+                m.block(0x48000eb0d);
                 // 18000eb0d cmp word ptr [rcx], ax
                 m.sub(m.ld(m.ea(1, -1, 1, 0), 2), m.gr(0, 2, false), 2);
                 // 18000eb10 mov eax, 1
                 { let v = 0x1u64; m.sr(0, 4, false, v); }
                 // 18000eb15 je 0x18000eb45
-                if m.cc("e") { pc = 0x18000eb45; continue; }
-                pc = 0x18000eb17; continue;
+                if m.cc("e") { pc = 0x48000eb45; continue; }
+                pc = 0x48000eb17; continue;
             }
-            0x18000eb17 => {
-                m.block(0x18000eb17);
+            0x48000eb17 => {
+                m.block(0x48000eb17);
                 // 18000eb17 mov eax, 2
                 { let v = 0x2u64; m.sr(0, 4, false, v); }
                 // 18000eb1c ret 
                 m.pop(); return;
             }
-            0x18000eb1d => {
-                m.block(0x18000eb1d);
+            0x48000eb1d => {
+                m.block(0x48000eb1d);
                 // 18000eb1d movzx eax, word ptr [rcx + 6]
                 { let v = m.ld(m.ea(1, -1, 1, 6), 2); m.sr(0, 4, false, v); }
                 // 18000eb21 test eax, 0xffff7fff
                 m.and(m.gr(0, 4, false), 0xffff7fffu64, 4);
                 // 18000eb26 jne 0x18000eb3b
-                if m.cc("ne") { pc = 0x18000eb3b; continue; }
-                pc = 0x18000eb28; continue;
+                if m.cc("ne") { pc = 0x48000eb3b; continue; }
+                pc = 0x48000eb28; continue;
             }
-            0x18000eb28 => {
-                m.block(0x18000eb28);
+            0x48000eb28 => {
+                m.block(0x48000eb28);
                 // 18000eb28 xor eax, eax
                 { let v = m.xor(m.gr(0, 4, false), m.gr(0, 4, false), 4); m.sr(0, 4, false, v); }
                 // 18000eb2a cmp word ptr [rcx + 4], ax
                 m.sub(m.ld(m.ea(1, -1, 1, 4), 2), m.gr(0, 2, false), 2);
                 // 18000eb2e jne 0x18000eb3b
-                if m.cc("ne") { pc = 0x18000eb3b; continue; }
-                pc = 0x18000eb30; continue;
+                if m.cc("ne") { pc = 0x48000eb3b; continue; }
+                pc = 0x48000eb30; continue;
             }
-            0x18000eb30 => {
-                m.block(0x18000eb30);
+            0x48000eb30 => {
+                m.block(0x48000eb30);
                 // 18000eb30 cmp word ptr [rcx + 2], ax
                 m.sub(m.ld(m.ea(1, -1, 1, 2), 2), m.gr(0, 2, false), 2);
                 // 18000eb34 jne 0x18000eb3b
-                if m.cc("ne") { pc = 0x18000eb3b; continue; }
-                pc = 0x18000eb36; continue;
+                if m.cc("ne") { pc = 0x48000eb3b; continue; }
+                pc = 0x48000eb36; continue;
             }
-            0x18000eb36 => {
-                m.block(0x18000eb36);
+            0x48000eb36 => {
+                m.block(0x48000eb36);
                 // 18000eb36 cmp word ptr [rcx], ax
                 m.sub(m.ld(m.ea(1, -1, 1, 0), 2), m.gr(0, 2, false), 2);
                 // 18000eb39 je 0x18000eb45
-                if m.cc("e") { pc = 0x18000eb45; continue; }
-                pc = 0x18000eb3b; continue;
+                if m.cc("e") { pc = 0x48000eb45; continue; }
+                pc = 0x48000eb3b; continue;
             }
-            0x18000eb3b => {
-                m.block(0x18000eb3b);
+            0x48000eb3b => {
+                m.block(0x48000eb3b);
                 // 18000eb3b neg dx
                 { let v = m.neg(m.gr(2, 2, false), 2); m.sr(2, 2, false, v); }
                 // 18000eb3e sbb eax, eax
@@ -127,10 +127,10 @@ pub(super) fn f_18000eae8(m: &mut M, s: &mut dyn Svc) {
                 { let v = m.neg(m.gr(0, 4, false), 4); m.sr(0, 4, false, v); }
                 // 18000eb42 add eax, -2
                 { let v = m.add(m.gr(0, 4, false), 0xfffffffeu64, 4); m.sr(0, 4, false, v); }
-                pc = 0x18000eb45; continue;
+                pc = 0x48000eb45; continue;
             }
-            0x18000eb45 => {
-                m.block(0x18000eb45);
+            0x48000eb45 => {
+                m.block(0x48000eb45);
                 // 18000eb45 ret 
                 m.pop(); return;
             }
@@ -144,21 +144,31 @@ static BLOB: &[u8] = include_bytes!("rt_msvcp110.dat");
 const RANGES: &[(u64, u32, u32)] = &[
 ];
 pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES };
+pub(super) static IMGS: &[&Img] = &[&IMG];
 /// Call a routine through a pointer (a function pointer or a virtual call).
 fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
     match t {
-        0x180001004 => f_180001004(m, s),
-        0x18000eae8 => f_18000eae8(m, s),
-        _ => m.fail(&format!("a call through a pointer to {t:#x}")),
+        0x480001004 => f_480001004(m, s),
+        0x48000eae8 => f_48000eae8(m, s),
+        _ => crate::commands::call_other(m, s, t),
     }
+}
+/// Is `t` a routine of this module? If so, call it.
+pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
+    match t {
+        0x480001004 => f_480001004(m, s),
+        0x48000eae8 => f_48000eae8(m, s),
+        _ => return false,
+    }
+    true
 }
 
 /// Run the routine at 0x180001004 with the machine's registers as the caller set them.
-pub(crate) fn enter_180001004(m: &mut M, s: &mut dyn Svc) {
-    m.with_img(&IMG, |m| { m.push(0); f_180001004(m, s); });
+pub(crate) fn enter_480001004(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_480001004(m, s); });
 }
 /// Run the routine at 0x18000eae8 with the machine's registers as the caller set them.
-pub(crate) fn enter_18000eae8(m: &mut M, s: &mut dyn Svc) {
-    m.with_img(&IMG, |m| { m.push(0); f_18000eae8(m, s); });
+pub(crate) fn enter_48000eae8(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_48000eae8(m, s); });
 }
 

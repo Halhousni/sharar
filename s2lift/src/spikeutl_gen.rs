@@ -15152,6 +15152,7 @@ const RANGES: &[(u64, u32, u32)] = &[
     (0x500000000030, 23632, 16),
 ];
 pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES };
+pub(super) static IMGS: &[&Img] = &[&IMG];
 /// Call a routine through a pointer (a function pointer or a virtual call).
 fn call_ptr(m: &mut M, t: u64) {
     match t {
@@ -15211,10 +15212,70 @@ fn call_ptr(m: &mut M, t: u64) {
         _ => m.fail(&format!("a call through a pointer to {t:#x}")),
     }
 }
+/// Is `t` a routine of this module? If so, call it.
+pub(crate) fn try_call(m: &mut M, t: u64) -> bool {
+    match t {
+        0x18000b120 => f_18000b120(m),
+        0x18000b140 => f_18000b140(m),
+        0x18000b160 => f_18000b160(m),
+        0x18000b1d0 => f_18000b1d0(m),
+        0x18000c040 => f_18000c040(m),
+        0x18000c340 => f_18000c340(m),
+        0x18000cbc0 => f_18000cbc0(m),
+        0x18000ced0 => f_18000ced0(m),
+        0x18000cf70 => f_18000cf70(m),
+        0x18000d1d0 => f_18000d1d0(m),
+        0x18000d410 => f_18000d410(m),
+        0x18000d8b0 => f_18000d8b0(m),
+        0x18000dcb0 => f_18000dcb0(m),
+        0x18000dd80 => f_18000dd80(m),
+        0x18000f110 => f_18000f110(m),
+        0x18000f160 => f_18000f160(m),
+        0x18000f210 => f_18000f210(m),
+        0x18000f340 => f_18000f340(m),
+        0x18000f3e0 => f_18000f3e0(m),
+        0x18000f750 => f_18000f750(m),
+        0x180010a30 => f_180010a30(m),
+        0x180010e40 => f_180010e40(m),
+        0x180011050 => f_180011050(m),
+        0x180011170 => f_180011170(m),
+        0x180011520 => f_180011520(m),
+        0x1800119f0 => f_1800119f0(m),
+        0x180011b60 => f_180011b60(m),
+        0x180012030 => f_180012030(m),
+        0x180013ca0 => f_180013ca0(m),
+        0x180014060 => f_180014060(m),
+        0x180014120 => f_180014120(m),
+        0x180014240 => f_180014240(m),
+        0x180014a60 => f_180014a60(m),
+        0x180014c20 => f_180014c20(m),
+        0x180014c90 => f_180014c90(m),
+        0x180014d20 => f_180014d20(m),
+        0x180014f20 => f_180014f20(m),
+        0x180015060 => f_180015060(m),
+        0x180015200 => f_180015200(m),
+        0x180015810 => f_180015810(m),
+        0x180017e60 => f_180017e60(m),
+        0x180017fc0 => f_180017fc0(m),
+        0x180018d30 => f_180018d30(m),
+        0x18001a370 => f_18001a370(m),
+        0x1800adf80 => f_1800adf80(m),
+        0x1800adfa0 => f_1800adfa0(m),
+        0x1800adfd0 => f_1800adfd0(m),
+        0x1800b6e28 => f_1800b6e28(m),
+        0x1800b6e40 => f_1800b6e40(m),
+        0x1800b6e4c => f_1800b6e4c(m),
+        0x1800b6e5e => f_1800b6e5e(m),
+        0x1800b6e64 => f_1800b6e64(m),
+        0x1800b6e6a => f_1800b6e6a(m),
+        _ => return false,
+    }
+    true
+}
 
 
 pub fn ln_gamma(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_1800adf80(&mut m);
@@ -15222,7 +15283,7 @@ pub fn ln_gamma(x: f64) -> f64 {
 }
 
 pub fn gamma_p(a: f64, x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, a.to_bits()); m.set_xl(1, x.to_bits());
     m.push(0);
     f_1800adfa0(&mut m);
@@ -15230,7 +15291,7 @@ pub fn gamma_p(a: f64, x: f64) -> f64 {
 }
 
 pub fn gamma_q(a: f64, x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, a.to_bits()); m.set_xl(1, x.to_bits());
     m.push(0);
     f_1800adfd0(&mut m);
@@ -15238,7 +15299,7 @@ pub fn gamma_q(a: f64, x: f64) -> f64 {
 }
 
 pub fn beta(a: f64, b: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, a.to_bits()); m.set_xl(1, b.to_bits());
     m.push(0);
     f_18000b120(&mut m);
@@ -15246,7 +15307,7 @@ pub fn beta(a: f64, b: f64) -> f64 {
 }
 
 pub fn beta_i(a: f64, b: f64, x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, a.to_bits()); m.set_xl(1, b.to_bits()); m.set_xl(2, x.to_bits());
     m.push(0);
     f_18000b140(&mut m);
@@ -15254,7 +15315,7 @@ pub fn beta_i(a: f64, b: f64, x: f64) -> f64 {
 }
 
 pub fn binomial_c(n: i32, k: i32) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.r[1] = n as u32 as u64; m.r[2] = k as u32 as u64;
     m.push(0);
     f_18000b160(&mut m);

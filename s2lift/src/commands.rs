@@ -2,6 +2,7 @@
 
 /// The routines the translated commands import and the host must answer, by `Svc::import` id.
 pub const IMPORT_NAMES: &[&str] = &[
+    "??3@YAXPEAX@Z",
     "?FillInArray@CRunInfo@@QEBAXHAEAVCArrObj@@@Z",
     "?GetI32Err@CRunInfo@@QEBAHHHH@Z",
     "?StoreFloatResult@CRunInfo@@QEBAXN@Z",
@@ -12,13 +13,15 @@ pub const IMPORT_NAMES: &[&str] = &[
     "?GetInt@CRunInfo@@QEBA_JH@Z",
     "?SetInt@CRunInfo@@QEBAXH_J@Z",
     "?GetI32@CRunInfo@@QEBAHH@Z",
-    "??3@YAXPEAX@Z",
     "?FillInArray0@CRunInfo@@QEBAXHAEAVCArrObj@@@Z",
     "?Resize@CRunInfo@@QEBAXHAEAVCArrObj@@H@Z",
     "?GetFloatErr@CRunInfo@@QEBANHNN@Z",
     "?_Xlength_error@std@@YAXPEBD@Z",
     "??2@YAPEAX_K@Z",
     "?_Xbad_alloc@std@@YAXXZ",
+    "?XMakeFloat@CRunInfo@@QEBAXN@Z",
+    "?XCallFunc@CRunInfo@@QEBAFFPEAVTProcedure@@@Z",
+    "?XGetFloatReturn@CRunInfo@@QEBAXAEAN@Z",
     "?GetArgObject@CRunInfo@@QEBAPEAXH@Z",
     "?GetI32Lim@CRunInfo@@QEBAHHHH@Z",
     "??B?$CSimpleStringT@_W$00@ATL@@QEBAPEB_WXZ",
@@ -26,9 +29,10 @@ pub const IMPORT_NAMES: &[&str] = &[
     "?CompareNoCase@?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@QEBAHPEB_W@Z",
     "frexp",
     "ldexp",
-    "free",
     "??_V@YAXPEAX@Z",
+    "free",
     "??_U@YAPEAX_K@Z",
+    "_purecall",
 ];
 
 /// The translated commands.
@@ -53,8 +57,22 @@ pub const COMMANDS: &[&str] = &[
 ];
 
 /// A machine to run commands on.
+static IMAGES: &[&crate::mach::Img] = &[
+    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,
+    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,
+];
+
 pub fn machine() -> crate::mach::M {
-    crate::mach::M::new(&crate::rt_runtime_gen::IMG)
+    crate::mach::M::new(IMAGES)
+}
+
+/// A call through a pointer that is not in the module making it: whichever module has it.
+pub(crate) fn call_other(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64) {
+    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)
+        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t);
+    if !done {
+        m.fail(&format!("a call through a pointer to {t:#x}"));
+    }
 }
 
 /// Run command `name`'s Execute: rcx is the command object, rdx the run information.

@@ -71,11 +71,12 @@ class Lifter:
               to it become `m.fail(..)` instead of being translated.
     """
 
-    def __init__(self, dll, roots, stubs, imports, fail_imports, svc=False, default_import=None, cross=None):
+    def __init__(self, dll, roots, stubs, imports, fail_imports, svc=False, default_import=None, cross=None, bias=0):
         # `svc`: functions take a second argument, the services the host provides.
         # `default_import(name)` gives the statements for an import `imports` does not list.
         # `cross(name)` gives (module, address) for an import that another translated module
         # supplies, or None.
+        self.bias = bias
         self.svc = svc
         self.default_import = default_import
         self.cross = cross
@@ -127,6 +128,22 @@ class Lifter:
                             cache[dll] = {int(o): n for o, n in re.findall(r'ORDINAL="(\d+)" NAME="([^"]*)"', text)}
                             break
             self.iat[slot] = cache[dll].get(int(ordinal), name)
+
+    def dir64_relocs(self):
+        """Addresses (in the image) of the 64-bit absolute pointers the loader would relocate."""
+        im = self.im
+        rva, size = struct.unpack_from("<II", im.b, im.dd + 5 * 8)
+        out, o, end = [], im.rva_off(rva), im.rva_off(rva) + size if rva else 0
+        while rva and o < end:
+            page, blk = struct.unpack_from("<II", im.b, o)
+            if blk < 8:
+                break
+            for k in range((blk - 8) // 2):
+                e, = struct.unpack_from("<H", im.b, o + 8 + 2 * k)
+                if e >> 12 == 10:
+                    out.append(im.base + page + (e & 0xfff))
+            o += blk
+        return out
 
     def build_ranges(self):
         """Compilers split a function into pieces, each with its own unwind entry chained to the
@@ -204,6 +221,23 @@ class Lifter:
                 rngs.append((i.address, i.address + i.size))
         return out, rngs
 
+    def vtable_methods(self, t):
+        """If `t` is a table of routine pointers (a vtable), the routines."""
+        im = self.im
+        out = []
+        r = t - im.base
+        for n, v, vs, rp, rs in im.secs:
+            if n == b".text" or not (v <= r < v + rs):
+                continue
+            k = 0
+            while v <= r + 8 * k < v + rs - 7:
+                ptr, = struct.unpack_from("<Q", im.b, rp + r - v + 8 * k)
+                if not self.is_function_start(ptr):
+                    break
+                out.append(ptr)
+                k += 1
+        return out
+
     def is_function_start(self, t):
         """Is `t` the start of a routine, so that a pointer to it may be called?"""
         im = self.im
@@ -215,6 +249,11 @@ class Lifter:
         o = im.off(t)
         return im.b[o:o + 2] == b"\xff\x25"
 
+    def A(self, x):
+        """An address of this module as the generated code writes it (the module's addresses are
+        moved by `bias`, so that no two modules share one)."""
+        return x + self.bias
+
     def import_stmt(self, name, tail=False):
         """Statements that do what a call through the import table to `name` does."""
         if name in self.imports:
@@ -223,7 +262,7 @@ class Lifter:
             c = self.cross(name)
             if c:
                 mod, addr = c
-                return f"crate::{mod}::enter_{addr:x}({self.args});"
+                return f"crate::{mod}::enter_{addr:x}({self.args});"  # addr already biased by cross()
         if self.default_import:
             return self.default_import(self, name)
         return None
@@ -259,6 +298,8 @@ class Lifter:
                     t = (i.address + i.size + i.operands[1].mem.disp) & 0xffffffffffffffff
                     if self.is_function_start(t):
                         work.append(t)
+                    else:
+                        work.extend(self.vtable_methods(t))
                 if i.mnemonic in ("call", "jmp") and i.operands[0].type == X.X86_OP_MEM:
                     _, imp = self.import_of(i)
                     if imp:
@@ -279,7 +320,7 @@ class Lifter:
             self.data_refs.add(addr)
             if ins.mnemonic == "lea":
                 self.table_bases.add(addr)
-            return f"{addr:#x}u64"
+            return f"{self.A(addr):#x}u64"
         base = -1 if m.base == 0 else GPR[ins.reg_name(m.base)][0]
         index = -1 if m.index == 0 else GPR[ins.reg_name(m.index)][0]
         return f"m.ea({base}, {index}, {m.scale}, {m.disp})"
@@ -533,11 +574,11 @@ class Lifter:
             if ops[0].type == X.X86_OP_IMM:
                 t = ops[0].imm
                 if inside(t):
-                    return f"pc = {t:#x}; continue;", True
+                    return f"pc = {self.A(t):#x}; continue;", True
                 if t in self.stubs:
                     return f"{self.stubs[t]} m.pop(); return;", True
                 if t in self.known:
-                    return f"f_{t:x}({self.args}); return;", True
+                    return f"f_{self.A(t):x}({self.args}); return;", True
                 if t in self.failing:
                     return f"m.fail(\"an error path at {t:#x}\");", True
                 raise Unsupported(f"jump out of the function to {t:#x} at {ins.address:x}")
@@ -564,7 +605,7 @@ class Lifter:
                     # a conditional tail call: branch to a stub that does the call and returns
                     return f"if m.cc(\"{mn[1:]}\") {{ {self.call_stmt(t)} m.pop(); return; }}", False
                 raise Unsupported(f"conditional jump out of the function at {ins.address:x}")
-            return f"if m.cc(\"{mn[1:]}\") {{ pc = {t:#x}; continue; }}", False
+            return f"if m.cc(\"{mn[1:]}\") {{ pc = {self.A(t):#x}; continue; }}", False
         if mn == "call":
             if ops[0].type == X.X86_OP_IMM:
                 return self.call_stmt(ops[0].imm), False
@@ -582,7 +623,7 @@ class Lifter:
         if t in self.stubs:
             return self.stubs[t]
         if t in self.known:
-            return f"m.push(0); f_{t:x}({self.args});"
+            return f"m.push(0); f_{self.A(t):x}({self.args});"
         if t in self.failing:
             return f"m.fail(\"an error path at {t:#x}\");"
         raise Unsupported(f"call to {t:#x}")
@@ -617,18 +658,18 @@ class Lifter:
                     pass  # a jump through a pointer, not a table: lift_ins stops there
             if i.mnemonic in ("jmp", "ret", "repz ret") or (i.mnemonic.startswith("j") and i.mnemonic != "jmp"):
                 leaders.add(i.address + i.size)
-        lines = [f"pub(super) fn f_{s:x}({'m: &mut M, s: &mut dyn Svc' if self.svc else 'm: &mut M'}) {{", f"    m.trace_enter({s:#x});", f"    let mut pc: u64 = {s:#x};", "    loop {", "        match pc {"]
+        lines = [f"pub(super) fn f_{self.A(s):x}({'m: &mut M, s: &mut dyn Svc' if self.svc else 'm: &mut M'}) {{", f"    m.trace_enter({self.A(s):#x});", f"    let mut pc: u64 = {self.A(s):#x};", "    loop {", "        match pc {"]
         cur, body, terminated = None, [], True
 
         def close(next_addr):
             nonlocal cur, body
             if cur is None:
                 return
-            lines.append(f"            {cur:#x} => {{")
-            lines.append(f"                m.block({cur:#x});")
+            lines.append(f"            {self.A(cur):#x} => {{")
+            lines.append(f"                m.block({self.A(cur):#x});")
             lines.extend("                " + b for b in body if b)
             if not terminated:
-                lines.append(f"                pc = {next_addr:#x}; continue;")
+                lines.append(f"                pc = {self.A(next_addr):#x}; continue;")
             lines.append("            }")
             cur, body = None, []
 
@@ -712,31 +753,46 @@ class Lifter:
                 struct.pack_into("<Q", blob, o + slot - a, fake_fn)
                 fnimp[fake_fn] = imp
                 fake_fn += 16
+        # Pointers stored in the tables (vtables, function pointers) follow the module's bias.
+        if self.bias:
+            size = struct.unpack_from("<I", self.im.b, self.im.dd - 112 + 56 - 112 + 112)[0] if False else None
+            lo, hi = self.im.base, self.im.base + max(sec[1] + max(sec[2], sec[4]) for sec in self.im.secs)
+            for ptr in self.dir64_relocs():
+                for a, o, n in ranges:
+                    if a <= ptr < a + n - 7 and a < 0x4000_0000_0000:
+                        v, = struct.unpack_from("<Q", blob, o + ptr - a)
+                        if lo <= v < hi:
+                            struct.pack_into("<Q", blob, o + ptr - a, v + self.bias)
+                        break
         stem = module or name.lower().replace(".dll", "").replace(".s2l", "")
         parts.append(f'static BLOB: &[u8] = include_bytes!("{stem}.dat");')
         parts.append("/// (address in the DLL, offset in the blob, length)")
         parts.append("const RANGES: &[(u64, u32, u32)] = &[")
         for a, o, n in ranges:
-            parts.append(f"    ({a:#x}, {o}, {n}),")
+            parts.append(f"    ({self.A(a):#x}, {o}, {n}),")
         parts.append("];")
         parts.append("pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES };")
+        parts.append("pub(super) static IMGS: &[&Img] = &[&IMG];")
         sig = "m: &mut M, s: &mut dyn Svc, t: u64" if self.svc else "m: &mut M, t: u64"
-        arms = "\n".join(f"        {f:#x} => f_{f:x}({self.args})," for f in sorted(self.known))
+        arms = "\n".join(f"        {self.A(f):#x} => f_{self.A(f):x}({self.args})," for f in sorted(self.known))
         for fa, imp in sorted(fnimp.items()):
             code = self.import_stmt(imp) or f'm.fail("the import {imp}");'
             arms += f"\n        {fa:#x} => {{ {code} m.pop(); }}"
+        arms_try = arms
         parts.append(f"/// Call a routine through a pointer (a function pointer or a virtual call).\n"
                      f"fn call_ptr({sig}) {{\n    match t {{\n{arms}\n"
-                     f"        _ => m.fail(&format!(\"a call through a pointer to {{t:#x}}\")),\n    }}\n}}\n")
+                     f"        _ => {'crate::commands::call_other(m, s, t)' if self.svc else 'm.fail(&format!(\"a call through a pointer to {t:#x}\"))'},\n    }}\n}}\n"
+                     f"/// Is `t` a routine of this module? If so, call it.\n"
+                     f"pub(crate) fn try_call({sig}) -> bool {{\n    match t {{\n{arms_try}\n        _ => return false,\n    }}\n    true\n}}\n")
 
         for e in entries:
             if self.svc:
                 parts.append(f"/// Run the routine at {e:#x} with the machine's registers as the caller set them.\n"
-                             f"pub(crate) fn enter_{e:x}(m: &mut M, s: &mut dyn Svc) {{\n"
-                             f"    m.with_img(&IMG, |m| {{ m.push(0); f_{e:x}(m, s); }});\n}}")
+                             f"pub(crate) fn enter_{self.A(e):x}(m: &mut M, s: &mut dyn Svc) {{\n"
+                             f"    m.with_img(&IMG, |m| {{ m.push(0); f_{self.A(e):x}(m, s); }});\n}}")
             else:
-                parts.append(f"pub(crate) fn enter_{e:x}(m: &mut M) {{\n"
-                             f"    m.with_img(&IMG, |m| {{ m.push(0); f_{e:x}(m); }});\n}}")
+                parts.append(f"pub(crate) fn enter_{self.A(e):x}(m: &mut M) {{\n"
+                             f"    m.with_img(&IMG, |m| {{ m.push(0); f_{self.A(e):x}(m); }});\n}}")
         parts.append(trailer)
         open(os.path.join(out_dir, f"{stem}_gen.rs"), "w").write("\n".join(parts) + "\n")
         open(os.path.join(out_dir, f"{stem}.dat"), "wb").write(blob)

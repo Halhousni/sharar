@@ -329,7 +329,17 @@ impl Vm {
         match outcome {
             Ok(()) => {
                 run.copy_back(&m);
-                Ok(Some(run.result.take()))
+                // A command that returns a value and did not store one gives zero.
+                let mut result = run.result.take();
+                if result.is_none() {
+                    result = match crate::script::commands::find(name).map(|(_, c)| c.ret) {
+                        Some(crate::script::commands::Ret::Int) => Some(V::Int(0)),
+                        Some(crate::script::commands::Ret::Real) => Some(V::Flt(0.0)),
+                        Some(crate::script::commands::Ret::Str) => Some(V::Str(String::new())),
+                        _ => None,
+                    };
+                }
+                Ok(Some(result))
             }
             Err(payload) => {
                 if let Some(t) = payload.downcast_ref::<Thrown>() {

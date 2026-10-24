@@ -1,0 +1,38 @@
+var res[600], a[16], b[16], x[8], y[8], z[20], i%, k%, n%, r%;
+k% := 0;
+for i% := 0 to 15 do a[i%] := Sin(i% * 0.9) + Cos(i% * 0.31) * 2 next
+for i% := 0 to 15 do b[i%] := a[i%] next
+r% := ArrFFT(b[], 0);
+res[k%] := r%; k% += 1;
+for i% := 0 to 15 do res[k%] := b[i%]; k% += 1; next
+for i% := 0 to 15 do b[i%] := a[i%] next
+r% := ArrFFT(b[], 1);
+res[k%] := r%; k% += 1;
+for i% := 0 to 15 do res[k%] := b[i%]; k% += 1; next
+for i% := 0 to 15 do b[i%] := a[i%] next
+r% := ArrFFT(b[], 2);
+res[k%] := r%; k% += 1;
+for i% := 0 to 15 do res[k%] := b[i%]; k% += 1; next
+for i% := 0 to 15 do b[i%] := a[i%] next
+r% := ArrFFT(b[], 3, 1);
+res[k%] := r%; k% += 1;
+for i% := 0 to 15 do res[k%] := b[i%]; k% += 1; next
+for i% := 0 to 15 do b[i%] := a[i%] next
+r% := ArrFFT(b[], 4, 2);
+res[k%] := r%; k% += 1;
+for i% := 0 to 15 do res[k%] := b[i%]; k% += 1; next
+for i% := 0 to 15 do b[i%] := a[i%] next
+r% := ArrFFT(b[], 0, 3);
+res[k%] := r%; k% += 1;
+for i% := 0 to 15 do res[k%] := b[i%]; k% += 1; next
+for i% := 0 to 15 do b[i%] := a[i%] next
+r% := ArrFFT(b[], 0, 4);
+res[k%] := r%; k% += 1;
+for i% := 0 to 15 do res[k%] := b[i%]; k% += 1; next
+r% := ArrFilt(b[], a[]);
+res[k%] := r%; k% += 1;
+for i% := 0 to 7 do x[i%] := i% * 1.5 + 1 next
+ArrDiff(x[]);
+for i% := 0 to 7 do res[k%] := x[i%]; k% += 1; next
+ArrIntgl(x[]);
+for i% := 0 to 7 do res[k%] := x[i%]; k% += 1; next

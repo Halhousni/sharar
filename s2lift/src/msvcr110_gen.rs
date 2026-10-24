@@ -9425,6 +9425,7 @@ const RANGES: &[(u64, u32, u32)] = &[
     (0x1800c3550, 50256, 8192),
 ];
 pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES };
+pub(super) static IMGS: &[&Img] = &[&IMG];
 /// Call a routine through a pointer (a function pointer or a virtual call).
 fn call_ptr(m: &mut M, t: u64) {
     match t {
@@ -9451,10 +9452,37 @@ fn call_ptr(m: &mut M, t: u64) {
         _ => m.fail(&format!("a call through a pointer to {t:#x}")),
     }
 }
+/// Is `t` a routine of this module? If so, call it.
+pub(crate) fn try_call(m: &mut M, t: u64) -> bool {
+    match t {
+        0x18007f6f4 => f_18007f6f4(m),
+        0x180080908 => f_180080908(m),
+        0x180080e7c => f_180080e7c(m),
+        0x180081398 => f_180081398(m),
+        0x1800815f8 => f_1800815f8(m),
+        0x180082660 => f_180082660(m),
+        0x180082df0 => f_180082df0(m),
+        0x18008319c => f_18008319c(m),
+        0x1800836b0 => f_1800836b0(m),
+        0x1800847c0 => f_1800847c0(m),
+        0x180084a80 => f_180084a80(m),
+        0x1800853e0 => f_1800853e0(m),
+        0x1800867d0 => f_1800867d0(m),
+        0x180086fe0 => f_180086fe0(m),
+        0x1800873d8 => f_1800873d8(m),
+        0x180087adc => f_180087adc(m),
+        0x180087da8 => f_180087da8(m),
+        0x180088550 => f_180088550(m),
+        0x180088678 => f_180088678(m),
+        0x18008c3e0 => f_18008c3e0(m),
+        _ => return false,
+    }
+    true
+}
 
 
 pub fn sin(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_1800867d0(&mut m);
@@ -9462,7 +9490,7 @@ pub fn sin(x: f64) -> f64 {
 }
 
 pub fn cos(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180082660(&mut m);
@@ -9470,7 +9498,7 @@ pub fn cos(x: f64) -> f64 {
 }
 
 pub fn tan(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180087adc(&mut m);
@@ -9478,7 +9506,7 @@ pub fn tan(x: f64) -> f64 {
 }
 
 pub fn exp(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_1800836b0(&mut m);
@@ -9486,7 +9514,7 @@ pub fn exp(x: f64) -> f64 {
 }
 
 pub fn log(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_1800847c0(&mut m);
@@ -9494,7 +9522,7 @@ pub fn log(x: f64) -> f64 {
 }
 
 pub fn log10(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180084a80(&mut m);
@@ -9502,7 +9530,7 @@ pub fn log10(x: f64) -> f64 {
 }
 
 pub fn pow(x: f64, y: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.set_xl(1, y.to_bits());
     m.push(0);
@@ -9511,7 +9539,7 @@ pub fn pow(x: f64, y: f64) -> f64 {
 }
 
 pub fn atan(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180081398(&mut m);
@@ -9519,7 +9547,7 @@ pub fn atan(x: f64) -> f64 {
 }
 
 pub fn atan2(x: f64, y: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.set_xl(1, y.to_bits());
     m.push(0);
@@ -9528,7 +9556,7 @@ pub fn atan2(x: f64, y: f64) -> f64 {
 }
 
 pub fn sinh(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180086fe0(&mut m);
@@ -9536,7 +9564,7 @@ pub fn sinh(x: f64) -> f64 {
 }
 
 pub fn cosh(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180082df0(&mut m);
@@ -9544,7 +9572,7 @@ pub fn cosh(x: f64) -> f64 {
 }
 
 pub fn tanh(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180088678(&mut m);
@@ -9552,7 +9580,7 @@ pub fn tanh(x: f64) -> f64 {
 }
 
 pub fn asin(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180080e7c(&mut m);
@@ -9560,7 +9588,7 @@ pub fn asin(x: f64) -> f64 {
 }
 
 pub fn acos(x: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.push(0);
     f_180080908(&mut m);
@@ -9568,7 +9596,7 @@ pub fn acos(x: f64) -> f64 {
 }
 
 pub fn hypot(x: f64, y: f64) -> f64 {
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());
     m.set_xl(1, y.to_bits());
     m.push(0);

@@ -46,7 +46,7 @@ for name, (addr, params, args, ret) in ROOTS.items():
             body.append(f"m.r[{ri.pop(0)}] = {var} as u32 as u64;")
     wrappers.append(f"""
 pub fn {name}({params}) -> {ret} {{
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     {' '.join(body)}
     m.push(0);
     f_{addr:x}(&mut m);

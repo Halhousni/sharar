@@ -71,6 +71,8 @@ NATIVE["?BinomialC@@YANHH@Z"] = "m.set_xl(0, crate::special::binomial_c(m.r[1] a
 
 import_names = []
 lifters = {}
+# Each module's addresses are moved apart, so that a pointer says which module's code it is.
+BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32}
 
 
 def service(lifter, name):
@@ -91,12 +93,12 @@ def resolve(name):
 
 def cross(name):
     r = resolve(name)
-    return (f"rt_{r[0]}_gen", r[1]) if r else None
+    return (f"rt_{r[0]}_gen", r[1] + BIAS[r[0]]) if r else None
 
 
 for mod, f in MODULES.items():
     roots = [execs[n] for n in wanted] if mod == "runtime" else []
-    lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross)
+    lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross, bias=BIAS[mod])
     lifters[mod].import_names = import_names
 
 # Follow the imports: a routine another module supplies becomes a root there, until nothing is new.
@@ -174,8 +176,20 @@ lines += ["];", "", "/// The translated commands.", "pub const COMMANDS: &[&str]
 lines += [f"    {json.dumps(n)}," for n in wanted]
 lines += ["];", "",
           "/// A machine to run commands on.",
+          "static IMAGES: &[&crate::mach::Img] = &[",
+          "    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,",
+          "    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,",
+          "];", "",
           "pub fn machine() -> crate::mach::M {",
-          "    crate::mach::M::new(&crate::rt_runtime_gen::IMG)",
+          "    crate::mach::M::new(IMAGES)",
+          "}", "",
+          "/// A call through a pointer that is not in the module making it: whichever module has it.",
+          "pub(crate) fn call_other(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64) {",
+          "    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)",
+          "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t);",
+          "    if !done {",
+          "        m.fail(&format!(\"a call through a pointer to {t:#x}\"));",
+          "    }",
           "}", "",
           "/// Run command `name`'s Execute: rcx is the command object, rdx the run information.",
           "pub fn run(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -> bool {",

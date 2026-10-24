@@ -31,13 +31,11 @@ pub struct M {
     pub of: bool,
     pub pf: bool,
     stack: [u8; STACK],
-    img: &'static Img,
+    imgs: &'static [&'static Img],
     /// Memory handed to the code: arrays it reads and writes. Addresses start at HEAP_BASE.
     heap: Vec<u8>,
     /// Image ranges the code has written to (its own static data), copied on the first write.
-    over: Vec<Option<Vec<u8>>>,
-    /// The static data of the other modules while one is running.
-    saved: std::collections::HashMap<usize, Vec<Option<Vec<u8>>>>,
+    over: Vec<Vec<Option<Vec<u8>>>>,
     /// The last blocks entered, newest last, for the message when the code goes wrong.
     recent: [u64; 8],
 }
@@ -60,27 +58,16 @@ fn sext(v: u64, size: u32) -> i64 {
 }
 
 impl M {
-    pub fn new(img: &'static Img) -> M {
-        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: [0; STACK], img, heap: Vec::new(), over: vec![None; img.ranges.len()], saved: Default::default(), recent: [0; 8] };
+    pub fn new(imgs: &'static [&'static Img]) -> M {
+        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: [0; STACK], imgs, heap: Vec::new(), over: imgs.iter().map(|i| vec![None; i.ranges.len()]).collect(), recent: [0; 8] };
         m.r[RSP] = STACK_BASE + STACK as u64 - 0x100;
         m
     }
 
-    /// Run `f` with another module's static data in view (its own constants, kept apart from the
-    /// others' because every module's addresses begin at its own image base).
-    pub fn with_img<R>(&mut self, img: &'static Img, f: impl FnOnce(&mut M) -> R) -> R {
-        let key = |i: &'static Img| i as *const Img as usize;
-        if key(img) == key(self.img) {
-            return f(self);
-        }
-        let old_img = std::mem::replace(&mut self.img, img);
-        let theirs = self.saved.remove(&key(img)).unwrap_or_else(|| vec![None; img.ranges.len()]);
-        let old_over = std::mem::replace(&mut self.over, theirs);
-        let r = f(self);
-        let mine = std::mem::replace(&mut self.over, old_over);
-        self.saved.insert(key(img), mine);
-        self.img = old_img;
-        r
+    /// Run `f` with a module's static data in view. Every module's addresses are its own, so the
+    /// machine sees all of them at once and this only calls `f`.
+    pub fn with_img<R>(&mut self, _img: &'static Img, f: impl FnOnce(&mut M) -> R) -> R {
+        f(self)
     }
 
     // ---- memory ------------------------------------------------------------------------
@@ -94,14 +81,16 @@ impl M {
             let o = (a - HEAP_BASE) as usize;
             return &self.heap[o..o + n];
         }
-        for (k, &(start, off, len)) in self.img.ranges.iter().enumerate() {
-            if a >= start && a + n as u64 <= start + len as u64 {
-                if let Some(v) = &self.over[k] {
-                    let o = (a - start) as usize;
-                    return &v[o..o + n];
+        for (im, img) in self.imgs.iter().enumerate() {
+            for (k, &(start, off, len)) in img.ranges.iter().enumerate() {
+                if a >= start && a + n as u64 <= start + len as u64 {
+                    if let Some(v) = &self.over[im][k] {
+                        let o = (a - start) as usize;
+                        return &v[o..o + n];
+                    }
+                    let o = off as usize + (a - start) as usize;
+                    return &img.blob[o..o + n];
                 }
-                let o = off as usize + (a - start) as usize;
-                return &self.img.blob[o..o + n];
             }
         }
         panic!("msvcrt: read of unmapped address {a:#x}");
@@ -135,14 +124,16 @@ impl M {
             return;
         }
         if a < STACK_BASE {
-            for (k, &(start, off, len)) in self.img.ranges.iter().enumerate() {
-                if a >= start && a + n as u64 <= start + len as u64 {
-                    let v = self.over[k].get_or_insert_with(|| self.img.blob[off as usize..(off + len) as usize].to_vec());
-                    let o = (a - start) as usize;
-                    for i in 0..n as usize {
-                        v[o + i] = (val >> (8 * i)) as u8;
+            for (im, img) in self.imgs.iter().enumerate() {
+                for (k, &(start, off, len)) in img.ranges.iter().enumerate() {
+                    if a >= start && a + n as u64 <= start + len as u64 {
+                        let v = self.over[im][k].get_or_insert_with(|| img.blob[off as usize..(off + len) as usize].to_vec());
+                        let o = (a - start) as usize;
+                        for i in 0..n as usize {
+                            v[o + i] = (val >> (8 * i)) as u8;
+                        }
+                        return;
                     }
-                    return;
                 }
             }
         }

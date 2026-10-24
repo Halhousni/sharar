@@ -36,7 +36,7 @@ for name, s in ROOTS.items():
     two = name in ("pow", "atan2", "hypot")
     wrappers.append(f"""
 pub fn {name}({'x: f64, y: f64' if two else 'x: f64'}) -> f64 {{
-    let mut m = M::new(&IMG);
+    let mut m = M::new(IMGS);
     m.set_xl(0, x.to_bits());{chr(10) + '    m.set_xl(1, y.to_bits());' if two else ''}
     m.push(0);
     f_{s:x}(&mut m);
