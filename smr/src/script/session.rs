@@ -952,17 +952,6 @@ impl Session {
         let items = self.items(idx);
         let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64);
         let (lo, hi) = (items.first_ge(a), items.first_ge(b));
-        if event {
-            // events: their number, or their rate per second
-            let count = (hi - lo).max(0) as f64;
-            let (v, ok) = match ty {
-                1 | 4 => (count, count > 0.0),
-                2 => (count / ((b - a) as f64 * tf), count > 0.0),
-                _ => (0.0, false),
-            };
-            set_ok(mem, ok as i64)?;
-            return Ok(Some(Some(V::Flt(v))));
-        }
         // waveforms are measured by SONVIEW's own routine (the lifted code)
         let _ = wave;
         Ok(None)
@@ -1259,10 +1248,10 @@ impl Host for Session {
         false
     }
 
-    fn wave_info(&self, h: i64, chan: i64) -> Option<(f64, bool)> {
+    fn wave_info(&self, h: i64, chan: i64) -> Option<(f64, i64)> {
         let v = self.views.iter().find(|v| v.handle == h)?;
         let c = v.file.channels.iter().find(|c| c.index as i64 == chan - 1)?;
-        c.kind.is_waveform().then(|| (v.file.time_factor, c.kind == Kind::RealWave))
+        Some((v.file.time_factor, kind_code(c.kind)))
     }
 
     fn view_info(&self, h: i64) -> Option<(i64, Option<std::path::PathBuf>)> {

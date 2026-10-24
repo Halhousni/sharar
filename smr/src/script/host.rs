@@ -48,8 +48,8 @@ pub trait Host {
     fn view_info(&self, _handle: i64) -> Option<(i64, Option<std::path::PathBuf>)> {
         None
     }
-    /// For a waveform channel of a data view: the seconds per tick, and whether it holds reals.
-    fn wave_info(&self, _view: i64, _chan: i64) -> Option<(f64, bool)> {
+    /// For a channel of a data view: the seconds per tick and the kind number `ChanKind` gives.
+    fn wave_info(&self, _view: i64, _chan: i64) -> Option<(f64, i64)> {
         None
     }
     /// Run a command, or return `Ok(None)` if it is not this host's.

@@ -169,6 +169,21 @@ for a in sys.argv:
             lifters[mod].roots.append(ad)
         entries_extra.setdefault(mod, set()).add(ad)
 
+# `--vslot=sonview:0x14028e1a8:0x398,0x4e0`: some slots of a vtable (and the table itself, so a
+# stand-in object can point at it).
+for a in sys.argv:
+    if a.startswith("--vslot="):
+        mod, vt, slots = a[len("--vslot="):].split(":")
+        lf = lifters[mod]
+        vt = int(vt, 16)
+        lf.data_refs.add(vt)
+        lf.table_bases.add(vt)
+        for sl in slots.split(","):
+            ptr, = struct.unpack_from("<Q", lf.im.b, lf.im.off(vt + int(sl, 16)))
+            if ptr not in lf.roots:
+                lf.roots.append(ptr)
+            entries_extra.setdefault(mod, set()).add(ptr)
+
 # Extra routines to translate whatever the commands call: `--root module:regex` (the exports of
 # that module whose names match), entered from the host.
 for a in sys.argv:

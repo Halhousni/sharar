@@ -632,3 +632,14 @@ C++ `catch` is supported for routines with one try block: `_CxxThrowException` u
 panic carrying `CxxThrow`, and the routine's wrapper runs the catch funclet on the frame it would
 have had and resumes where the funclet says (`Lifter.eh_of` in `tools/lift.py`). `InStrRE` relies on it
 for bad patterns.
+
+### Channel measurements and searches
+
+`ChanMeasure` and `ChanSearch` send `0x15d1` / `0x15d3` to the current view. The host answers by building a
+stand-in for the channel view (`mock_view` in `lifted/mod.rs`): an object whose vtable is the real vtable of
+SONVIEW's class for the channel's kind (`CAdcView`, `CRealView`, `CEventView`, `CMarkerView`, the wavemark
+and textmark views), whose channel number is at +0x170 and kind at +0x174, and whose owner at +0x140
+answers the few virtual calls the routines make (the data file, seconds per tick, seconds to ticks). The
+class's own slot 0x4d0 (measure) or 0x398 (search) then runs, translated. `lift_runtime.py --vslot=` lifts
+chosen slots of a vtable; `tools/` loops that add missing slots are in the session notes. Every measure
+type (area, mean, slope, sum, … sem) and every search mode agrees with Spike2 bit for bit.

@@ -286,7 +286,9 @@ class Lifter:
                     break
                 if ins.mnemonic == "jmp":
                     if ins.operands[0].type == X.X86_OP_IMM:
-                        work.append(ins.operands[0].imm)
+                        # a jump to another routine is a tail call, not part of this one
+                        if ins.operands[0].imm == s or ins.operands[0].imm not in self.ranges:
+                            work.append(ins.operands[0].imm)
                     elif ins.operands[0].type == X.X86_OP_REG:
                         # a jump table: its targets follow from the instructions before it
                         pre = sorted(seen.values(), key=lambda i: i.address)
@@ -742,6 +744,10 @@ class Lifter:
             return (f"{{ let a = m.x[{di}]; let b = {self.x128(ins, ops[1])}; let mut r = 0u128; "
                     f"for k in 0..4 {{ r |= ((((a >> (32 * k)) as u32).wrapping_sub((b >> (32 * k)) as u32)) as u128) << (32 * k); }} "
                     f"m.x[{di}] = r; }}"), False
+        if mn == "cvtdq2ps":
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            return (f"{{ let s = {self.x128(ins, ops[1])}; let mut r = 0u128; "
+                    f"for k in 0..4 {{ r |= ((((s >> (32 * k)) as u32) as i32 as f32).to_bits() as u128) << (32 * k); }} m.x[{di}] = r; }}"), False
         if mn == "cvtdq2pd":
             return f"m.cvtdq2pd({xmm_index(ins.reg_name(ops[0].reg))}, {self.x64(ins, ops[1])});", False
         if mn in ("cvtpd2dq", "cvttpd2dq"):

@@ -155,8 +155,33 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.pop();
                 true
             }
+            // the time of the last item in the file, in ticks: the data file's own answer (its slot 0x58)
+            0x468 => {
+                let file = self.world.measure_file;
+                let target = m.ld(m.ld(file, 8) + 0x58, 8);
+                m.r[1] = file;
+                commands::call_at(m, self, target);
+                true
+            }
+            // ticks (rdx) to seconds
             0x510 => {
-                m.set_xl(0, self.world.measure_tf.to_bits());
+                m.set_xl(0, (m.r[2] as i64 as f64 * self.world.measure_tf).to_bits());
+                m.pop();
+                true
+            }
+            // seconds (xmm1) to ticks, rounded away from zero in the middle
+            0x4f8 => {
+                let x = f64::from_bits(m.xl(1)) / self.world.measure_tf;
+                let big = 0x7000_0000_0000_0000i64;
+                m.r[0] = if x > big as f64 {
+                    big
+                } else if x >= 0.0 {
+                    (x + 0.5) as i64
+                } else if x >= -(big as f64) {
+                    (x - 0.5) as i64
+                } else {
+                    -big
+                } as u64;
                 m.pop();
                 true
             }
@@ -314,6 +339,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.r[0] = match msg {
                     0x14a7 => self.sonfile_of(m, view_of(rcx_of(m))),
                     0x15d1 => self.measure(m, view_of(rcx_of(m)), r9),
+                    0x15d3 => self.search(m, view_of(rcx_of(m)), r9),
                     _ => match commands::msg_handlers(msg).first().copied() {
                         Some(f) => {
                             // the window's own handler, run with an object standing for the window
@@ -513,16 +539,29 @@ fn internal_view_type(script_kind: i64) -> u64 {
 impl<'v, 'w> Run<'v, 'w> {
     /// The data file engine's object for view `h`, made (by opening the file with Spike2's own
     /// code) the first time it is asked for.
-    /// `ChanMeasure`: SONVIEW's own measuring routine, run on stand-ins for the channel view and its owner.
-    fn measure(&mut self, m: &mut M, h: i64, lp: u64) -> u64 {
-        const FAIL: u64 = -1551i64 as u64;
-        let chan = m.ld(lp, 4) as u32 as i32 as i64;
-        let ty = m.ld(lp + 4, 4) as u32 as i32 - 0x13;
-        let (t0, t1) = (f64::from_bits(m.ld(lp + 0x30, 8)), f64::from_bits(m.ld(lp + 0x28, 8)));
-        let Some((tf, real)) = self.vm.host.as_ref().and_then(|host| host.wave_info(h, chan + 1)) else { return FAIL };
+    /// The vtable of SONVIEW's class for a channel of this kind (the number `ChanKind` gives).
+    fn view_vtable(kind: i64) -> Option<u64> {
+        let va = match kind {
+            1 => 0x1_4028_e1a8u64,
+            9 => 0x1_4028_dca8,
+            2..=4 => 0x1_4029_7678,
+            5 => 0x1_402a_ab88,
+            6 => 0x1_4028_f468,
+            7 => 0x1_402b_61e8,
+            8 => 0x1_402c_6af8,
+            _ => return None,
+        };
+        Some(va + (7u64 << 32))
+    }
+
+    /// A stand-in for the channel view of `chan` and for the time window that owns it, built on the
+    /// real vtable of its class.
+    fn mock_view(&mut self, m: &mut M, h: i64, chan: i64) -> Option<(u64, u64)> {
+        let (tf, kind) = self.vm.host.as_ref().and_then(|host| host.wave_info(h, chan + 1))?;
+        let vtable = Self::view_vtable(kind)?;
         let file = self.sonfile_of(m, h);
         if file == 0 {
-            return FAIL;
+            return None;
         }
         self.world.measure_file = file;
         self.world.measure_tf = tf;
@@ -534,21 +573,56 @@ impl<'v, 'w> Run<'v, 'w> {
         let (view, owner, vt) = (m.alloc(0x400), m.alloc(0x40), m.alloc(0x600));
         m.st(vt + 0x480, 8, FAKE_CODE + 0x480);
         m.st(vt + 0x510, 8, FAKE_CODE + 0x510);
+        m.st(vt + 0x4f8, 8, FAKE_CODE + 0x4f8);
+        m.st(vt + 0x468, 8, FAKE_CODE + 0x468);
         m.st(owner, 8, vt);
+        m.st(view, 8, vtable);
         m.st(view + 0x140, 8, owner);
         m.st(view + 0x170, 2, chan as u64);
-        m.st(view + 0x174, 4, if real { 9 } else { 1 });
+        m.st(view + 0x174, 4, kind as u64);
+        Some((view, vtable))
+    }
+
+    /// `ChanSearch`: the channel view's own search routine (virtual slot 0x398) on a stand-in object that
+    /// carries the real vtable.
+    fn search(&mut self, m: &mut M, h: i64, lp: u64) -> u64 {
+        const NO_CHAN: u64 = -1505i64 as u64;
+        let chan = m.ld(lp + 4, 4) as u32 as i32 as i64;
+        let Some((view, vtable)) = self.mock_view(m, h, chan) else { return NO_CHAN };
+        let saved = m.r;
+        let target = m.ld(vtable + 0x398, 8);
+        m.r[1] = view;
+        m.r[2] = lp;
+        m.r[4] -= 0x40;
+        m.push(0);
+        commands::call_at(m, self, target);
+        let found = m.r[0] as u8 != 0;
+        m.r = saved;
+        found as u64
+    }
+
+    /// `ChanMeasure`: SONVIEW's own measuring routine, run on stand-ins for the channel view and its owner.
+    fn measure(&mut self, m: &mut M, h: i64, lp: u64) -> u64 {
+        const FAIL: u64 = -1551i64 as u64;
+        let chan = m.ld(lp, 4) as u32 as i32 as i64;
+        let ty = m.ld(lp + 4, 4) as u32 as i32 - 0x13;
+        let flag = m.ld(lp + 0x14, 4);
+        let (t0, t1) = (f64::from_bits(m.ld(lp + 0x30, 8)), f64::from_bits(m.ld(lp + 0x28, 8)));
+        let Some((view, vtable)) = self.mock_view(m, h, chan) else { return FAIL };
         let out = m.alloc(8);
+        let tf = self.world.measure_tf;
         let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64);
         let saved = m.r;
+        let target = m.ld(vtable + 0x4d0, 8);
         m.r[1] = view;
         m.r[2] = a as u64;
         m.r[8] = b as u64;
         m.r[9] = ty as u64;
-        m.r[4] -= 0x40;
+        m.r[4] -= 0x50;
         m.st(m.r[4] + 0x20, 8, out);
+        m.st(m.r[4] + 0x28, 8, flag);
         m.push(0);
-        commands::call_at(m, self, 0x1_4002_2d00 + (7u64 << 32));
+        commands::call_at(m, self, target);
         let ok = m.r[0] as u8 != 0;
         let v = m.ld(out, 8);
         m.r = saved;
