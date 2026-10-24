@@ -671,3 +671,16 @@ window classes it derives from and the toolbars it creates). That leaves the win
 (colour tables, the sampling configuration, the filter bank) for the application-level message handlers.
 What it does not have is the document/view tree, so commands that list or address views (`App`, `ViewList`,
 `WindowGetPos`) are still the session's own.
+
+### The data view's window, document and channel views
+
+For a data view the host builds SONVIEW's own objects (`time_window` in `lifted/mod.rs`): a `CTimeWindow`
+made by its constructor, a `CTimeDoc` holding the data file object, and one channel view per channel made by
+SONVIEW's factory (`0x140130230`) — `CAdcView`, `CEventView`, `CAdcMarkView` and so on, with their real
+vtables, kept in the window's vector by channel index. Services of the window classes (`CWnd::Create`,
+painting, device contexts) answer "done", and constructors that nothing provides become do-nothing
+objects. `ChanMeasure`, `ChanSearch`, `ChanValue` and the rest of the channel commands then run
+against the same objects the application uses.
+
+`tools/command_census.py` calls every built-in once with made-up arguments of the right types and lists the
+commands that stop because something is missing (`unported`); the count is the measure of what is left.

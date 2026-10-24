@@ -280,6 +280,22 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 self.set_arg(i + 2, V::Flt(((c >> 16) & 0xff) as f64 / 255.0));
             }
             "?SendMessageToDescendants@CWnd@@SAXPEAUHWND__@@I_K_JHH@Z" => {}
+            // painting and arranging windows: there is no screen, so nothing to do
+            n if n.contains("@CWnd@@")
+                && ["?Invalidate@", "?InvalidateRect@", "?UpdateWindow@", "?ShowWindow@", "?SetWindowPos@", "?MoveWindow@", "?SetFocus@", "?ClientToScreen@", "?ScreenToClient@", "?SetCapture@", "?ReleaseCapture@", "?RedrawWindow@", "?EnableWindow@", "?BringWindowToTop@", "?SetWindowTextW@", "?ValidateRect@"].iter().any(|p| n.starts_with(p)) => {
+                m.r[0] = 1;
+            }
+            // device contexts, pens, dialogs: objects that are only built and dropped here
+            n if (n.starts_with("??0") || n.starts_with("??1"))
+                && ["@CClientDC@@", "@CFileDialog@@", "@CWaitCursor@@", "@CPen@@", "@CBrush@@", "@CFont@@", "@CDC@@", "@CBitmap@@", "@CPaintDC@@"].iter().any(|c| n.contains(c)) => {
+                m.r[0] = m.r[1];
+            }
+            "IsIconic" | "IsZoomed" | "GdiplusStartup" | "?BeginWaitCursor@CCmdTarget@@QEAAXXZ" | "?EndWaitCursor@CCmdTarget@@QEAAXXZ" | "?GetParentFrame@CWnd@@QEBAPEAVCFrameWnd@@XZ" => {
+                m.r[0] = 0;
+            }
+            "InvalidateRect" | "UpdateWindow" | "RedrawWindow" | "ShowWindow" | "SetFocus" | "EnableWindow" | "BringWindowToTop" | "MoveWindow" | "SetCapture" | "ReleaseCapture" | "SetCursor" | "ClientToScreen" | "ScreenToClient" | "ValidateRect" | "SetWindowPos" => {
+                m.r[0] = 1;
+            }
             // creating a window always succeeds (there is no screen): the objects are only kept
             "?Create@CWnd@@UEAAHPEB_W0KAEBUtagRECT@@PEAV1@IPEAUCCreateContext@@@Z" | "LoadCursorW" | "LoadIconW" | "GetClientRect" | "GetWindowRect" => {
                 if name == "LoadCursorW" || name == "LoadIconW" {
@@ -453,18 +469,11 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.r[0] = o;
             }
             "?FromHandlePermanent@CWnd@@SAPEAV1@PEAUHWND__@@@Z" => {
-                // the window object of a view: one per handle, an object whose members are zero
-                let h = view_of(m.r[1]);
-                let key = -h - 10;
-                let o = match self.world.sonfiles.get(&key) {
-                    Some(&o) => o,
-                    None => {
-                        let o = m.alloc(0x2000);
-                        self.world.sonfiles.insert(key, o);
-                        o
-                    }
-                };
-                m.r[0] = if m.r[1] == 0 { 0 } else { o };
+                // the window object behind a handle: a data view's window stand-in
+                let hwnd = m.r[1];
+                let h = view_of(hwnd);
+                let is_view = hwnd != 0 && self.vm.host.as_ref().map(|host| !host.view_channels(h).is_empty()).unwrap_or(false);
+                m.r[0] = if is_view { self.time_window(m, h) } else { 0 };
             }
             "_CxxThrowException" => {
                 if std::env::var_os("S2LIFT_SERVICES").is_some() {
