@@ -305,6 +305,18 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 }
                 m.r[0] = 0;
             }
+            "?AfxGetThread@@YAPEAVCWinThread@@XZ" | "?AfxGetModuleState@@YAPEAVAFX_MODULE_STATE@@XZ" | "?AfxGetApp@@YAPEAVCWinApp@@XZ" => {
+                let key = name.len() as i64 + 1_000_000;
+                let o = match self.world.sonfiles.get(&key) {
+                    Some(&o) => o,
+                    None => {
+                        let o = m.alloc(0x400);
+                        self.world.sonfiles.insert(key, o);
+                        o
+                    }
+                };
+                m.r[0] = o;
+            }
             "?GError@@YAXF@Z" => panic_any(Thrown(m.r[1] as u16 as i16 as i32)),
             "ldexp" => {
                 let x = f64::from_bits(m.xl(0));
@@ -527,6 +539,9 @@ pub fn has(name: &str) -> bool {
 /// Is `name` one the environment asks to be run from Spike2's code even though a hand-written
 /// version exists (`S2LIFT_FORCE=Name,Name` or `all`)?
 pub fn forced(name: &str) -> bool {
+    if std::env::var("S2LIFT_SKIP").map(|v| v.split(',').any(|n| n == name)).unwrap_or(false) {
+        return false;
+    }
     match std::env::var("S2LIFT_FORCE") {
         Ok(v) => v == "all" || v.split(',').any(|n| n == name),
         Err(_) => false,
@@ -580,7 +595,14 @@ impl Vm {
             if !run.world.registered {
                 run.world.registered = true;
                 // each module's startup (static initialisers), then the command objects
-                // (running each module's DllMain is not done yet: see docs)
+                // an initialiser that reaches something not provided is skipped
+                for i in 0..commands::INIT_COUNT {
+                    let saved_sp = m.r[4];
+                    let r = catch_unwind(AssertUnwindSafe(|| commands::init_one(i, &mut m, &mut run)));
+                    m.r[4] = saved_sp;
+                    m.reset_stack();
+                    let _ = r;
+                }
                 commands::register_all(&mut m, &mut run);
             }
             let obj = match run.world.objects.get(name) {

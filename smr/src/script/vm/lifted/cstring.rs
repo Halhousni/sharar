@@ -333,6 +333,22 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
             }
             st.write(m, rcx, &v, wide);
         }
+        ("?FindOneOf@", _) => {
+            let v = cs(m, st, rcx);
+            let set = cstr(m, rdx, wide);
+            m.r[0] = v.iter().position(|c| set.contains(c)).map(|p| p as i64).unwrap_or(-1) as u64;
+        }
+        ("?Delete@", _) => {
+            // Delete(index, count): returns the new length
+            let mut v = cs(m, st, rcx);
+            let at = (rdx as u32 as i32).max(0) as usize;
+            let n = (r8 as u32 as i32).max(0) as usize;
+            if at < v.len() {
+                v.drain(at..(at + n).min(v.len()));
+            }
+            st.write(m, rcx, &v, wide);
+            m.r[0] = v.len() as u64;
+        }
         ("?GetManager@", _) => m.r[0] = st.manager(m),
         _ => return false,
     }

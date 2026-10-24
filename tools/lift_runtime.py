@@ -123,20 +123,36 @@ def registrars():
                 break
     return out
 
-def entry_point(mod):
-    import struct
+def init_tables(mod):
+    """The static initialisers of a module: the compiler's small `dynamic initializer for ...`
+    routines, each of which builds one global in the data section (`lea rcx,[global]; call ctor;
+    lea rcx,[destructor]; jmp atexit`). They are found by that shape and run in address order, which
+    is the order the compiler emitted them in."""
+    from capstone import x86_const as X
     im = lifters[mod].im
-    pe = struct.unpack_from("<I", im.b, 0x3c)[0]
-    return im.base + struct.unpack_from("<I", im.b, pe + 24 + 16)[0]
+    data = [(im.base + v, im.base + v + max(vs, rs)) for n, v, vs, rp, rs in im.secs if n == b".data"]
+    out = []
+    for st in sorted(im.starts):
+        end = im.ends.get(st)
+        if end is None or end - st > 0x40:
+            continue
+        ins = list(MD.disasm(im.b[im.off(st):im.off(st) + end - st], st))
+        if not (3 <= len(ins) <= 12) or ins[-1].mnemonic not in ("jmp", "ret"):
+            continue
+        leas = [i.address + i.size + i.operands[1].mem.disp for i in ins
+                if i.mnemonic == "lea" and i.operands[1].type == X.X86_OP_MEM and i.operands[1].mem.base == X.X86_REG_RIP]
+        calls = [i for i in ins if i.mnemonic in ("call", "jmp")]
+        if len(leas) >= 2 and len(calls) >= 2 and any(lo <= a < hi for a in leas for lo, hi in data):
+            out.append(st)
+    return out
 
-# Each module's DllMain runs at start (it runs the C++ static initializers: global strings and so on),
-# dependencies first.
 INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "runtime"]
-ENTRY = {m: entry_point(m) for m in INIT_ORDER}
-for m_, a in ENTRY.items():
-    if a not in lifters[m_].roots:
-        lifters[m_].roots.append(a)
-    entries_extra.setdefault(m_, set()).add(a)
+INITS = {m: init_tables(m) for m in INIT_ORDER}
+for m_, fs in INITS.items():
+    for a in fs:
+        if a not in lifters[m_].roots:
+            lifters[m_].roots.append(a)
+        entries_extra.setdefault(m_, set()).add(a)
 
 REGISTRARS = registrars() if "--no-registrars" not in sys.argv else []
 for a in REGISTRARS:
@@ -256,12 +272,17 @@ lines += ["        _ => return false,", "    }", "    true", "}", "",
           "pub fn register_all(m: &mut crate::mach::M, s: &mut dyn crate::Svc) {"]
 lines += [f"    crate::rt_runtime_gen::enter_{a:x}(m, s);" for a in REGISTRARS]
 lines += ["}", "",
-          "/// Run each module's DllMain(DLL_PROCESS_ATTACH), dependencies first.",
-          "pub fn init_modules(m: &mut crate::mach::M, s: &mut dyn crate::Svc) {"]
+          "/// The number of static initialisers, in the order they run (dependencies first).",
+          f"pub const INIT_COUNT: usize = {sum(len(INITS[m_]) for m_ in INIT_ORDER)};", "",
+          "/// Run static initialiser number `i`.",
+          "pub fn init_one(i: usize, m: &mut crate::mach::M, s: &mut dyn crate::Svc) {",
+          "    match i {"]
+k = 0
 for m_ in INIT_ORDER:
-    base = lifters[m_].im.base + BIAS[m_]
-    lines += [f"    m.r[1] = {base:#x}; m.r[2] = 1; m.r[8] = 0;",
-              f"    crate::rt_{m_}_gen::enter_{ENTRY[m_] + BIAS[m_]:x}(m, s);"]
+    for a in INITS[m_]:
+        lines.append(f"        {k} => crate::rt_{m_}_gen::enter_{a + BIAS[m_]:x}(m, s),")
+        k += 1
+lines += ["        _ => {}", "    }"]
 lines += ["}", "", "/// Each command's vtable, which says which command an object is.", "pub const VTABLES: &[(&str, u64)] = &["]
 lines += [f"    ({json.dumps(c['name'])}, {c['vtable']:#x})," for c in table if c["name"] in set(wanted)]
 lines += ["];", "",

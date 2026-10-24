@@ -563,7 +563,7 @@ impl Win {
                 let t = s.trim_start();
                 let mut end = 0;
                 for i in (0..=t.len()).rev() {
-                    if t.is_char_boundary(i) && t[..i].parse::<f64>().is_ok() && !t[..i].is_empty() {
+                    if t.is_char_boundary(i) && !t[..i].is_empty() && t[..i].bytes().all(|b| b.is_ascii_digit() || b"+-.eE".contains(&b)) && t[..i].parse::<f64>().is_ok() {
                         end = i;
                         break;
                     }
@@ -583,6 +583,8 @@ impl Win {
                 m.r[0] = crate::script::text::parse_int(String::from_utf8_lossy(&v).trim_start()) as i32 as u32 as u64;
             }
             // ---- the process ----------------------------------------------------------------
+            n if n.starts_with("??0exception@std@@") || n.starts_with("??0bad_cast@std@@") => m.r[0] = rcx,
+            n if n.starts_with("??1exception@std@@") => {}
             "GetProcessHeap" => m.r[0] = 0x1_0000,
             "GetCurrentThreadId" => m.r[0] = 1,
             "GetCurrentProcessId" => m.r[0] = 4242,
