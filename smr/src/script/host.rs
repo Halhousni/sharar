@@ -7,6 +7,7 @@
 //! the ones a command returns through.
 
 use super::exec::RunError;
+use super::text::{ReadCfg, Target};
 use super::vm::{Arg, Ref, V};
 
 /// The interpreter's memory, as a command sees it.
@@ -19,6 +20,12 @@ pub trait Mem {
     fn array(&self, a: &Arg) -> Option<(Vec<V>, Vec<usize>)>;
     /// Replace the elements of an array argument (same length).
     fn set_array(&mut self, a: &Arg, data: Vec<V>) -> Result<(), RunError>;
+    /// What kind of place an argument is, for a command that fills it.
+    fn target(&self, a: &Arg) -> Option<Target>;
+    /// Write element `index` of an array argument.
+    fn store_element(&mut self, a: &Arg, index: usize, v: V) -> Result<(), RunError>;
+    /// `ReadSetup`'s state, shared by `Read` and `ReadStr`.
+    fn read_cfg(&mut self) -> &mut ReadCfg;
     /// Append to the script log.
     fn log(&mut self, text: &str);
 }

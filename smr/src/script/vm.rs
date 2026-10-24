@@ -141,6 +141,7 @@ pub struct Vm {
     host: Option<Box<dyn Host>>,
     /// The current view when there is no host to say.
     view: i64,
+    pub(crate) read_cfg: super::text::ReadCfg,
 }
 
 fn flt_to_num(v: &V) -> Result<f64, RunError> {
@@ -198,6 +199,7 @@ impl Vm {
             pending_command: None,
             host: None,
             view: 0,
+            read_cfg: super::text::ReadCfg::default(),
         })
     }
 
@@ -949,6 +951,24 @@ impl Mem for Vm {
             }
         }
         Ok(())
+    }
+    fn target(&self, a: &Arg) -> Option<super::text::Target> {
+        let Arg::Ref(r) = a else { return None };
+        let ty = self.ty_of(*r);
+        if let Ref::Cell(c) = r {
+            if let Cell::Array { data, .. } = &self.cells[*c] {
+                return Some(super::text::Target { ty, array_len: Some(data.len()) });
+            }
+        }
+        Some(super::text::Target { ty, array_len: None })
+    }
+    fn store_element(&mut self, a: &Arg, index: usize, v: V) -> Result<(), RunError> {
+        let Arg::Ref(Ref::Cell(c)) = a else { return Err(RunError(ERR_TYPE)) };
+        let r = Ref::Elem(*c, index);
+        self.set(r, v)
+    }
+    fn read_cfg(&mut self) -> &mut super::text::ReadCfg {
+        &mut self.read_cfg
     }
     fn log(&mut self, text: &str) {
         self.log.push_str(text);

@@ -16,6 +16,10 @@ compares `res` bit for bit. One line per program in the fixture, tab-separated:
 
     <name> TAB <res[0]> <res[1]> ...      (each as a 16-digit hex IEEE double)
     <name> TAB ERR                        (Spike2 stopped on a script error)
+    @file <name>__<file> TAB <hex>        (a file a program wrote into the guest's `out` folder)
+
+A program names such a file `C:\\Users\\Hilal\\Documents\\Spike8\\out\\<its own name>__<anything>`;
+`smr/tests/run_reference.rs` maps that folder to a temporary one and compares the bytes.
 
 Needs the guest from tools/vm.sh (libvirt domain in DOM, the sharar_spike scheduled task
 that starts SONVIEW.exe in the user's session) and LIBVIRT_DEFAULT_URI=qemu:///session.
@@ -84,7 +88,9 @@ def run_batch(progs, start, tmp):
     open(startup, "w").write(f'ScriptRun("{esc(guest(f"r{start}.s2s"))}");\r\n')
     vm("put", startup, INSTALL + r"\startup.s2s")
     vm("ps", "Get-Process sonview -EA SilentlyContinue | ForEach-Object { $_.Kill() }; "
-             f"Remove-Item '{GUEST}\\r*.bin' -EA SilentlyContinue; Start-Sleep 2; Start-ScheduledTask sharar_spike")
+             f"Remove-Item '{GUEST}\\r*.bin' -EA SilentlyContinue; "
+             f"New-Item -ItemType Directory -Force '{GUEST}\\out' | Out-Null; Remove-Item '{GUEST}\\out\\*' -EA SilentlyContinue; "
+             "Start-Sleep 2; Start-ScheduledTask sharar_spike")
     seen, last_change = set(), time.time()
     while True:
         time.sleep(3)
@@ -126,10 +132,21 @@ def main():
                 vm("key", "KEY_ENTER", check=False)
                 stop += 1
             start = stop
+    # files the programs wrote
+    files = {}
+    out = vm("ps", f"Get-ChildItem '{GUEST}\\out' -EA SilentlyContinue | ForEach-Object {{ $_.Name }}", check=False)
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as t:
+        for fn in [l.strip() for l in out.splitlines() if "__" in l]:
+            local = os.path.join(t, fn)
+            vm("get", GUEST + "\\out\\" + fn, local)
+            files[fn] = open(local, "rb").read()
     rows = []
     for name, _ in progs:
         r = results.get(name)
         rows.append(f"{name}\t" + ("ERR" if r is None else " ".join(f"{w:016x}" for w in r)))
+    for fn, data in sorted(files.items()):
+        rows.append(f"@file {fn}\t{data.hex()}")
     text = "\n".join(rows) + "\n"
     if args.emit:
         open(args.emit, "w").write(text)

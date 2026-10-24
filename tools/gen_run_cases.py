@@ -123,6 +123,37 @@ def arrays():
     write("g_arr_sort", pre + body, at + 5)
 
 
+READ_INPUTS = ["12", " 12", "12 ", "-5", "+5", "3.7", "1e3", "1E-2", "abc", "12abc", "0x10", "1,2", "1;2", "a b", "x'y' z",
+               "", "   ", "1 2 3", ".5", "5.", "--5", "1e", "1e+", "9999999999", "1.5.2", "007", "1\\t2", "x,y,z", "3.5 abc 7", "-.5e1",
+               "1e400", "  hello world  ", "nan", "1,,2"]
+
+
+def readstr():
+    """ReadStr over awkward input, into an integer, a real and a string, and into several."""
+    for tag, decl, targets, width in [
+        ("int", "var a%;", "a%", 1), ("flt", "var a;", "a", 1), ("str", "var a$;", "a$", 1),
+        ("two", "var a, b;", "a, b", 2), ("three", "var a%, b, c$;", "a%, b, c$", 3),
+    ]:
+        body = decl + "\nvar n%;\n"
+        at = 0
+        for k, inp in enumerate(READ_INPUTS):
+            body += f'a{"%" if tag in ("int", "three") else ("$" if tag == "str" else "")} := {"0" if tag != "str" else chr(34)*2};\n' if tag in ("int", "flt", "str") else ""
+            body += f'n% := ReadStr("{inp}", {targets});\nres[{at}] := n%;\n'
+            if tag == "str":
+                body += f"Enc(a$, {at + 1});\n"
+                at += 24
+            elif tag == "two":
+                body += f"res[{at + 1}] := a; res[{at + 2}] := b;\n"
+                at += 4
+            elif tag == "three":
+                body += f"res[{at + 1}] := a%; res[{at + 2}] := b; Enc(c$, {at + 3});\n"
+                at += 24
+            else:
+                body += f"res[{at + 1}] := a{'%' if tag == 'int' else ''};\n"
+                at += 2
+        write(f"g_readstr_{tag}", body, at + 1, enc=True)
+
+
 DATA_FILES = ["Blood Pressure Waveform", "Burst Data as Events", "Cardiac Action Potentials", "Cellular firing activity",
               "Cricket Song", "ECG Waveform", "EEG Waveform", "EMG Waveform", "Extracellular Spikes", "Eye Movements",
               "Field Potentials", "Flow and CO2 Waveform", "Spike data as Waveform"]
@@ -177,6 +208,7 @@ def main():
     formatting()
     formatting2()
     arrays()
+    readstr()
     for n in DATA_FILES:
         data_file(n)
 

@@ -1,0 +1,26 @@
+var res[200], a, b, c$, n%, s1$, s2$, x, y, z, arr[4], ai%[3];
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+a := 99; b := 98; c$ := "zz";
+n% := ReadStr("5", a, b, c$); res[0] := n%; res[1] := a; res[2] := b; Enc(c$, 3);
+n% := ReadStr(Chr$(34)+"a,b"+Chr$(34)+",c", s1$, s2$); res[10] := n%; Enc(s1$, 11); Enc(s2$, 20);
+n% := ReadStr("x "+Chr$(34)+"a b"+Chr$(34)+" y", s1$, s2$); res[30] := n%; Enc(s1$, 31); Enc(s2$, 45);
+ReadSetup(";");
+n% := ReadStr("1;2;3", x, y, z); res[60] := n%; res[61] := x; res[62] := y; res[63] := z;
+n% := ReadStr("1,2,3", x, y, z); res[64] := n%; res[65] := x; res[66] := y; res[67] := z;
+n% := ReadStr("1 2 3", x, y, z); res[68] := n%; res[69] := x; res[70] := y; res[71] := z;
+ReadSetup(",", "");
+n% := ReadStr("1 2 3", x, y, z); res[72] := n%; res[73] := x; res[74] := y; res[75] := z;
+n% := ReadStr("1,2 ,3", x, y, z); res[76] := n%; res[77] := x; res[78] := y; res[79] := z;
+ReadSetup(",", " ", "'", "'");
+n% := ReadStr("'x,y',z", s1$, s2$); res[80] := n%; Enc(s1$, 81); Enc(s2$, 90);
+ReadSetup();
+n% := ReadStr("1,2", x, y); res[100] := n%; res[101] := x; res[102] := y;
+n% := ReadStr("1 2 3 4 5", arr[]); res[103] := n%; res[104] := arr[0]; res[105] := arr[1]; res[106] := arr[2]; res[107] := arr[3];
+n% := ReadStr("7,8", ai%[]); res[108] := n%; res[109] := ai%[0]; res[110] := ai%[1]; res[111] := ai%[2];
+n% := ReadStr("1,", x, y); res[112] := n%; res[113] := x; res[114] := y;
+n% := ReadStr(",1", x, y); res[115] := n%; res[116] := x; res[117] := y;
+n% := ReadStr("1 , 2", x, y); res[118] := n%; res[119] := x; res[120] := y;

@@ -20,6 +20,7 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = r"C:\\Users\\Hilal\\Documents\\Spike8\\data\\"
+OUT = "C:\\\\Users\\\\Hilal\\\\Documents\\\\Spike8\\\\out\\\\"
 
 
 def main():
@@ -41,6 +42,7 @@ def main():
         prelude += f'h% := FileOpen("{DATA}{args.file}", 0, 0);\n'
     with tempfile.TemporaryDirectory() as d:
         for k, body in enumerate(bodies):
+            body = body.replace("%P%", f"p{k:02d}")
             src = prelude + body + ("\nView(h%); FileClose();\n" if not args.no_open else "")
             open(os.path.join(d, f"p{k:02d}.s2s"), "w").write(src)
             chk = subprocess.run(["cargo", "run", "-q", "-p", "smr", "--example", "check", "--",
@@ -56,6 +58,10 @@ def main():
         if "\t" not in line:
             continue
         name, rest = line.split("\t")
+        if name.startswith("@file "):
+            data = bytes.fromhex(rest)
+            print(f"   {name[6:]}: {len(data)} bytes {data[:64]!r}")
+            continue
         if rest == "ERR":
             print(f"{name}: Spike2 stopped on a script error")
             continue

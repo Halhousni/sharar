@@ -12,6 +12,7 @@ pub mod host;
 pub mod lexer;
 pub mod parser;
 pub mod session;
+pub mod text;
 pub mod print;
 pub mod vm;
 

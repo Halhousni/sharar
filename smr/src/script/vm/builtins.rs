@@ -315,6 +315,30 @@ impl Vm {
                 let _ = c;
                 some(V::Int(n as i64))
             }
+            // ---- reading values from text ---------------------------------------------
+            "ReadStr" => {
+                let line = self.a_str(&args[0])?;
+                let cfg = self.read_cfg.clone();
+                let n = crate::script::text::read_values(&line, &cfg, &args[1..], self)?;
+                some(V::Int(n))
+            }
+            "ReadSetup" => {
+                // Each argument that is given replaces a setting; a missing or empty delimiter
+                // list means the default, a missing skip list the default, an empty one none.
+                let get = |vm: &Vm, k: usize| -> Result<Option<String>, RunError> {
+                    args.get(k).map(|a| vm.a_str(a)).transpose()
+                };
+                let (d, sk, qo, qc) = (get(self, 0)?, get(self, 1)?, get(self, 2)?, get(self, 3)?);
+                let dflt = crate::script::text::ReadCfg::default();
+                self.read_cfg.delims = match d {
+                    Some(s) if !s.is_empty() => s,
+                    _ => dflt.delims.clone(),
+                };
+                self.read_cfg.skip = sk.unwrap_or_else(|| dflt.skip.clone());
+                self.read_cfg.quote_open = qo.unwrap_or_else(|| dflt.quote_open.clone());
+                self.read_cfg.quote_close = qc.unwrap_or_else(|| dflt.quote_close.clone());
+                none()
+            }
             // ---- real functions ------------------------------------------------------
             "Abs" => {
                 if let Some(_) = self.a_array(&args[0]) {

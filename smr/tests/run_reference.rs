@@ -54,8 +54,18 @@ fn programs_compute_what_spike2_computes() {
     let text = std::fs::read_to_string(fixture).unwrap();
     let (mut same, mut both_stop, mut unported) = (0, 0, Vec::new());
     let mut fails = Vec::new();
+    // Files the programs wrote in Spike2, and where the port's runs write theirs.
+    let out_dir = std::env::temp_dir().join(format!("sharar_run_out_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out_dir);
+    std::fs::create_dir_all(&out_dir).unwrap();
+    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
     for line in text.lines().filter(|l| !l.is_empty()) {
         let (name, want) = line.split_once('\t').unwrap();
+        if let Some(file) = name.strip_prefix("@file ") {
+            let bytes = (0..want.len() / 2).map(|i| u8::from_str_radix(&want[2 * i..2 * i + 2], 16).unwrap()).collect();
+            files.push((file.to_string(), bytes));
+            continue;
+        }
         let src = std::fs::read_to_string(cases.join(format!("{name}.s2s"))).unwrap();
         let ran = smr::script::compile_with_commands(&src)
             .map_err(|e| format!("does not compile: {}", e.0))
@@ -66,6 +76,7 @@ fn programs_compute_what_spike2_computes() {
                 if let Some(dir) = find("testdata/Example_Data_Files") {
                     session.map_path(r"C:\Users\Hilal\Documents\Spike8\data\", dir);
                 }
+                session.map_path(r"C:\Users\Hilal\Documents\Spike8\out\", out_dir.clone());
                 vm.with_host(Box::new(session))
             })
             .and_then(|mut vm| match vm.run() {
@@ -116,6 +127,19 @@ fn programs_compute_what_spike2_computes() {
             }
         }
     }
+    for (name, want) in &files {
+        match std::fs::read(out_dir.join(name)) {
+            Ok(got) if &got == want => same += 1,
+            Ok(got) => fails.push(format!(
+                "file {name}: Spike2 wrote {} bytes, the port {} bytes{}",
+                want.len(),
+                got.len(),
+                first_difference(want, &got)
+            )),
+            Err(_) => fails.push(format!("file {name}: Spike2 wrote it ({} bytes), the port did not", want.len())),
+        }
+    }
+    let _ = std::fs::remove_dir_all(&out_dir);
     println!(
         "{same} programs agree, {both_stop} stop in both, {} use a command not ported yet, {} differ",
         unported.len(),
@@ -128,4 +152,11 @@ fn programs_compute_what_spike2_computes() {
         println!("  DIFFERS {f}");
     }
     assert!(fails.is_empty(), "{} programs behave differently from Spike2", fails.len());
+}
+
+fn first_difference(a: &[u8], b: &[u8]) -> String {
+    match a.iter().zip(b).position(|(x, y)| x != y) {
+        Some(i) => format!("; first differ at byte {i} ({:#04x} vs {:#04x})", a[i], b[i]),
+        None => String::new(),
+    }
 }
