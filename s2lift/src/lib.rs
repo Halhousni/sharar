@@ -11,6 +11,7 @@ mod rt_msvcp110_gen;
 mod rt_runtime_gen;
 mod rt_sonlayer_gen;
 mod rt_son64_gen;
+mod rt_spikecmd_gen;
 mod rt_spikeutl_gen;
 mod spikeutl_gen;
 

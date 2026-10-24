@@ -69,7 +69,12 @@ fn programs_compute_what_spike2_computes() {
             })
             .and_then(|mut vm| match vm.run() {
                 Stop::Done => Ok(Some(vm)),
-                Stop::Error(_) => Ok(None),
+                Stop::Error(e) => {
+                    if let Some(why) = &vm.lifted_error {
+                        println!("  {name}: error {e}: {why}");
+                    }
+                    Ok(None)
+                }
                 Stop::Command(c) => Err(format!("unported command {c}")),
                 other => Err(format!("{other:?}")),
             });

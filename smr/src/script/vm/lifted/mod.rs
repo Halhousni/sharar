@@ -269,6 +269,43 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             "?_Xbad_alloc@std@@YAXXZ" | "?_Xlength_error@std@@YAXPEBD@Z" | "?_Xout_of_range@std@@YAXPEBD@Z" => {
                 panic_any(Thrown(-7003));
             }
+            "?GetCurrentViewAndType@CRunInfo@@QEBAPEAUHWND__@@AEAVCObjType@@@Z" => {
+                let h = self.vm.current_view();
+                let info = self.vm.host.as_ref().and_then(|host| host.view_info(h));
+                match info {
+                    Some((kind, _)) => {
+                        m.st(rdx, 1, internal_view_type(kind));
+                        m.r[0] = hwnd_of(h);
+                    }
+                    None => {
+                        m.st(rdx, 1, 0);
+                        m.r[0] = 0;
+                    }
+                }
+            }
+            "SendMessageW" => {
+                let msg = rdx as u32;
+                m.r[0] = match msg {
+                    0x14a7 => self.sonfile_of(m, view_of(rcx_of(m))),
+                    _ => {
+                        if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                            eprintln!("  (message {msg:#x} to {:#x} not handled)", rcx_of(m));
+                        }
+                        0
+                    }
+                };
+            }
+            "?DoInit@@YAFPEAVCBaseCmd@@@Z" => {
+                // a command object has been built: remember which command it is by its vtable
+                let vt = m.ld(m.r[1], 8);
+                for (n, v) in commands::VTABLES {
+                    if *v == vt {
+                        self.world.objects.insert(n.to_string(), m.r[1]);
+                    }
+                }
+                m.r[0] = 0;
+            }
+            "?GError@@YAXF@Z" => panic_any(Thrown(m.r[1] as u16 as i16 as i32)),
             "ldexp" => {
                 let x = f64::from_bits(m.xl(0));
                 m.set_xl(0, scalbn(x, m.r[2] as u32 as i32).to_bits());
@@ -288,7 +325,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             "_localtime64_s" => {
                 // (struct tm *out, const __time64_t *t): local time, here the machine's zone
                 let t = m.ld(rdx, 8) as i64;
-                let (tm, ok) = localtime(t);
+                let (tm, ok) = localtime(t, false);
                 for (i, v) in tm.iter().enumerate() {
                     m.st(m.r[1] + 4 * i as u64, 4, *v as u32 as u64);
                 }
@@ -342,7 +379,62 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
     }
 }
 
+/// A window handle that stands for view `h` (nothing like it exists here; the translated code
+/// only passes it back).
+fn hwnd_of(h: i64) -> u64 {
+    0x30000 + 16 * h as u64
+}
+
+fn view_of(hwnd: u64) -> i64 {
+    ((hwnd.wrapping_sub(0x30000)) / 16) as i64
+}
+
+/// Spike2's own number for a kind of view, from the number `ViewKind` gives for it.
+fn internal_view_type(script_kind: i64) -> u64 {
+    match script_kind {
+        0 => 4,
+        4 => 5,
+        1 => 7,
+        2 => 8,
+        3 => 9,
+        8 => 10,
+        9 => 0xb,
+        0xc => 0xd,
+        0xb => 0xf,
+        0x11 => 0x10,
+        10 => 1,
+        _ => 0,
+    }
+}
+
 impl<'v, 'w> Run<'v, 'w> {
+    /// The data file engine's object for view `h`, made (by opening the file with Spike2's own
+    /// code) the first time it is asked for.
+    fn sonfile_of(&mut self, m: &mut M, h: i64) -> u64 {
+        if let Some(&o) = self.world.sonfiles.get(&h) {
+            return o;
+        }
+        let info = self.vm.host.as_ref().and_then(|host| host.view_info(h));
+        if std::env::var_os("S2LIFT_SERVICES").is_some() {
+            eprintln!("  sonfile for view {h}: {info:?}");
+        }
+        let Some((_, Some(path))) = info else { return 0 };
+        let text = path.to_string_lossy().into_owned();
+        let obj = m.alloc(0x50000);
+        let name = m.alloc(2 * text.len() + 2);
+        for (i, u) in text.encode_utf16().enumerate() {
+            m.st(name + 2 * i as u64, 2, u as u64);
+        }
+        let saved = m.r;
+        m.r[1] = obj;
+        m.r[2] = name;
+        // the machine is borrowed by the caller; the constructor runs on it, then its registers are restored
+        commands::call_export("??0CSonFile@@QEAA@PEB_W@Z", m, self);
+        m.r = saved;
+        self.world.sonfiles.insert(h, obj);
+        obj
+    }
+
     fn str_arg(&self, idx: i32) -> String {
         match self.vm.a_str(self.arg(idx)) {
             Ok(s) => s,
@@ -432,17 +524,38 @@ pub fn has(name: &str) -> bool {
     commands::COMMANDS.contains(&name)
 }
 
+/// Is `name` one the environment asks to be run from Spike2's code even though a hand-written
+/// version exists (`S2LIFT_FORCE=Name,Name` or `all`)?
+pub fn forced(name: &str) -> bool {
+    match std::env::var("S2LIFT_FORCE") {
+        Ok(v) => v == "all" || v.split(',').any(|n| n == name),
+        Err(_) => false,
+    }
+}
+
 /// The translated code's world, kept from one command to the next: its memory (the data files
 /// it has open live there), its strings and its open operating-system files.
 pub struct World {
     m: Option<M>,
     strs: cstring::State,
     win: win::Win,
+    /// The command objects built so far, by command name.
+    objects: std::collections::HashMap<String, u64>,
+    /// The data file engine's object for each view that has one.
+    sonfiles: std::collections::HashMap<i64, u64>,
+    /// Whether the command objects have been built.
+    registered: bool,
 }
 
 impl Default for World {
     fn default() -> World {
-        World { m: Some(commands::machine()), strs: Default::default(), win: Default::default() }
+        let mut m = commands::machine();
+        // compiler.dll keeps a pointer to the script application's object (windows, options) in a
+        // global that the application sets when it starts; the code reads window handles from it.
+        let app = m.alloc(0x400);
+        m.st(0x2_8008_bf20, 8, app);
+        m.st(app + 0x88, 8, 0x1111); // the main window
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false }
     }
 }
 
@@ -456,8 +569,6 @@ impl Vm {
         let info = m.alloc(64);
         m.st(info, 4, args.len() as u64);
         m.st(info + 4, 4, variant.max(1) as u64);
-        // The command object: its members start as zeros (strings in it are written before read).
-        m.r[1] = m.alloc(0x400);
         m.r[2] = info;
         let mut run = Run { vm: self, args, result: None, bound: Vec::new(), missing: None, world: &mut *world, holders: Vec::new() };
         let quiet = std::panic::take_hook();
@@ -465,6 +576,24 @@ impl Vm {
             std::panic::set_hook(Box::new(|_| {}));
         }
         let outcome = catch_unwind(AssertUnwindSafe(|| {
+            // The command objects, built (all at once) by Spike2's own code the first time.
+            if !run.world.registered {
+                run.world.registered = true;
+                // each module's startup (static initialisers), then the command objects
+                // (running each module's DllMain is not done yet: see docs)
+                commands::register_all(&mut m, &mut run);
+            }
+            let obj = match run.world.objects.get(name) {
+                Some(&o) => o,
+                None => {
+                    let o = m.alloc(0x1000);
+                    run.world.objects.insert(name.to_string(), o);
+                    o
+                }
+            };
+            m.reset_stack();
+            m.r[1] = obj;
+            m.r[2] = info;
             commands::run(name, &mut m, &mut run);
         }));
         std::panic::set_hook(quiet);
@@ -555,7 +684,7 @@ fn rcx_of(m: &M) -> u64 {
 /// Broken-down local time of a Unix time, in a C `struct tm`'s order: seconds, minutes, hours, day
 /// of month, month (from 0), years since 1900, weekday (Sunday 0), day of year, daylight saving.
 /// The machine's own time zone, from the C library.
-fn localtime(t: i64) -> ([i32; 9], bool) {
+pub(super) fn localtime(t: i64, utc: bool) -> ([i32; 9], bool) {
     #[repr(C)]
     struct Tm {
         f: [i32; 9],
@@ -567,8 +696,9 @@ fn localtime(t: i64) -> ([i32; 9], bool) {
     let ok = {
         extern "C" {
             fn localtime_r(t: *const i64, out: *mut Tm) -> *mut Tm;
+            fn gmtime_r(t: *const i64, out: *mut Tm) -> *mut Tm;
         }
-        unsafe { !localtime_r(&t, &mut tm).is_null() }
+        unsafe { !(if utc { gmtime_r(&t, &mut tm) } else { localtime_r(&t, &mut tm) }).is_null() }
     };
     #[cfg(windows)]
     let ok = {
@@ -589,6 +719,29 @@ fn localtime(t: i64) -> ([i32; 9], bool) {
     let wday = (days + 4).rem_euclid(7);
     let yday = days - days_from_civil(y, 1, 1);
     ([(secs % 60) as i32, (secs / 60 % 60) as i32, (secs / 3600) as i32, d as i32, mo as i32 - 1, (y - 1900) as i32, wday as i32, yday as i32, 0], true)
+}
+
+/// Local time as a Unix time (`mktime`).
+pub(super) fn mktime(f: &[i32]) -> i64 {
+    #[repr(C)]
+    struct Tm {
+        f: [i32; 9],
+        extra: [i64; 4],
+    }
+    let mut tm = Tm { f: [0; 9], extra: [0; 4] };
+    tm.f.copy_from_slice(&f[..9]);
+    tm.f[8] = -1;
+    #[cfg(unix)]
+    {
+        extern "C" {
+            fn mktime(tm: *mut Tm) -> i64;
+        }
+        unsafe { mktime(&mut tm) }
+    }
+    #[cfg(not(unix))]
+    {
+        days_from_civil(tm.f[5] as i64 + 1900, tm.f[4] as i64 + 1, tm.f[3] as i64) * 86400 + tm.f[2] as i64 * 3600 + tm.f[1] as i64 * 60 + tm.f[0] as i64
+    }
 }
 
 fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {

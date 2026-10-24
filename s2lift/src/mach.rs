@@ -289,7 +289,7 @@ impl M {
     }
 
     pub fn fail(&self, what: &str) -> ! {
-        panic!("translated code reached {what}")
+        panic!("translated code reached {what} (blocks {:x?})", self.recent)
     }
 
     pub fn st128(&mut self, a: u64, v: u128) {

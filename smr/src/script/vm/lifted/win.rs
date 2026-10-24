@@ -7,13 +7,32 @@ use s2lift::mach::M;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom, Write};
 
+/// A C `FILE`: the file, and whether a read has hit the end.
+struct Stdio {
+    file: std::fs::File,
+    eof: bool,
+}
+
 /// State of the operating-system layer: open files and the last error.
 #[derive(Default)]
 pub struct Win {
+    stdio: HashMap<u64, Stdio>,
+    /// Directory listings in progress: handle to the names still to give.
+    finds: HashMap<u64, std::collections::VecDeque<(String, std::fs::Metadata)>>,
+    registry: HashMap<String, Vec<u8>>,
+    clipboard: Option<String>,
+    environment: HashMap<String, String>,
+    processes: HashMap<u64, std::process::Child>,
+    static_tm: u64,
+    tls: HashMap<u64, u64>,
+    cwd_override: Option<std::path::PathBuf>,
     files: HashMap<u64, std::fs::File>,
     next: u64,
     last_error: u32,
     errno_cell: u64,
+    /// Private copies of files the code opened for writing: the original is left alone until
+    /// the script saves (an incomplete emulation must not damage a recording).
+    shadow: HashMap<std::path::PathBuf, std::path::PathBuf>,
     /// Sizes of blocks handed out by `malloc`, kept in front of the block.
     started: Option<std::time::Instant>,
 }
@@ -73,8 +92,13 @@ impl Win {
             // ---- files ------------------------------------------------------------------
             "CreateFileW" => {
                 let (access, disposition) = (rdx as u32, stack(m, 0) as u32);
-                let p = path(m, rcx);
+                let mut p = path(m, rcx);
                 let write = access & 0x4000_0000 != 0;
+                if write && p.exists() && disposition != 2 {
+                    p = self.shadow_of(p);
+                } else if let Some(c) = self.shadow.get(&p) {
+                    p = c.clone();
+                }
                 let mut o = std::fs::OpenOptions::new();
                 o.read(access & 0x8000_0000 != 0 || !write);
                 match disposition {
@@ -185,9 +209,151 @@ impl Win {
                     }
                 };
             }
+            // ---- C stdio ----------------------------------------------------------------------
+            "_wfopen" => {
+                let (p, mode) = (path(m, rcx), String::from_utf16_lossy(&wide(m, rdx)));
+                let mut o = std::fs::OpenOptions::new();
+                match mode.trim_end_matches(|c| c == 'b' || c == 't') {
+                    "r" => o.read(true),
+                    "r+" => o.read(true).write(true),
+                    "w" => o.write(true).create(true).truncate(true),
+                    "w+" => o.read(true).write(true).create(true).truncate(true),
+                    "a" => o.append(true).create(true),
+                    _ => o.read(true),
+                };
+                match o.open(&p) {
+                    Ok(f) => {
+                        self.next += 1;
+                        let h = 0x70000 + self.next * 16;
+                        self.stdio.insert(h, Stdio { file: f, eof: false });
+                        m.r[0] = h;
+                    }
+                    Err(e) => {
+                        self.error(&e);
+                        m.r[0] = 0;
+                    }
+                }
+            }
+            "fclose" => m.r[0] = if self.stdio.remove(&rcx).is_some() { 0 } else { u64::MAX },
+            "fflush" => {
+                if let Some(f) = self.stdio.get_mut(&rcx) {
+                    let _ = f.file.flush();
+                }
+                m.r[0] = 0;
+            }
+            "setvbuf" => m.r[0] = 0,
+            "feof" => m.r[0] = self.stdio.get(&rcx).map(|f| f.eof as u64).unwrap_or(1),
+            "fread" => {
+                // fread(buf, size, count, FILE*)
+                let (size, count) = (rdx, r8);
+                let mut buf = vec![0u8; (size * count) as usize];
+                let n = match self.stdio.get_mut(&r9) {
+                    Some(f) => {
+                        let mut got = 0;
+                        while got < buf.len() {
+                            match f.file.read(&mut buf[got..]) {
+                                Ok(0) | Err(_) => {
+                                    f.eof = true;
+                                    break;
+                                }
+                                Ok(k) => got += k,
+                            }
+                        }
+                        got
+                    }
+                    None => 0,
+                };
+                for (i, b) in buf[..n].iter().enumerate() {
+                    m.st(rcx + i as u64, 1, *b as u64);
+                }
+                m.r[0] = if size == 0 { 0 } else { n as u64 / size };
+            }
+            "fwrite" => {
+                let bytes: Vec<u8> = (0..rdx * r8).map(|i| m.ld(rcx + i, 1) as u8).collect();
+                let ok = self.stdio.get_mut(&r9).map(|f| f.file.write_all(&bytes).is_ok()).unwrap_or(false);
+                m.r[0] = if ok { r8 } else { 0 };
+            }
+            "fseek" | "_fseeki64" => {
+                let to = match r8 as u32 {
+                    0 => SeekFrom::Start(rdx),
+                    1 => SeekFrom::Current(rdx as i64),
+                    _ => SeekFrom::End(rdx as i64),
+                };
+                m.r[0] = match self.stdio.get_mut(&rcx) {
+                    Some(f) => {
+                        f.eof = false;
+                        if f.file.seek(to).is_ok() { 0 } else { u64::MAX }
+                    }
+                    None => u64::MAX,
+                };
+            }
+            "_ftelli64" => m.r[0] = self.stdio.get_mut(&rcx).and_then(|f| f.file.stream_position().ok()).unwrap_or(u64::MAX),
+            "_wfullpath" => {
+                // (buffer, path, size)
+                let p = String::from_utf16_lossy(&wide(m, rdx));
+                let full = if p.starts_with('/') || p.chars().nth(1) == Some(':') {
+                    p
+                } else {
+                    format!("{}/{p}", std::env::current_dir().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default())
+                };
+                let full = full.replace('/', "\\");
+                let buf = if rcx == 0 { m.alloc(2 * full.len() + 2) } else { rcx };
+                put_wide(m, buf, &full);
+                m.r[0] = buf;
+            }
+            "SetCurrentDirectoryW" => {
+                let ok = std::env::set_current_dir(path(m, rcx)).is_ok();
+                m.r[0] = ok as u64;
+            }
+            "CreateDirectoryW" => {
+                let r = std::fs::create_dir(path(m, rcx));
+                if let Err(e) = &r {
+                    self.error(e);
+                }
+                m.r[0] = r.is_ok() as u64;
+            }
+            "FindFirstFileW" => {
+                // (pattern, WIN32_FIND_DATAW*)
+                let pat = path(m, rcx);
+                let dir = pat.parent().map(|d| d.to_path_buf()).unwrap_or_default();
+                let mask = pat.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+                let mut found: Vec<(String, std::fs::Metadata)> = match std::fs::read_dir(if dir.as_os_str().is_empty() { std::path::Path::new(".") } else { &dir }) {
+                    Ok(rd) => rd.flatten().filter_map(|e| e.metadata().ok().map(|md| (e.file_name().to_string_lossy().into_owned(), md))).filter(|(n, _)| glob(&mask, n)).collect(),
+                    Err(_) => Vec::new(),
+                };
+                found.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+                let mut q: std::collections::VecDeque<_> = found.into();
+                match q.pop_front() {
+                    Some(first) => {
+                        fill_find_data(m, rdx, &first);
+                        self.next += 1;
+                        let h = 0x80000 + self.next * 16;
+                        self.finds.insert(h, q);
+                        m.r[0] = h;
+                    }
+                    None => {
+                        self.last_error = ERROR_FILE_NOT_FOUND;
+                        m.r[0] = INVALID_HANDLE;
+                    }
+                }
+            }
+            "FindNextFileW" => {
+                m.r[0] = match self.finds.get_mut(&rcx).and_then(|q| q.pop_front()) {
+                    Some(e) => {
+                        fill_find_data(m, rdx, &e);
+                        1
+                    }
+                    None => {
+                        self.last_error = 18; // ERROR_NO_MORE_FILES
+                        0
+                    }
+                };
+            }
+            "FindClose" => m.r[0] = self.finds.remove(&rcx).is_some() as u64,
             "GetLastError" => m.r[0] = self.last_error as u64,
             "SetLastError" => self.last_error = rcx as u32,
             // ---- threads, events, locks: there is one thread ----------------------------------
+            "_lock" | "_unlock" | "_onexit" | "__dllonexit" => m.r[0] = rcx,
             "InitializeCriticalSection" | "DeleteCriticalSection" | "EnterCriticalSection" | "LeaveCriticalSection" | "SetEvent"
             | "ResetEvent" | "ReleaseSemaphore" | "Sleep" | "MsgWaitForMultipleObjects" => m.r[0] = 1,
             "CreateEventA" | "CreateSemaphoreA" => {
@@ -418,8 +584,246 @@ impl Win {
             }
             // ---- the process ----------------------------------------------------------------
             "GetProcessHeap" => m.r[0] = 0x1_0000,
+            "GetCurrentThreadId" => m.r[0] = 1,
+            "GetCurrentProcessId" => m.r[0] = 4242,
+            "TlsAlloc" | "FlsAlloc" => {
+                self.next += 1;
+                m.r[0] = self.next + 1;
+            }
+            "TlsGetValue" | "FlsGetValue" => m.r[0] = self.tls.get(&rcx).copied().unwrap_or(0),
+            "TlsSetValue" | "FlsSetValue" => {
+                self.tls.insert(rcx, rdx);
+                m.r[0] = 1;
+            }
+            "TlsFree" | "FlsFree" => m.r[0] = 1,
+            "HeapAlloc" | "HeapReAlloc" if name == "HeapAlloc" => m.r[0] = m.alloc(r8 as usize),
+            "HeapFree" => {
+                m.free(r8);
+                m.r[0] = 1;
+            }
+            "HeapSize" => m.r[0] = m.block_size(r8) as u64,
+            "HeapCreate" => m.r[0] = 0x2_0000,
+            "HeapDestroy" => m.r[0] = 1,
+            "GetModuleHandleW" | "GetModuleHandleA" => m.r[0] = 0x1_8000_0000,
+            "GetProcAddress" => m.r[0] = 0,
+            "GetCommandLineA" | "GetCommandLineW" => {
+                let p = m.alloc(16);
+                m.r[0] = p;
+            }
+            "GetVersion" => m.r[0] = 0x0000_0601, // Windows 7
+            "GetStartupInfoW" | "GetStartupInfoA" => {}
+            "RtlCaptureContext" | "RtlLookupFunctionEntry" | "RtlVirtualUnwind" | "SetUnhandledExceptionFilter" | "UnhandledExceptionFilter" => m.r[0] = 0,
+            "HeapLock" | "HeapUnlock" | "HeapValidate" | "_heapmin" | "IsDebuggerPresent" | "IsProcessorFeaturePresent" => {
+                m.r[0] = (name != "IsDebuggerPresent" && name != "IsProcessorFeaturePresent") as u64
+            }
+            "HeapWalk" => m.r[0] = 0,
+            "_heapset" => m.r[0] = (-2i64) as u64,
+            "_clearfp" | "_statusfp" => m.r[0] = 0,
+            "_finite" => m.r[0] = f64::from_bits(m.xl(0)).is_finite() as u64,
+            "_fpclass" => {
+                let x = f64::from_bits(m.xl(0));
+                // _FPCLASS_SNAN 1, QNAN 2, NINF 4, NN 8, ND 0x10, NZ 0x20, PZ 0x40, PD 0x80, PN 0x100, PINF 0x200
+                m.r[0] = if x.is_nan() { 2 } else if x == f64::NEG_INFINITY { 4 } else if x == f64::INFINITY { 0x200 }
+                    else if x == 0.0 { if x.is_sign_negative() { 0x20 } else { 0x40 } }
+                    else if x.is_normal() { if x < 0.0 { 8 } else { 0x100 } } else if x < 0.0 { 0x10 } else { 0x80 };
+            }
+            "GetDesktopWindow" => m.r[0] = 0x2222,
+            "GetWindowRect" => {
+                for (i, v) in [0u64, 0, 1920, 1080].iter().enumerate() {
+                    m.st(rdx + 4 * i as u64, 4, *v);
+                }
+                m.r[0] = 1;
+            }
+            "IsWindow" => m.r[0] = 1,
+            "DestroyWindow" | "RegisterClassW" | "CoUninitialize" | "PlaySoundW" => m.r[0] = 1,
+            "CreateWindowExW" | "GetWindowLongPtrW" | "SetWindowLongPtrW" | "DefWindowProcW" => m.r[0] = 0,
+            "CoInitialize" => m.r[0] = 0,
+            "CoCreateInstance" => m.r[0] = 0x8000_4005, // E_FAIL: there is no speech here
+            "GetEnvironmentVariableW" => {
+                let n = String::from_utf16_lossy(&wide(m, rcx));
+                let v = self.environment.get(&n).cloned().or_else(|| std::env::var(&n).ok());
+                m.r[0] = match v {
+                    Some(v) => {
+                        let units = v.encode_utf16().count() as u64;
+                        if r8 > units {
+                            put_wide(m, rdx, &v);
+                        }
+                        if r8 > units { units } else { units + 1 }
+                    }
+                    None => {
+                        self.last_error = 203;
+                        0
+                    }
+                };
+            }
+            "SetEnvironmentVariableW" => {
+                let n = String::from_utf16_lossy(&wide(m, rcx));
+                if rdx == 0 {
+                    self.environment.remove(&n);
+                } else {
+                    self.environment.insert(n, String::from_utf16_lossy(&wide(m, rdx)));
+                }
+                m.r[0] = 1;
+            }
+            "GetEnvironmentStringsW" => {
+                let mut all: Vec<u16> = Vec::new();
+                for (k, v) in std::env::vars().chain(self.environment.clone()) {
+                    all.extend(format!("{k}={v}").encode_utf16());
+                    all.push(0);
+                }
+                all.push(0);
+                let p = m.alloc(all.len() * 2);
+                for (i, u) in all.iter().enumerate() {
+                    m.st(p + 2 * i as u64, 2, *u as u64);
+                }
+                m.r[0] = p;
+            }
+            "FreeEnvironmentStringsW" => m.r[0] = 1,
+            "RegQueryValueExW" | "RegSetValueExW" | "RegDeleteValueW" | "RegCloseKey" => {
+                m.r[0] = match name {
+                    "RegCloseKey" | "RegSetValueExW" | "RegDeleteValueW" => 0,
+                    _ => 2, // ERROR_FILE_NOT_FOUND: no stored setting
+                }
+            }
+            "OpenClipboard" | "EmptyClipboard" | "CloseClipboard" => m.r[0] = 1,
+            "GlobalAlloc" => m.r[0] = m.alloc(rdx as usize + 16),
+            "GlobalLock" => m.r[0] = rcx,
+            "GlobalUnlock" => m.r[0] = 1,
+            "GlobalFree" => {
+                m.free(rcx);
+                m.r[0] = 0;
+            }
+            "SetClipboardData" => {
+                self.clipboard = Some(String::from_utf16_lossy(&wide(m, rdx)));
+                m.r[0] = rdx;
+            }
+            "GetClipboardData" => {
+                m.r[0] = match &self.clipboard.clone() {
+                    Some(t) => {
+                        let p = m.alloc(2 * t.len() + 2);
+                        put_wide(m, p, t);
+                        p
+                    }
+                    None => 0,
+                }
+            }
+            "_gmtime64" | "_localtime64" => {
+                if self.static_tm == 0 {
+                    self.static_tm = m.alloc(64);
+                }
+                let t = m.ld(rcx, 8) as i64;
+                let (tm, _) = super::localtime(t, name == "_gmtime64");
+                for (i, v) in tm.iter().enumerate() {
+                    m.st(self.static_tm + 4 * i as u64, 4, *v as u32 as u64);
+                }
+                m.r[0] = self.static_tm;
+            }
+            "GetLocalTime" => {
+                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+                let (tm, _) = super::localtime(now.as_secs() as i64, false);
+                // SYSTEMTIME: year month dayofweek day hour minute second milliseconds
+                let f = [tm[5] + 1900, tm[4] + 1, tm[6], tm[3], tm[2], tm[1], tm[0], now.subsec_millis() as i32];
+                for (i, v) in f.iter().enumerate() {
+                    m.st(rcx + 2 * i as u64, 2, *v as u64);
+                }
+            }
+            "_mktime64" => {
+                // (struct tm *): local time to Unix time
+                let f: Vec<i32> = (0..9).map(|i| m.ld(rcx + 4 * i, 4) as u32 as i32).collect();
+                m.r[0] = super::mktime(&f) as u64;
+            }
+            "strerror" => {
+                let p = m.alloc(32);
+                for (i, b) in b"error\0".iter().enumerate() {
+                    m.st(p + i as u64, 1, *b as u64);
+                }
+                m.r[0] = p;
+            }
+            "MultiByteToWideChar" => {
+                // (codepage, flags, src, srclen, dst, dstlen)
+                let (src, len) = (r8, r9 as u32 as i32);
+                let n = if len < 0 { let mut k = 0; while m.ld(src + k, 1) != 0 { k += 1; } k as usize + 1 } else { len as usize };
+                let bytes: Vec<u8> = (0..n as u64).map(|i| m.ld(src + i, 1) as u8).collect();
+                let units: Vec<u16> = if rcx == 65001 { String::from_utf8_lossy(&bytes).encode_utf16().collect() } else { bytes.iter().map(|&b| b as u16).collect() };
+                let dst = m.ld(m.r[4] + 0x20, 8);
+                let cap = m.ld(m.r[4] + 0x28, 8) as u32 as usize;
+                if cap >= units.len() && dst != 0 {
+                    for (i, u) in units.iter().enumerate() {
+                        m.st(dst + 2 * i as u64, 2, *u as u64);
+                    }
+                }
+                m.r[0] = if cap == 0 || cap >= units.len() { units.len() as u64 } else { 0 };
+            }
+            "WideCharToMultiByte" => {
+                // (codepage, flags, src, srclen, dst, dstlen, defchar, usedefault)
+                let (src, len) = (r8, r9 as u32 as i32);
+                let n = if len < 0 { let mut k = 0; while m.ld(src + 2 * k, 2) != 0 { k += 1; } k as usize + 1 } else { len as usize };
+                let units: Vec<u16> = (0..n as u64).map(|i| m.ld(src + 2 * i, 2) as u16).collect();
+                let bytes: Vec<u8> = if rcx == 65001 {
+                    String::from_utf16_lossy(&units).into_bytes()
+                } else {
+                    units.iter().map(|&u| if u < 256 { u as u8 } else { b'?' }).collect()
+                };
+                let dst = m.ld(m.r[4] + 0x20, 8);
+                let cap = m.ld(m.r[4] + 0x28, 8) as u32 as usize;
+                if cap >= bytes.len() && dst != 0 {
+                    for (i, b) in bytes.iter().enumerate() {
+                        m.st(dst + i as u64, 1, *b as u64);
+                    }
+                }
+                m.r[0] = if cap == 0 || cap >= bytes.len() { bytes.len() as u64 } else { 0 };
+            }
+            "CreateProcessW" => {
+                // (app, commandline, ..., flags, env, cwd, startupinfo, processinfo): run the command line
+                let cmdline = String::from_utf16_lossy(&wide(m, if rcx != 0 { rcx } else { rdx }));
+                let (info, cwd) = (m.ld(m.r[4] + 0x20 + 8 * 4, 8), m.ld(m.r[4] + 0x20 + 8 * 2, 8));
+                let words = split_command_line(&cmdline);
+                let Some((prog, rest)) = words.split_first() else { m.r[0] = 0; return true };
+                let mut c = std::process::Command::new(prog.replace('\\', "/"));
+                c.args(rest);
+                if cwd != 0 {
+                    c.current_dir(path(m, cwd));
+                }
+                match c.spawn() {
+                    Ok(child) => {
+                        self.next += 1;
+                        let h = 0xA0000 + self.next * 16;
+                        let pid = child.id() as u64;
+                        self.processes.insert(h, child);
+                        if info != 0 {
+                            m.st(info, 8, h);
+                            m.st(info + 8, 8, 0);
+                            m.st(info + 16, 4, pid);
+                            m.st(info + 20, 4, 0);
+                        }
+                        m.r[0] = 1;
+                    }
+                    Err(e) => {
+                        self.error(&e);
+                        m.r[0] = 0;
+                    }
+                }
+            }
+            "GetExitCodeProcess" => {
+                let code = match self.processes.get_mut(&rcx) {
+                    Some(c) => match c.try_wait() {
+                        Ok(Some(st)) => st.code().unwrap_or(1) as u64,
+                        _ => 259, // STILL_ACTIVE
+                    },
+                    None => 0,
+                };
+                m.st(rdx, 4, code);
+                m.r[0] = 1;
+            }
+            "TerminateProcess" => {
+                if let Some(c) = self.processes.get_mut(&rcx) {
+                    let _ = c.kill();
+                }
+                m.r[0] = 1;
+            }
+            "__pctype_func" | "___lc_codepage_func" | "___mb_cur_max_func" | "___lc_locale_name_func" | "___lc_collate_cp_func" | "setlocale" => m.r[0] = 0,
             "DecodePointer" | "EncodePointer" => m.r[0] = rcx,
-            "SendMessageW" | "PostMessageW" => m.r[0] = 0,
+            "PostMessageW" => m.r[0] = 0,
             "GetCurrentDirectoryW" => {
                 let d = std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
                 let d = d.replace('/', "\\");
@@ -434,7 +838,75 @@ impl Win {
         true
     }
 
+    /// The private copy of `original`, made on first use.
+    fn shadow_of(&mut self, original: std::path::PathBuf) -> std::path::PathBuf {
+        if let Some(c) = self.shadow.get(&original) {
+            return c.clone();
+        }
+        let dir = std::env::temp_dir().join(format!("sharar-shadow-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let copy = dir.join(format!("{}-{}", self.shadow.len(), original.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()));
+        if std::fs::copy(&original, &copy).is_ok() {
+            self.shadow.insert(original, copy.clone());
+            copy
+        } else {
+            original
+        }
+    }
+
     fn malloc(&mut self, m: &mut M, n: usize) -> u64 {
         m.alloc(n)
     }
+}
+
+/// `*` and `?` matching without regard to case, for the names a directory search finds.
+fn glob(pat: &str, name: &str) -> bool {
+    let (p, n): (Vec<char>, Vec<char>) = (pat.to_lowercase().chars().collect(), name.to_lowercase().chars().collect());
+    fn go(p: &[char], n: &[char]) -> bool {
+        match p.first() {
+            None => n.is_empty(),
+            Some('*') => (0..=n.len()).any(|k| go(&p[1..], &n[k..])),
+            Some('?') => !n.is_empty() && go(&p[1..], &n[1..]),
+            Some(c) => n.first() == Some(c) && go(&p[1..], &n[1..]),
+        }
+    }
+    go(&p, &n)
+}
+
+/// Write a `WIN32_FIND_DATAW` for one directory entry.
+fn fill_find_data(m: &mut M, at: u64, e: &(String, std::fs::Metadata)) {
+    let attr: u64 = if e.1.is_dir() { 0x10 } else { 0x80 };
+    m.st(at, 4, attr);
+    // times (creation, access, write) as 100 ns since 1601
+    let t = e.1.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_nanos() as u64 / 100 + 116_444_736_000_000_000).unwrap_or(0);
+    for k in 0..3 {
+        m.st(at + 4 + 8 * k, 8, t);
+    }
+    m.st(at + 28, 4, e.1.len() >> 32);
+    m.st(at + 32, 4, e.1.len() & 0xffff_ffff);
+    put_wide(m, at + 44, &e.0);
+}
+
+fn split_command_line(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let (mut cur, mut quoted, mut any) = (String::new(), false, false);
+    for c in s.chars() {
+        match c {
+            '"' => {
+                quoted = !quoted;
+                any = true;
+            }
+            ' ' if !quoted => {
+                if any || !cur.is_empty() {
+                    out.push(std::mem::take(&mut cur));
+                    any = false;
+                }
+            }
+            c => cur.push(c),
+        }
+    }
+    if any || !cur.is_empty() {
+        out.push(cur);
+    }
+    out
 }

@@ -905,6 +905,12 @@ impl Vm {
             }
         };
         let _ = &val;
+        // For trying a hand-written command against Spike2's own code: S2LIFT_FORCE=Name,Name or all
+        if lifted::has(cmd.name) && lifted::forced(cmd.name) {
+            if let Some(out) = self.run_lifted(cmd.name, variant, &args)? {
+                return Ok(out);
+            }
+        }
         if let Some(mut host) = self.host.take() {
             let r = host.command(cmd.name, variant, &args, self);
             self.host = Some(host);
@@ -914,6 +920,11 @@ impl Vm {
         }
         match self.builtin(cmd.name, variant, &args)? {
             Some(out) => Ok(out),
+            // Spike2's own code for the command, with this crate answering what it asks
+            None if lifted::has(cmd.name) => match self.run_lifted(cmd.name, variant, &args)? {
+                Some(out) => Ok(out),
+                None => Ok(None),
+            },
             None => {
                 self.pending_command = Some(cmd.name.to_string());
                 Ok(None)

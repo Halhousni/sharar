@@ -1015,6 +1015,24 @@ impl Host for Session {
         false
     }
 
+    fn view_info(&self, h: i64) -> Option<(i64, Option<std::path::PathBuf>)> {
+        if h == self.log {
+            Some((1, None))
+        } else if let Some(v) = self.views.iter().find(|v| v.handle == h) {
+            Some((0, Some(v.file.path.clone())))
+        } else {
+            self.exts.iter().find(|e| e.handle == h).map(|e| {
+                (
+                    match e.kind {
+                        ExtKind::Text(_) => 8,
+                        ExtKind::Bin(_) => 9,
+                    },
+                    None,
+                )
+            })
+        }
+    }
+
     fn command(
         &mut self,
         name: &str,
@@ -1417,6 +1435,9 @@ impl Host for SharedSession {
     }
     fn print(&mut self, text: &str) -> bool {
         self.0.lock().unwrap().print(text)
+    }
+    fn view_info(&self, handle: i64) -> Option<(i64, Option<std::path::PathBuf>)> {
+        self.0.lock().unwrap().view_info(handle)
     }
     fn command(&mut self, name: &str, variant: usize, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         self.0.lock().unwrap().command(name, variant, args, mem)

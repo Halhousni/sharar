@@ -516,7 +516,6 @@ impl Vm {
                 let first = it.next().ok_or(RunError(ERR_INDEX))?;
                 some(V::Flt(it.fold(first, |m, x| if max { m.max(x) } else { m.min(x) })))
             }
-            _ if super::lifted::has(name) => self.run_lifted(name, variant, args),
             _ => Ok(None),
         }
     }

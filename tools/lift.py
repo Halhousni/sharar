@@ -88,6 +88,7 @@ class Lifter:
         # supplies, or None.
         self.bias = bias
         self.svc = svc
+        self.pointer_hooks = False
         self.default_import = default_import
         self.cross = cross
         self.import_names = []
@@ -250,14 +251,21 @@ class Lifter:
         for n, v, vs, rp, rs in im.secs:
             if n == b".text" or not (v <= r < v + rs):
                 continue
-            k = 0
-            while v <= r + 8 * k < v + rs - 7:
+            k, misses = 0, 0
+            while v <= r + 8 * k < v + rs - 7 and k < 1024:
                 ptr, = struct.unpack_from("<Q", im.b, rp + r - v + 8 * k)
-                # a vtable slot: any address in the code (leaf routines have no unwind entry)
-                if not (im.tva <= ptr < im.tva + im.text[2]):
-                    break
-                out.append(ptr)
                 k += 1
+                # a vtable slot or an initialiser: an address in the code. A few zeros may come
+                # first or between (the markers of the initialiser tables).
+                if im.tva <= ptr < im.tva + im.text[2]:
+                    out.append(ptr)
+                    misses = 0
+                elif ptr == 0 and (out or misses < 1):
+                    misses += 1
+                    if out and misses > 2:
+                        break
+                else:
+                    break
         return out
 
     def is_function_start(self, t):
@@ -296,9 +304,25 @@ class Lifter:
             return a, self.iat.get(a)
         return None, None
 
+    def pointer_roots(self):
+        """Every address in the code that the module's data points at (vtable slots, callbacks,
+        hooks): the loader would relocate those pointers, so the list is in the relocation table."""
+        im = self.im
+        out = []
+        for ptr_at in self.dir64_relocs():
+            o = im.off(ptr_at)
+            if o is None:
+                continue
+            v, = struct.unpack_from("<Q", im.b, o)
+            if im.tva <= v < im.tva + im.text[2]:
+                out.append(v)
+        return out
+
     def discover(self):
         self.known, self.failing, self.imports_used = set(), set(), set()
         work = list(self.roots)
+        if self.pointer_hooks:
+            work += self.pointer_roots()
         while work:
             s = work.pop()
             if s in self.known or s in self.stubs:

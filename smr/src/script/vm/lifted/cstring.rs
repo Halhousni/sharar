@@ -268,7 +268,7 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
             let v = cs(m, st, rcx);
             let start = (r8 as u32 as i32).max(0) as usize;
             let hay = &v[start.min(v.len())..];
-            let pos = if s.contains("_WH@Z") || s.contains("DH@Z") {
+            let pos = if s.starts_with("QEBAH_W") || s.starts_with("QEBAHDH") || s.starts_with("QEBAHD") {
                 hay.iter().position(|&c| c == (rdx as u32 & if wide { 0xffff } else { 0xff }))
             } else {
                 let sub = cstr(m, rdx, wide);
@@ -283,7 +283,7 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
             } else if s.contains("_W@Z") || s.contains("D@Z") {
                 vec![rdx as u32]
             } else {
-                vec![9, 10, 11, 12, 13, 32]
+                vec![9, 10, 11, 12, 13, 32, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000]
             };
             if op != "?TrimRight@" {
                 let n = v.iter().take_while(|c| set.contains(c)).count();
@@ -362,18 +362,28 @@ fn format_wide(m: &M, fmt: &[u32], arg: &mut dyn FnMut(&M) -> u64) -> Vec<u32> {
             i += 1;
         }
         if i < fmt.len() && fmt[i] == '*' as u32 {
-            width = (arg(m) as u32 as i32).to_string();
+            let w = arg(m) as u32 as i32;
+            if w < 0 {
+                flags.push('-');
+            }
+            width = w.abs().to_string();
             i += 1;
         }
         let mut prec: Option<usize> = None;
         if i < fmt.len() && fmt[i] == '.' as u32 {
             i += 1;
             let mut p = String::new();
-            while i < fmt.len() && (fmt[i] as u8 as char).is_ascii_digit() {
-                p.push(fmt[i] as u8 as char);
+            if i < fmt.len() && fmt[i] == '*' as u32 {
+                let v = arg(m) as u32 as i32;
+                prec = if v < 0 { None } else { Some(v as usize) };
                 i += 1;
+            } else {
+                while i < fmt.len() && (fmt[i] as u8 as char).is_ascii_digit() {
+                    p.push(fmt[i] as u8 as char);
+                    i += 1;
+                }
+                prec = Some(p.parse().unwrap_or(0));
             }
-            prec = Some(p.parse().unwrap_or(0));
         }
         let mut size = String::new();
         while i < fmt.len() && "hlIL64w".contains(char::from_u32(fmt[i]).unwrap_or(' ')) {

@@ -44,6 +44,10 @@ pub trait Host {
     fn current_view(&self) -> i64;
     /// Make `handle` the current view.
     fn set_view(&mut self, handle: i64) -> Result<(), RunError>;
+    /// What kind of view `handle` is (the number `ViewKind` gives) and, for a data file, its path.
+    fn view_info(&self, _handle: i64) -> Option<(i64, Option<std::path::PathBuf>)> {
+        None
+    }
     /// Run a command, or return `Ok(None)` if it is not this host's.
     fn command(
         &mut self,

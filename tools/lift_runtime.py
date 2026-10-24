@@ -11,7 +11,7 @@ result (CRunInfo), the windows and the data file, the C++ runtime. Needs `capsto
 import json, os, re, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lift import Lifter
-from command_table import Image
+from command_table import Image, MD
 
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 REPORT = "--report" in sys.argv
@@ -39,7 +39,7 @@ def exports(path):
 
 # The DLLs whose code is translated, and what they export.
 MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll",
-           "sonlayer": "sonlayer.dll", "son64": "son64.dll"}
+           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll"}
 def find(f):
     for d in (vmbin, os.environ.get("ORACLE_DIR", "")):
         if d and os.path.exists(os.path.join(d, f)):
@@ -49,7 +49,7 @@ EXPORTS = {m: exports(find(f)) for m, f in MODULES.items() if m != "runtime"}
 
 # Imports the host answers even where a translated DLL exports them: they reach into the script
 # interpreter's own structures, which the host keeps.
-HOST = re.compile(r"@CRunInfo@@|@CBaseCmd@@|^_CxxThrowException$|^\?\?[23]@YA|^\?_X[a-z_]+@std@@|^__|^_amsg_exit$"
+HOST = re.compile(r"@CRunInfo@@|^\?DoInit@@|^_CxxThrowException$|^\?\?[23]@YA|^\?_X[a-z_]+@std@@|^__|^_amsg_exit$"
                   r"|^_purecall$|^abort$|GError|ArrayError@|^_malloc_crt$|^_calloc_crt$|^malloc$|^free$|^calloc$|^realloc$")
 
 # The maths library, in Rust.
@@ -57,7 +57,7 @@ def libm1(fn):
     return f"m.set_xl(0, crate::msvcrt::{fn}(f64::from_bits(m.xl(0))).to_bits());"
 def libm2(fn):
     return f"m.set_xl(0, crate::msvcrt::{fn}(f64::from_bits(m.xl(0)), f64::from_bits(m.xl(1))).to_bits());"
-NATIVE = {n: libm1(n) for n in ("sin", "cos", "tan", "sinh", "cosh", "exp", "log", "log10", "asin", "acos")}
+NATIVE = {n: libm1(n) for n in ("sin", "cos", "tan", "sinh", "cosh", "tanh", "atan", "exp", "log", "log10", "asin", "acos")}
 NATIVE.update({"pow": libm2("pow"), "atan2": libm2("atan2"), "_hypot": libm2("hypot")})
 NATIVE["fmod"] = "m.set_xl(0, (f64::from_bits(m.xl(0)) % f64::from_bits(m.xl(1))).to_bits());"
 NATIVE["memset"] = "m.memset();"
@@ -74,7 +74,7 @@ import_names = []
 lifters = {}
 entries_extra = {}
 # Each module's addresses are moved apart, so that a pointer says which module's code it is.
-BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32}
+BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32}
 
 
 def service(lifter, name):
@@ -102,6 +102,47 @@ for mod, f in MODULES.items():
     roots = [execs[n] for n in wanted] if mod == "runtime" else []
     lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross, bias=BIAS[mod])
     lifters[mod].import_names = import_names
+    lifters[mod].pointer_hooks = "--pointer-hooks" in sys.argv
+
+# The functions that build the command objects: each makes a run of commands (`new`, the base
+# constructor, the vtable) and hands every one to `DoInit`. Running them at start gives the host the
+# objects, and each object says which command it is by its vtable.
+def registrars():
+    rt = lifters["runtime"]
+    im = rt.im
+    slot = [a for a, n in rt.iat.items() if n == "?DoInit@@YAFPEAVCBaseCmd@@@Z"]
+    out = []
+    for st in im.starts:
+        end = im.ends.get(st)
+        if end is None:
+            continue
+        for i in MD.disasm(im.b[im.off(st):im.off(st) + end - st], st):
+            if i.mnemonic == "call" and i.operands[0].type == 3 and i.operands[0].mem.base == 41 \
+                    and i.address + i.size + i.operands[0].mem.disp in slot:
+                out.append(st)
+                break
+    return out
+
+def entry_point(mod):
+    import struct
+    im = lifters[mod].im
+    pe = struct.unpack_from("<I", im.b, 0x3c)[0]
+    return im.base + struct.unpack_from("<I", im.b, pe + 24 + 16)[0]
+
+# Each module's DllMain runs at start (it runs the C++ static initializers: global strings and so on),
+# dependencies first.
+INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "runtime"]
+ENTRY = {m: entry_point(m) for m in INIT_ORDER}
+for m_, a in ENTRY.items():
+    if a not in lifters[m_].roots:
+        lifters[m_].roots.append(a)
+    entries_extra.setdefault(m_, set()).add(a)
+
+REGISTRARS = registrars() if "--no-registrars" not in sys.argv else []
+for a in REGISTRARS:
+    if a not in lifters["runtime"].roots:
+        lifters["runtime"].roots.append(a)
+entries_extra.setdefault("runtime", set()).update(REGISTRARS)
 
 # Extra routines to translate whatever the commands call: `--root module:regex` (the exports of
 # that module whose names match), entered from the host.
@@ -115,7 +156,7 @@ for a in sys.argv:
 
 # Follow the imports: a routine another module supplies becomes a root there, until nothing is new.
 entries = {m: set(entries_extra.get(m, ())) for m in MODULES}
-entries["runtime"] = {execs[n] for n in wanted}
+entries["runtime"] |= {execs[n] for n in wanted}
 changed = True
 while changed:
     changed = False
@@ -191,7 +232,7 @@ lines += ["];", "",
           "static IMAGES: &[&crate::mach::Img] = &[",
           "    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,",
           "    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,",
-          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG,",
+          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG,",
           "];", "",
           "pub fn machine() -> crate::mach::M {",
           "    crate::mach::M::big(IMAGES)",
@@ -200,7 +241,8 @@ lines += ["];", "",
           "pub(crate) fn call_other(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64) {",
           "    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)",
           "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)",
-          "        || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t);",
+          "        || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)",
+          "        || crate::rt_spikecmd_gen::try_call(m, s, t);",
           "    if !done {",
           "        m.fail(&format!(\"a call through a pointer to {t:#x}\"));",
           "    }",
@@ -210,10 +252,25 @@ lines += ["];", "",
           "    match name {"]
 lines += [f"        {json.dumps(n)} => crate::rt_runtime_gen::enter_{execs[n]:x}(m, s)," for n in wanted]
 lines += ["        _ => return false,", "    }", "    true", "}", "",
+          "/// Run the functions that build every command object (each reports its objects to `DoInit`).",
+          "pub fn register_all(m: &mut crate::mach::M, s: &mut dyn crate::Svc) {"]
+lines += [f"    crate::rt_runtime_gen::enter_{a:x}(m, s);" for a in REGISTRARS]
+lines += ["}", "",
+          "/// Run each module's DllMain(DLL_PROCESS_ATTACH), dependencies first.",
+          "pub fn init_modules(m: &mut crate::mach::M, s: &mut dyn crate::Svc) {"]
+for m_ in INIT_ORDER:
+    base = lifters[m_].im.base + BIAS[m_]
+    lines += [f"    m.r[1] = {base:#x}; m.r[2] = 1; m.r[8] = 0;",
+              f"    crate::rt_{m_}_gen::enter_{ENTRY[m_] + BIAS[m_]:x}(m, s);"]
+lines += ["}", "", "/// Each command's vtable, which says which command an object is.", "pub const VTABLES: &[(&str, u64)] = &["]
+lines += [f"    ({json.dumps(c['name'])}, {c['vtable']:#x})," for c in table if c["name"] in set(wanted)]
+lines += ["];", "",
           "/// Call an exported routine that was asked for with `--root` by its decorated name.",
           "pub fn call_export(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -> bool {",
           "    match name {"]
 for mod_, addrs in sorted(entries_extra.items()):
+    if mod_ not in EXPORTS:
+        continue
     for n, a in sorted(EXPORTS[mod_].items()):
         if a in addrs:
             lines.append(f"        {json.dumps(n)} => crate::rt_{mod_}_gen::enter_{a + BIAS[mod_]:x}(m, s),")
