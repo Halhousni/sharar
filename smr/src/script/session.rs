@@ -819,6 +819,78 @@ impl Session {
     /// times in seconds (events) or values in the channel's units (waveforms); an integer
     /// array gets ticks or raw ADC counts. Returns how many, or -1506 for a channel it
     /// cannot read.
+    /// `MinMax(chan%, start, end, &min, &max {,&tMin {,&tMax}})` over a waveform channel; the
+    /// times are those of the first sample with the smallest and the largest value.
+    fn min_max(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let (n, t0, t1) = (int(mem, &args[0])?, flt(mem, &args[1])?, flt(mem, &args[2])?);
+        let Some(idx) = self.chan_pos(n) else { return Ok(None) };
+        let tf = {
+            let f = &self.view().unwrap().file;
+            if !f.channels[idx].kind.is_waveform() {
+                return Ok(None);
+            }
+            f.time_factor
+        };
+        let items = self.items(idx);
+        let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64 + 1);
+        let (lo, hi) = (items.first_ge(a), items.first_ge(b));
+        if hi <= lo {
+            return Ok(None);
+        }
+        let vals = self.wave_values(idx, lo, hi);
+        let (mut imin, mut imax) = (0, 0);
+        for (i, &v) in vals.iter().enumerate() {
+            if v < vals[imin] {
+                imin = i;
+            }
+            if v > vals[imax] {
+                imax = i;
+            }
+        }
+        let out = [vals[imin], vals[imax], items.tick(lo + imin as i64) as f64 * tf, items.tick(lo + imax as i64) as f64 * tf];
+        for (k, v) in out.iter().enumerate() {
+            if let Some(Arg::Ref(r)) = args.get(3 + k) {
+                mem.store(*r, V::Flt(*v))?;
+            }
+        }
+        Ok(Some(Some(V::Int(0))))
+    }
+
+    /// `ChanValue(chan%, time)` for a waveform channel: the sample at or just before `time`.
+    fn chan_value(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let (n, t) = (int(mem, &args[0])?, flt(mem, &args[1])?);
+        let Some(idx) = self.chan_pos(n) else { return Ok(None) };
+        let (tf, wave, event) = {
+            let f = &self.view().unwrap().file;
+            let k = f.channels[idx].kind;
+            (f.time_factor, k.is_waveform(), k.is_event() || k.is_wavemark())
+        };
+        let items = self.items(idx);
+        if event {
+            // an event channel answers with the time of the first event at or after `t`
+            let g = items.first_ge((t / tf).round() as i64);
+            let v = if g < items.len() { items.tick(g) as f64 * tf } else { -1.0 };
+            return Ok(Some(Some(V::Flt(v))));
+        }
+        if !wave {
+            return Ok(None);
+        }
+        let Items::Waveform { blocks, dt } = &items else { return Ok(None) };
+        let (dt, first) = (*dt, blocks.first().map(|b| b.0).unwrap_or(0));
+        let total = items.len();
+        // the time is taken to whole ticks; between two samples the value is interpolated in a straight line
+        let tk = (t / tf).round() as i64;
+        let i = ((tk - first).max(0) / dt).min(total - 1);
+        let frac = if tk <= first { 0.0 } else { (tk - items.tick(i)) as f64 / dt as f64 };
+        let vals = self.wave_values(idx, i, (i + 2).min(total));
+        let v = match vals.as_slice() {
+            [a, b] => a + (b - a) * frac,
+            [a] => *a,
+            _ => 0.0,
+        };
+        Ok(Some(Some(V::Flt(v))))
+    }
+
     fn chan_data(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         let some = |v: V| Ok(Some(Some(v)));
         let (n, t0, t1) = (int(mem, &args[0])?, flt(mem, &args[2])?, flt(mem, &args[3])?);
@@ -1266,6 +1338,8 @@ impl Host for Session {
                 }
                 some(V::Int(was as i64))
             }
+            "MinMax" if (5..=7).contains(&args.len()) && self.view().is_some() => self.min_max(args, mem),
+            "ChanValue" if args.len() == 2 && self.view().is_some() => self.chan_value(args, mem),
             "ChanData" if args.len() >= 4 && self.view().is_some() => self.chan_data(args, mem),
             "MemChan" | "MemSetItem" | "MemGetItem" | "MemDeleteItem" | "MemImport" | "ChanDelete"
                 if self.view().is_some() =>

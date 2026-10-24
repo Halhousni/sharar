@@ -129,15 +129,8 @@ pub const IMPORT_NAMES: &[&str] = &[
     "malloc",
     "free",
     "fwrite",
-    "?GetSampCon@CMainWindow@@QEAAPEAVCSampCon@@XZ",
     "?GetIntErr@CRunInfo@@QEBA_JH_J0@Z",
     "?AfxGetThread@@YAPEAVCWinThread@@XZ",
-    "??0CChanSpec@@QEAA@XZ",
-    "?SetSpec@CChanSpec@@QEAAHHAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z",
-    "?ParseSpec@CChanSpec@@QEBAHPEAVCSpkView@@AEAVCChannelList@@@Z",
-    "??1CChanSpec@@UEAA@XZ",
-    "?FromList@CChanSpec@@QEAAHPEAVCSpkView@@AEBVCChannelList@@@Z",
-    "?GetString@CChanSpec@@QEBA?AV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@XZ",
     "?Find@?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@QEBAH_WH@Z",
     "??A?$CSimpleStringT@_W$00@ATL@@QEBA_WH@Z",
     "wcscspn",
@@ -175,25 +168,18 @@ pub const IMPORT_NAMES: &[&str] = &[
     "?StoreStringResult@CRunInfo@@QEBAXPEB_W@Z",
     "iswdigit",
     "?Trim@?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@QEAAAEAV12@XZ",
-    "?Init@DumpConfiguration@@QEAAXXZ",
     "PostMessageW",
     "ldexp",
     "_clearfp",
     "_statusfp",
     "?XCallFunc@CRunInfo@@QEBAFFPEAVTProcedure@@@Z",
     "?XGetFloatReturn@CRunInfo@@QEBAXAEAN@Z",
-    "?PlayWaveSpeed@CMainWindow@@QEAAN_WNHPEAN@Z",
-    "?PlayWaveCycles@CMainWindow@@QEAAH_WH@Z",
-    "?PlayWaveBar@CMainWindow@@QEAAXH@Z",
     "??0?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@QEAA@PEB_WH@Z",
     "wcsncpy",
     "wcschr",
     "??Y?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@QEAAAEAV01@_W@Z",
     "wcstol",
     "?AppendFormat@?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@QEAAXPEB_WZZ",
-    "?Empty@CChanSpec@@QEAAHXZ",
-    "?FromList@CChanSpec@@QEAAHPEBVCChanSpecHelper@@AEBVCChannelList@@@Z",
-    "??0CSmpCSHelper@@QEAA@XZ",
     "??0?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@QEAA@_WH@Z",
     "CoUninitialize",
     "CoInitialize",
@@ -362,8 +348,15 @@ pub const IMPORT_NAMES: &[&str] = &[
     "memcmp",
     "?GetCurrentViewAndType@CRunInfo@@QEBAPEAUHWND__@@AEAVCObjType@@@Z",
     "?FromHandlePermanent@CWnd@@SAPEAV1@PEAUHWND__@@@Z",
-    "?FilterList@CChanSpec@@QEBAXPEAVCSpkView@@AEAVCChannelList@@@Z",
-    "??0CChanSpec@@QEAA@H@Z",
+    "?MoveWindow@CWnd@@QEAAXHHHHH@Z",
+    "InvalidateRect",
+    "?ShowWindow@CWnd@@QEAAHH@Z",
+    "IsWindowVisible",
+    "?IsFloating@CControlBar@@QEBAHXZ",
+    "?ShowControlBar@CFrameWnd@@QEAAXPEAVCControlBar@@HH@Z",
+    "?SetWindowTextW@CWnd@@QEAAXPEB_W@Z",
+    "toupper",
+    "?GetThisMessageMap@CWnd@@KAPEBUAFX_MSGMAP@@XZ",
 ];
 
 /// The translated commands.
@@ -877,7 +870,7 @@ pub const COMMANDS: &[&str] = &[
 static IMAGES: &[&crate::mach::Img] = &[
     &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,
     &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,
-    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG,
+    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG,
 ];
 
 pub fn machine() -> crate::mach::M {
@@ -889,7 +882,7 @@ pub(crate) fn call_other(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64)
     let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)
         || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)
         || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)
-        || crate::rt_spikecmd_gen::try_call(m, s, t);
+        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t);
     if !done && !s.call(m, t) {
         m.fail(&format!("a call through a pointer to {t:#x}"));
     }

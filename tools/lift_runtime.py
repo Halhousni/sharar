@@ -39,7 +39,7 @@ def exports(path):
 
 # The DLLs whose code is translated, and what they export.
 MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll",
-           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll"}
+           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe"}
 def find(f):
     for d in (vmbin, os.environ.get("ORACLE_DIR", "")):
         if d and os.path.exists(os.path.join(d, f)):
@@ -74,7 +74,7 @@ import_names = []
 lifters = {}
 entries_extra = {}
 # Each module's addresses are moved apart, so that a pointer says which module's code it is.
-BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32}
+BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32}
 
 
 def service(lifter, name):
@@ -248,7 +248,7 @@ lines += ["];", "",
           "static IMAGES: &[&crate::mach::Img] = &[",
           "    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,",
           "    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,",
-          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG,",
+          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG,",
           "];", "",
           "pub fn machine() -> crate::mach::M {",
           "    crate::mach::M::big(IMAGES)",
@@ -258,7 +258,7 @@ lines += ["];", "",
           "    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)",
           "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)",
           "        || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)",
-          "        || crate::rt_spikecmd_gen::try_call(m, s, t);",
+          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t);",
           "    if !done && !s.call(m, t) {",
           "        m.fail(&format!(\"a call through a pointer to {t:#x}\"));",
           "    }",

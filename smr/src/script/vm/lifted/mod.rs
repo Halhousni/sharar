@@ -347,6 +347,20 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 };
                 m.r[0] = o;
             }
+            "?FromHandlePermanent@CWnd@@SAPEAV1@PEAUHWND__@@@Z" => {
+                // the window object of a view: one per handle, an object whose members are zero
+                let h = view_of(m.r[1]);
+                let key = -h - 10;
+                let o = match self.world.sonfiles.get(&key) {
+                    Some(&o) => o,
+                    None => {
+                        let o = m.alloc(0x2000);
+                        self.world.sonfiles.insert(key, o);
+                        o
+                    }
+                };
+                m.r[0] = if m.r[1] == 0 { 0 } else { o };
+            }
             "?GError@@YAXF@Z" => panic_any(Thrown(m.r[1] as u16 as i16 as i32)),
             "ldexp" => {
                 let x = f64::from_bits(m.xl(0));
