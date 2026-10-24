@@ -15,10 +15,22 @@ use super::vm::{Arg, V};
 use crate::{Kind, SonFile};
 use std::path::PathBuf;
 
-/// A time view on a data file.
+/// A time view on a data file, with the state a script can change.
 struct DataView {
     handle: i64,
     file: SonFile,
+    /// Hidden channels, by channel number. A channel in use is shown until hidden.
+    hidden: Vec<i64>,
+    selected: Vec<i64>,
+    /// Cursors 1 to 9, at a time in seconds.
+    cursors: [Option<f64>; 9],
+    cursor_visible: [bool; 9],
+}
+
+impl DataView {
+    fn new(handle: i64, file: SonFile) -> DataView {
+        DataView { handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9] }
+    }
 }
 
 pub struct Session {
@@ -127,6 +139,91 @@ fn flt(mem: &dyn Mem, a: &Arg) -> Result<f64, RunError> {
     }
 }
 
+impl Session {
+    /// The cursor commands. A cursor sits at a time between 0 and the end of the file.
+    fn cursor_command(&mut self, name: &str, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let some = |v: V| Ok(Some(Some(v)));
+        let max = self.view().unwrap().file.duration();
+        let clamp = |t: f64| t.max(0.0).min(max);
+        let slot = |n: i64| -> Option<usize> { if (1..=9).contains(&n) { Some(n as usize - 1) } else { None } };
+        match name {
+            "Cursor" => {
+                let n = int(mem, &args[0])?;
+                if n >= 10 {
+                    return Err(RunError(super::vm::ERR_INDEX));
+                }
+                let v = self.view_mut().unwrap();
+                let Some(i) = slot(n) else { return some(V::Flt(if n == 0 { 0.0 } else { -1.0 })) };
+                let prev = v.cursors[i];
+                if args.len() > 1 && prev.is_some() {
+                    v.cursors[i] = Some(clamp(flt(mem, &args[1])?));
+                }
+                some(V::Flt(prev.unwrap_or(-1.0)))
+            }
+            "CursorNew" => {
+                let pos = if args.is_empty() { 0.0 } else { flt(mem, &args[0])? };
+                let want = if args.len() > 1 { Some(int(mem, &args[1])?) } else { None };
+                let v = self.view_mut().unwrap();
+                let i = match want {
+                    Some(n) => match slot(n) {
+                        // A number already in use is refused with -1, not replaced.
+                        Some(i) if v.cursors[i].is_some() => return some(V::Int(-1)),
+                        Some(i) => i,
+                        None => return Err(RunError(super::vm::ERR_INDEX)),
+                    },
+                    None => match v.cursors.iter().position(|c| c.is_none()) {
+                        Some(i) => i,
+                        None => return some(V::Int(-1)),
+                    },
+                };
+                v.cursors[i] = Some(clamp(pos));
+                some(V::Int(i as i64 + 1))
+            }
+            "CursorExists" => {
+                let n = int(mem, &args[0])?;
+                if !(0..=9).contains(&n) {
+                    return Err(RunError(super::vm::ERR_INDEX));
+                }
+                let v = self.view().unwrap();
+                // Cursor 0 is the one that always exists.
+                some(V::Int((n == 0 || slot(n).map(|i| v.cursors[i].is_some()).unwrap_or(false)) as i64))
+            }
+            "CursorValid" => {
+                let n = int(mem, &args[0])?;
+                let v = self.view().unwrap();
+                some(V::Int(slot(n).map(|i| v.cursors[i].is_some()).unwrap_or(false) as i64))
+            }
+            "CursorDelete" => {
+                let v = self.view_mut().unwrap();
+                // With no number it removes the highest-numbered cursor.
+                let n = if args.is_empty() {
+                    v.cursors.iter().rposition(|c| c.is_some()).map(|i| i as i64 + 1).unwrap_or(0)
+                } else {
+                    int(mem, &args[0])?
+                };
+                let had = slot(n).map(|i| v.cursors[i].is_some()).unwrap_or(false);
+                if let Some(i) = slot(n) {
+                    v.cursors[i] = None;
+                }
+                // It answers with the number it removed, or 0.
+                some(V::Int(if had { n } else { 0 }))
+            }
+            "CursorSet" => {
+                // CursorSet(n, pos1, pos2 …): n cursors at the given times; any others go.
+                let n = int(mem, &args[0])?;
+                let mut set = [None; 9];
+                for k in 0..(n.clamp(0, 9) as usize) {
+                    let t = if k + 1 < args.len() { flt(mem, &args[k + 1])? } else { 0.0 };
+                    set[k] = Some(clamp(t));
+                }
+                self.view_mut().unwrap().cursors = set;
+                Ok(Some(None))
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
 impl Host for Session {
     fn current_view(&self) -> i64 {
         self.current
@@ -174,7 +271,7 @@ impl Host for Session {
                     Ok(file) => {
                         let handle = self.next;
                         self.next += 1;
-                        self.views.push(DataView { handle, file });
+                        self.views.push(DataView::new(handle, file));
                         self.current = handle;
                         some(V::Int(handle))
                     }
@@ -233,10 +330,66 @@ impl Host for Session {
             }
             "ChanVisible" => {
                 let n = int(mem, &args[0])?;
+                let Some(v) = self.view() else { return Ok(None) };
+                some(V::Int((self.chan(n).is_some() && !v.hidden.contains(&n)) as i64))
+            }
+            "ChanShow" | "ChanHide" => {
                 if self.view().is_none() {
                     return Ok(None);
                 }
-                some(V::Int(self.chan(n).is_some() as i64))
+                let mut chans = Vec::new();
+                for a in args {
+                    match mem.array(a) {
+                        // A channel list: its first element is how many follow.
+                        Some((data, _)) => {
+                            let nums: Vec<i64> = data
+                                .iter()
+                                .map(|d| match d {
+                                    V::Int(i) => *i,
+                                    V::Flt(f) => *f as i64,
+                                    V::Str(_) => 0,
+                                })
+                                .collect();
+                            let n = nums.first().copied().unwrap_or(0).max(0) as usize;
+                            chans.extend(nums.iter().skip(1).take(n));
+                        }
+                        None => chans.push(int(mem, a)?),
+                    }
+                }
+                let hide = name == "ChanHide";
+                for c in chans {
+                    if self.chan(c).is_none() {
+                        continue;
+                    }
+                    let v = self.view_mut().unwrap();
+                    v.hidden.retain(|&h| h != c);
+                    if hide {
+                        v.hidden.push(c);
+                    }
+                }
+                Ok(Some(None))
+            }
+            "ChanSelect" => {
+                let n = int(mem, &args[0])?;
+                if self.view().is_none() {
+                    return Ok(None);
+                }
+                let exists = self.chan(n).is_some();
+                let v = self.view_mut().unwrap();
+                let was = v.selected.contains(&n);
+                if args.len() > 1 {
+                    let on = int(mem, &args[1])? != 0;
+                    v.selected.retain(|&c| c != n);
+                    if on && exists {
+                        v.selected.push(n);
+                    }
+                }
+                some(V::Int(was as i64))
+            }
+            "Cursor" | "CursorNew" | "CursorExists" | "CursorDelete" | "CursorValid" | "CursorSet"
+                if self.view().is_some() =>
+            {
+                self.cursor_command(name, args, mem)
             }
             "NextTime" | "LastTime" if args.len() == 2 => {
                 let (n, t) = (int(mem, &args[0])?, flt(mem, &args[1])?);
