@@ -132,6 +132,18 @@ impl M {
     }
 
     pub fn ld(&self, a: u64, n: u32) -> u64 {
+        // Reading just past the end of the heap, as code that looks one element beyond an array
+        // does, finds zeros, as it does in a process whose heap has not yet grown there.
+        if a >= HEAP_BASE && a < HEAP_BASE + (1 << 40) && a + n as u64 > HEAP_BASE + self.heap.len() as u64 {
+            let mut v = 0u64;
+            for i in 0..n as u64 {
+                let at = a + i;
+                if at < HEAP_BASE + self.heap.len() as u64 {
+                    v |= (self.heap[(at - HEAP_BASE) as usize] as u64) << (8 * i);
+                }
+            }
+            return v;
+        }
         let b = self.bytes(a, n as usize);
         let mut v = 0u64;
         for (i, &c) in b.iter().enumerate() {

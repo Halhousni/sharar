@@ -253,7 +253,8 @@ class Lifter:
             k = 0
             while v <= r + 8 * k < v + rs - 7:
                 ptr, = struct.unpack_from("<Q", im.b, rp + r - v + 8 * k)
-                if not self.is_function_start(ptr):
+                # a vtable slot: any address in the code (leaf routines have no unwind entry)
+                if not (im.tva <= ptr < im.tva + im.text[2]):
                     break
                 out.append(ptr)
                 k += 1
@@ -686,13 +687,13 @@ class Lifter:
                     targets = self.jump_table(ins_list, k, rng)
                 except Unsupported:
                     ptr = val(ins, ops[0], 8)
-                    return f"{{ let t = {ptr}; call_ptr({self.args}, t); m.pop(); return; }}", True
+                    return f"{{ let t = {ptr}; call_ptr({self.args}, t); return; }}", True
                 reg = GPR[ins.reg_name(ops[0].reg)][0]
                 arms = " ".join(f"{t:#x} => {t:#x}," for t in targets)
                 return f"pc = m.r[{reg}]; continue;", True
             if ops[0].type == X.X86_OP_MEM:
                 ptr = val(ins, ops[0], 8)
-                return f"{{ let t = {ptr}; call_ptr({self.args}, t); m.pop(); return; }}", True
+                return f"{{ let t = {ptr}; call_ptr({self.args}, t); return; }}", True
             raise Unsupported("indirect jump at %x" % ins.address)
         if mn.startswith("j"):
             t = ops[0].imm

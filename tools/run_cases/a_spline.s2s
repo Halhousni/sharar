@@ -1,0 +1,20 @@
+var res[300], y[6], yo[12], yi%[5], zo%[9], i%, r%, k%, m2[6][2], yy[12];
+for i% := 0 to 5 do y[i%] := Sin(i%) * 3 + i% next
+k% := 0;
+r% := ArrSpline(yo[], y[]);
+res[k%] := r%; k% += 1;
+for i% := 0 to 11 do res[k%] := yo[i%]; k% += 1; next
+r% := ArrSpline(yo[], y[], 0.5, 0.0);
+res[k%] := r%; k% += 1;
+for i% := 0 to 11 do res[k%] := yo[i%]; k% += 1; next
+r% := ArrSpline(yo[], y[], 0.3, -1.0);
+res[k%] := r%; k% += 1;
+for i% := 0 to 11 do res[k%] := yo[i%]; k% += 1; next
+for i% := 0 to 4 do yi%[i%] := i% * i% - 3 next
+r% := ArrSpline(zo%[], yi%[], 0.5);
+res[k%] := r%; k% += 1;
+for i% := 0 to 8 do res[k%] := zo%[i%]; k% += 1; next
+for i% := 0 to 5 do m2[i%][0] := i% * 1.5; m2[i%][1] := i% * i% * 0.25 next
+r% := ArrSpline(yy[], m2[][], 0.5, 0.0);
+res[k%] := r%; k% += 1;
+for i% := 0 to 11 do res[k%] := yy[i%]; k% += 1; next
