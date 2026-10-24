@@ -1,0 +1,40 @@
+var res[300], h%, c%, k%, i%, a%[4], m%, t;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+c% := MemChan(2);
+res[0] := c%; res[1] := ChanKind(c%); res[2] := ChanVisible(c%);
+Enc(ChanTitle$(c%), 3); Enc(ChanUnits$(c%), 12); Enc(ChanComment$(c%), 16);
+res[30] := MemSetItem(c%, 0, 1.5); res[31] := MemSetItem(c%, 0, 0.5); res[32] := MemSetItem(c%, 0, 2.5); res[33] := MemSetItem(c%, 0, 1.0);
+res[34] := MemGetItem(c%);
+for i% := 0 to 5 do res[35 + i%] := MemGetItem(c%, i%) next
+res[41] := MemSetItem(c%, 1, 3.5); res[42] := MemGetItem(c%);
+for i% := 1 to 4 do res[42 + i%] := MemGetItem(c%, i%) next
+res[47] := MemSetItem(c%, 9, 1);
+res[48] := MemSetItem(c%, 0, 1.5);
+res[49] := MemGetItem(c%);
+res[50] := MemSetItem(c%, 0, -1);
+res[51] := MemGetItem(c%, 1);
+res[52] := NextTime(c%, -1); res[53] := NextTime(c%, 1.0); res[54] := LastTime(c%, 1.5); res[55] := LastTime(c%, 0); res[56] := Count(c%, 0, 10); res[57] := Count(c%, 1, 2);
+res[58] := ChanData(c%, a%[], 0, 10, t); res[59] := t; for i% := 0 to 3 do res[60 + i%] := a%[i%] next
+ChanShow(c%); res[64] := ChanVisible(c%); ChanHide(c%); res[65] := ChanVisible(c%);
+res[66] := MemDeleteItem(c%, 2); res[67] := MemGetItem(c%); res[68] := MemGetItem(c%, 2);
+res[69] := MemDeleteItem(c%, 1, 2); res[70] := MemGetItem(c%);
+res[71] := MemDeleteItem(c%, 7); res[72] := MemDeleteItem(c%, 0);
+res[73] := MemImport(c%, 2, 0, 10); res[74] := MemGetItem(c%); res[75] := MemGetItem(c%, 1); res[76] := MemGetItem(c%, 2);
+res[77] := MemImport(c%, 3, 0, 1); res[78] := MemGetItem(c%);
+t := NextTime(2, -1);
+res[79] := MemDeleteItem(c%, -1); res[80] := MemGetItem(c%);
+res[81] := MemImport(c%, 2, t, t); res[82] := MemGetItem(c%);
+res[83] := MemDeleteItem(c%); res[84] := MemGetItem(c%);
+res[85] := MemImport(c%, 2, t + 1e-6, t + 1); res[86] := MemGetItem(c%);
+res[87] := MemImport(c%, 2, t - 1e-6, t - 1e-7); res[88] := MemGetItem(c%);
+Enc(ChanTitle$(c%, "New"), 90); Enc(ChanTitle$(c%), 100); Enc(ChanUnits$(c%, "mV"), 105); Enc(ChanUnits$(c%), 110); Enc(ChanComment$(c%, "cmt"), 115); Enc(ChanComment$(c%), 125);
+Enc(ChanTitle$(1, "Sine2"), 135); Enc(ChanTitle$(1), 145);
+res[155] := ChanScale(1, 2.5); res[156] := ChanScale(1); res[157] := ChanOffset(1, 0.25); res[158] := ChanOffset(1);
+res[159] := ChanDelete(c%); res[160] := ChanKind(c%);
+res[161] := MemChan(5);
+View(h%); FileClose();
