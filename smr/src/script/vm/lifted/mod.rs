@@ -265,6 +265,15 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 let v = f64::from_bits(m.xl(2));
                 self.set_arg(int_arg(rdx), V::Flt(v));
             }
+            "?SetCRef@CRunInfo@@QEBAXHK@Z" => {
+                // a colour into three arguments: red, green, blue
+                let c = r8 as u32;
+                let i = int_arg(rdx);
+                self.set_arg(i, V::Flt((c & 0xff) as f64 / 255.0));
+                self.set_arg(i + 1, V::Flt(((c >> 8) & 0xff) as f64 / 255.0));
+                self.set_arg(i + 2, V::Flt(((c >> 16) & 0xff) as f64 / 255.0));
+            }
+            "?SendMessageToDescendants@CWnd@@SAXPEAUHWND__@@I_K_JHH@Z" => {}
             "?SetInt@CRunInfo@@QEBAXH_J@Z" => self.set_arg(int_arg(rdx), V::Int(r8 as i64)),
             "?StoreIntResult@CRunInfo@@QEBAX_J@Z" => self.result = Some(V::Int(rdx as i64)),
             "?StoreFloatResult@CRunInfo@@QEBAXN@Z" => self.result = Some(V::Flt(f64::from_bits(m.xl(1)))),
@@ -510,6 +519,12 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 let s = String::from_utf16_lossy(&v);
                 m.r[0] = crate::script::text::parse_int(s.trim_start()) as i32 as u32 as u64;
             }
+            other if self.world.lenient => {
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  (service {other} skipped)");
+                }
+                m.r[0] = 0;
+            }
             other => {
                 self.missing = Some(other.to_string());
                 panic!("the service {other} is not provided");
@@ -573,9 +588,39 @@ impl<'v, 'w> Run<'v, 'w> {
         let t = m.alloc(0x20000);
         self.world.wnds.insert(0, t);
         let saved = m.r;
+        // the window's own constructor, with services nothing provides answering zero
+        {
+            self.world.lenient = true;
+            let sp = m.r[4];
+            m.r[1] = t;
+            m.push(0);
+            let r = catch_unwind(AssertUnwindSafe(|| commands::call_at(m, self, 0x1_4008_6a50 + (7u64 << 32))));
+            self.world.lenient = false;
+            m.r[4] = sp;
+            m.r = saved;
+            if r.is_ok() && m.ld(t + 0xc870, 8) != 0 {
+                return t;
+            }
+            if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                let why = match &r {
+                    Err(p) => p.downcast_ref::<String>().cloned().or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default(),
+                    Ok(()) => "constructed no configuration".to_string(),
+                };
+                eprintln!("  (the main window's constructor did not finish: {why})");
+            }
+        }
         m.r[1] = t + 0x1d0;
         commands::call_export("??0CSamModeInfo@@QEAA@XZ", m, self);
         m.r = saved;
+        // the colour tables the window's constructor fills from the defaults in the program
+        let bias = 7u64 << 32;
+        for i in 0..0x28u64 {
+            let c = m.ld(0x1_4000_0000 + 0x289bf0 + 4 * i + bias, 4);
+            m.st(0x1_4000_0000 + 0x419260 + 4 * i + bias, 4, c);
+            let w = m.ld(0x1_4000_0000 + 0x289c90 + 2 * i + bias - 0x0, 2) as u16 as i16;
+            let v = if w < 0 { 0xffff_ffff } else { m.ld(0x1_4000_0000 + 0x289bf0 + 4 * w as u64 + bias, 4) };
+            m.st(0x1_4000_0000 + 0x4191c0 + 4 * i + bias, 4, v);
+        }
         // the IIR filter bank the application keeps (and the IIRDefine it edits)
         let def = m.alloc(0xf8);
         m.r[1] = def;
@@ -844,6 +889,8 @@ pub struct World {
     app: u64,
     /// How many command objects of each class have been built.
     seen: std::collections::HashMap<u64, usize>,
+    /// While the main window is being built, services nothing provides answer zero.
+    lenient: bool,
 }
 
 impl Default for World {
@@ -854,7 +901,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default() }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false }
     }
 }
 

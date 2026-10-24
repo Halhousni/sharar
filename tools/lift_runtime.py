@@ -146,8 +146,29 @@ def init_tables(mod):
             out.append(st)
     return out
 
-INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "runtime"]
-INITS = {m: init_tables(m) for m in INIT_ORDER}
+def crt_run(mod):
+    """The C++ static-initialiser table of an executable (the compiler's `.CRT$XCU` run): the longest
+    row of pointers, in the data, to small routines of the module."""
+    im = lifters[mod].im
+    best = []
+    for n, v, vs, rp, rs in im.secs:
+        if n not in (b".rdata", b".data"):
+            continue
+        run = []
+        for off in range(rp, rp + rs - 8, 8):
+            p, = struct.unpack_from("<Q", im.b, off)
+            if im.tva + im.text[2] - 0x7000 <= p < im.tva + im.text[2]:
+                run.append(p)
+            else:
+                if len(run) > len(best):
+                    best = run
+                run = []
+        if len(run) > len(best):
+            best = run
+    return best if len(best) >= 20 else []
+
+INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "filters", "sonview", "runtime"]
+INITS = {m: (crt_run(m) if m in ("sonview", "filters") else init_tables(m)) for m in INIT_ORDER}
 for m_, fs in INITS.items():
     for a in fs:
         if a not in lifters[m_].roots:
