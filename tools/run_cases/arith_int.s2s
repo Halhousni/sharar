@@ -1,0 +1,8 @@
+var res[20], a%, b%;
+a% := 17; b% := 5;
+res[0] := a% + b%; res[1] := a% - b%; res[2] := a% * b%; res[3] := a% / b%;
+res[4] := a% mod b%; res[5] := -a% / b%; res[6] := -a% mod b%; res[7] := a% mod -b%;
+res[8] := a% band b%; res[9] := a% bor b%; res[10] := a% bxor b%;
+res[11] := a% > b%; res[12] := a% = b%; res[13] := a% <> b%; res[14] := a% <= b%;
+res[15] := not a%; res[16] := -a%; res[17] := a% and 0; res[18] := a% or 0;
+res[19] := 7 xor 2;

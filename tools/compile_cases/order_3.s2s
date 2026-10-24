@@ -1,0 +1,7 @@
+var a%;
+proc P()
+ var l%;
+ if 1 then var m%; endif
+end;
+var z%;
+z% := 1;

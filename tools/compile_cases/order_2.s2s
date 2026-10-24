@@ -1,0 +1,4 @@
+var a%;
+for a% := 1 to 2 do var b%; b% := 3; next
+var c%;
+c% := 2;

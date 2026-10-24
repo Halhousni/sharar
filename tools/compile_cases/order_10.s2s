@@ -1,0 +1,9 @@
+var a%;
+func Q%()
+return 1;
+end;
+proc P()
+end;
+var z%;
+z% := Q%();
+P();

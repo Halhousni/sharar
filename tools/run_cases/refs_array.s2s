@@ -1,0 +1,13 @@
+var res[8], v[4], i%;
+proc Fill(a[], k)
+  var i%;
+  for i% := 0 to Len(a[]) - 1 do a[i%] := k * i% next
+end;
+func Total(a[])
+  var i%, t;
+  for i% := 0 to Len(a[]) - 1 do t += a[i%] next
+  return t;
+end;
+Fill(v[], 2.5);
+for i% := 0 to 3 do res[i%] := v[i%] next;
+res[4] := Total(v[]);

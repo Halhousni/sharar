@@ -480,11 +480,20 @@ fn finish(mut g: Gen) -> Compiled {
     }
 }
 
-/// Number the symbols: variables and constants in source order, then the routines.
+/// Number the symbols in the order the source declares them: variables, constants and
+/// routines alike. A `var` inside a block at the top level is still a global, numbered
+/// where it stands; a routine's own variables take no symbol.
 fn collect(g: &mut Gen, stmts: &[Stmt]) -> Result<(), CompileError> {
     for s in stmts {
-        let is_const = matches!(s, Stmt::Const(_));
-        if let Stmt::Var(ds) | Stmt::Const(ds) = s {
+        collect_stmt(g, s)?;
+    }
+    Ok(())
+}
+
+fn collect_stmt(g: &mut Gen, s: &Stmt) -> Result<(), CompileError> {
+    match s {
+        Stmt::Var(ds) | Stmt::Const(ds) => {
+            let is_const = matches!(s, Stmt::Const(_));
             for d in ds {
                 if g.symbols.iter().any(|x| x.name == d.name) {
                     return Err(CompileError(format!("duplicate name {}", d.name)));
@@ -519,35 +528,47 @@ fn collect(g: &mut Gen, stmts: &[Stmt]) -> Result<(), CompileError> {
                 });
             }
         }
-    }
-    for s in stmts {
-        let (name, params, kind) = match s {
-            Stmt::Proc(n, p, _) => (n, p, Kind::Proc),
-            Stmt::Func(n, p, _) => (n, p, Kind::Func(Ty::of(n))),
-            _ => continue,
-        };
-        if g.symbols.iter().any(|x| x.name == *name) {
-            return Err(CompileError(format!("duplicate name {name}")));
+        Stmt::Proc(name, params, _) | Stmt::Func(name, params, _) => {
+            let kind = if matches!(s, Stmt::Proc(..)) { Kind::Proc } else { Kind::Func(Ty::of(name)) };
+            if g.symbols.iter().any(|x| x.name == *name) {
+                return Err(CompileError(format!("duplicate name {name}")));
+            }
+            if g.commands && super::commands::find(name).is_some() {
+                return Err(CompileError(format!("reuse of built-in script function name {name}")));
+            }
+            let args = params
+                .iter()
+                .map(|p| {
+                    let by_ref = p.starts_with('&');
+                    let p = p.trim_start_matches('&');
+                    let array = p.ends_with("[]");
+                    let bare = p.trim_end_matches("[]");
+                    Param { name: bare.to_string(), ty: Ty::of(bare), by_ref, array }
+                })
+                .collect();
+            let ty = match kind {
+                Kind::Func(t) => t,
+                _ => Ty::Float,
+            };
+            g.symbols.push(Symbol { name: name.clone(), ty, kind, value: None, dims: 0, sizes: Vec::new(), init: None });
+            g.routines.push(Routine { name: name.clone(), kind, args });
         }
-        if g.commands && super::commands::find(name).is_some() {
-            return Err(CompileError(format!("reuse of built-in script function name {name}")));
+        Stmt::If(_, a, b) => {
+            for t in a.iter().chain(b) {
+                collect_stmt(g, t)?;
+            }
         }
-        let args = params
-            .iter()
-            .map(|p| {
-                let by_ref = p.starts_with('&');
-                let p = p.trim_start_matches('&');
-                let array = p.ends_with("[]");
-                let bare = p.trim_end_matches("[]");
-                Param { name: bare.to_string(), ty: Ty::of(bare), by_ref, array }
-            })
-            .collect();
-        let ty = match kind {
-            Kind::Func(t) => t,
-            _ => Ty::Float,
-        };
-        g.symbols.push(Symbol { name: name.clone(), ty, kind, value: None, dims: 0, sizes: Vec::new(), init: None });
-        g.routines.push(Routine { name: name.clone(), kind, args });
+        Stmt::While(_, body) | Stmt::Repeat(body, _) | Stmt::For { body, .. } => {
+            for t in body {
+                collect_stmt(g, t)?;
+            }
+        }
+        Stmt::Case(arms, otherwise) => {
+            for t in arms.iter().flat_map(|(_, b)| b).chain(otherwise) {
+                collect_stmt(g, t)?;
+            }
+        }
+        _ => {}
     }
     Ok(())
 }

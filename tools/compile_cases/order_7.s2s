@@ -1,0 +1,5 @@
+var a%;
+proc P()
+end;
+var z%;
+z% := 1;

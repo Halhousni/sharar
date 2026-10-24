@@ -1,0 +1,7 @@
+var a%;
+proc P(x%)
+ var l%;
+ l% := x%;
+end;
+var z%;
+z% := 1;

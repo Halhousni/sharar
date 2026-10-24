@@ -11,6 +11,7 @@ pub mod exec;
 pub mod lexer;
 pub mod parser;
 pub mod print;
+pub mod vm;
 
 pub use lexer::{lex, LexError, Tok, Token};
 pub use compile::{compile, compile_with_commands, CompileError, Compiled};

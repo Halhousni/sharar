@@ -1,0 +1,7 @@
+var res[16], a$, b$, c$;
+a$ := "Hello"; b$ := "World"; c$ := a$ + ", " + b$;
+res[0] := Len(c$);
+res[1] := a$ = "Hello"; res[2] := a$ <> b$; res[3] := a$ < b$; res[4] := a$ > b$;
+res[5] := "abc" < "abd"; res[6] := "Abc" = "abc"; res[7] := "a" < "B"; res[8] := "" < "a";
+c$ += "!"; res[9] := Len(c$);
+res[10] := Asc(a$); res[11] := Asc(b$);

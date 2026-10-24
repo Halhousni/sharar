@@ -1,0 +1,20 @@
+var res[10], g%;
+proc Bump(&x%, n%)
+  x% += n%;
+  n% := 100;
+end;
+func Fact%(n%)
+  if n% <= 1 then return 1; endif
+  return n% * Fact%(n% - 1);
+end;
+func Half(x)
+  return x / 2;
+end;
+func Cat$(a$, b$)
+  return a$ + b$;
+end;
+g% := 5; Bump(g%, 3); res[0] := g%;
+res[1] := Fact%(6);
+res[2] := Half(5);
+res[3] := Len(Cat$("ab", "cde"));
+var loc%; loc% := 7; Bump(loc%, 1); res[4] := loc%;

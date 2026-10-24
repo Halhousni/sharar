@@ -1,0 +1,10 @@
+var res[6], n%, s%;
+n% := 5; while n% > 0 do s% += n%; n% -= 1 wend; res[0] := s%; res[1] := n%;
+n% := 0; repeat n% += 3 until n% > 10; res[2] := n%;
+s% := 0; n% := 0; while n% < 10 do n% += 1; if n% mod 2 = 0 then continue endif s% += n% wend; res[3] := s%;
+n% := 0; repeat n% += 1; if n% = 4 then break endif until 0; res[4] := n%;
+docase
+case n% = 3 then res[5] := 30;
+case n% = 4 then res[5] := 40;
+else res[5] := 99;
+endcase

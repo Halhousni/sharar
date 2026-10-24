@@ -1,0 +1,12 @@
+var res[6];
+func Sum%(n%)
+  var s%, i%;
+  for i% := 1 to n% do s% += i% next
+  return s%;
+end;
+func Mix(a%, b)
+  var t;
+  t := a% * b;
+  return t + 0.5;
+end;
+res[0] := Sum%(10); res[1] := Sum%(0); res[2] := Mix(3, 1.5); res[3] := Sum%(4) + Sum%(3);

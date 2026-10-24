@@ -1,0 +1,6 @@
+var a%;
+while a% < 3 do
+ var q%;
+ q% := a%;
+ a% += 1;
+wend

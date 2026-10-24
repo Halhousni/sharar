@@ -1,0 +1,8 @@
+var res[24], a[3], b%[2][3], c[2][2][2], i%, j%, k%;
+for i% := 0 to 2 do a[i%] := i% * 1.5 next;
+res[0] := a[0]; res[1] := a[1]; res[2] := a[2];
+for i% := 0 to 1 do for j% := 0 to 2 do b%[i%][j%] := i% * 10 + j% next next;
+res[3] := b%[0][0]; res[4] := b%[0][2]; res[5] := b%[1][0]; res[6] := b%[1][2];
+for i% := 0 to 1 do for j% := 0 to 1 do for k% := 0 to 1 do c[i%][j%][k%] := i%*4 + j%*2 + k% next next next;
+res[7] := c[0][0][1]; res[8] := c[0][1][0]; res[9] := c[1][0][0]; res[10] := c[1][1][1];
+res[11] := Len(a[]);

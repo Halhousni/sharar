@@ -1,0 +1,5 @@
+var a%;
+if a% then var b%; endif
+var c%;
+b% := 1;
+c% := 2;
