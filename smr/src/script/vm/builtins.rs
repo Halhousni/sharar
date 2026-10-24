@@ -5,6 +5,7 @@
 //! `tools/run_oracle.py` runs them), and where a behaviour has not been checked the code
 //! says so. A command not listed here stops the run with [`Stop::Command`](super::Stop).
 
+use super::msvcrt;
 use super::printf::{self, Fv};
 use super::{Arg, Cell, Ref, RunError, Vm, ERR_INDEX, ERR_TYPE, V};
 use crate::script::exec::{as_flt, to_int};
@@ -422,28 +423,28 @@ impl Vm {
                 }
             }
             "Sqrt" => self.map_real(&args[0], f64::sqrt),
-            "Sin" => self.map_real(&args[0], f64::sin),
-            "Cos" => self.map_real(&args[0], f64::cos),
-            "Tan" => self.map_real(&args[0], f64::tan),
-            "Sinh" => self.map_real(&args[0], f64::sinh),
-            "Cosh" => self.map_real(&args[0], f64::cosh),
-            "Tanh" => self.map_real(&args[0], f64::tanh),
-            "Exp" => self.map_real(&args[0], f64::exp),
-            "Ln" => self.map_real(&args[0], f64::ln),
-            "Log" => self.map_real(&args[0], f64::log10),
+            "Sin" => self.map_real(&args[0], msvcrt::sin),
+            "Cos" => self.map_real(&args[0], msvcrt::cos),
+            "Tan" => self.map_real(&args[0], msvcrt::tan),
+            "Sinh" => self.map_real(&args[0], msvcrt::sinh),
+            "Cosh" => self.map_real(&args[0], msvcrt::cosh),
+            "Tanh" => self.map_real(&args[0], msvcrt::tanh),
+            "Exp" => self.map_real(&args[0], msvcrt::exp),
+            "Ln" => self.map_real(&args[0], msvcrt::log),
+            "Log" => self.map_real(&args[0], msvcrt::log10),
             "Trunc" => self.map_real(&args[0], |x| f64::trunc(x) + 0.0),
             "Floor" => self.map_real(&args[0], f64::floor),
             "Ceil" => self.map_real(&args[0], |x| f64::ceil(x) + 0.0),
             "Frac" => self.map_real(&args[0], f64::fract),
             "Round" => self.map_real(&args[0], |x| x.round() + 0.0),
-            "ATan" if args.len() == 1 => self.map_real(&args[0], f64::atan),
+            "ATan" if args.len() == 1 => self.map_real(&args[0], msvcrt::atan),
             "ATan" => {
                 let (y, x) = (self.a_flt(&args[0])?, self.a_flt(&args[1])?);
-                some(V::Flt(y.atan2(x)))
+                some(V::Flt(msvcrt::atan2(y, x)))
             }
             "Pow" => {
                 let (x, y) = (self.a_flt(&args[0])?, self.a_flt(&args[1])?);
-                some(V::Flt(x.powf(y)))
+                some(V::Flt(msvcrt::pow(x, y)))
             }
             "Max" | "Min" => {
                 let max = name == "Max";
@@ -661,7 +662,7 @@ impl CRand {
                 break u;
             }
         };
-        offset - (u as f64 * (1.0 / 4294967296.0)).ln() * scale
+        offset - msvcrt::log(u as f64 * (1.0 / 4294967296.0)) * scale
     }
 
     pub fn normal(&mut self, scale: f64, offset: f64) -> f64 {
@@ -674,7 +675,7 @@ impl CRand {
             let v2 = self.unit() * 2.0 - 1.0;
             let r = v2 * v2 + v1 * v1;
             if r < 1.0 && r != 0.0 {
-                let f = ((r.ln() * -2.0) / r).sqrt();
+                let f = ((msvcrt::log(r) * -2.0) / r).sqrt();
                 self.spare = f * v1;
                 self.have_spare = true;
                 return f * v2 * scale + offset;

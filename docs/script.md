@@ -541,10 +541,24 @@ What that found, beyond what could be read from the code:
 - A query on a channel that does not exist returns a code rather than raising an error:
   `ChanKind` 0, `ChanTitle$` an empty string, `ChanComment$` `No comment`, `NextTime` -1505.
 
-Known gap: Spike2's `Cos`, `Cosh`, `Sinh` and `ATan` come from `msvcr110.dll`'s maths library
-and differ from the host's in the last bit for a few arguments. The test tolerates one unit
-in the last place for exactly those programs and nowhere else; porting the library's routines
-(they use lookup tables and a range-reduction helper) would close it.
+### The maths library
+
+`Sin`, `Cos`, `Tan`, `ATan`, `Sinh`, `Cosh`, `Tanh`, `Exp`, `Ln`, `Log` and `Pow` (and the
+distributions in `Rand*`, which take logarithms) call `msvcr110.dll`'s routines, and a host libm
+rounds many arguments differently in the last bit. They are therefore the DLL's own:
+`tools/lift_libm.py` reads the DLL and writes `smr/src/script/vm/msvcrt_gen.rs`, one Rust function
+per routine in which each x86 instruction is one call on the small machine model in `mach.rs`
+(registers, flags, SSE2 scalar arithmetic, a stack), plus `msvcrt.dat`, the constant tables the
+routines read. The DLL's error reporting (errno, `_matherr`) is not translated; each of its entry
+points answers with the value it was given. Translating the instructions rather than transcribing
+a decompiler's output matters: a decompiler prints `a * b * c * d` for a product the code groups
+as `a * (b * c * d)`, and the grouping decides the last bit.
+
+`tools/libm_fuzz.py` runs the real DLL under Wine (`WINEDLLOVERRIDES=msvcr110=n`; without it Wine
+substitutes its own implementation, which is the host's libm) and compares every function on
+a million arguments each: random bit patterns, log-uniform magnitudes, values next to multiples of
+pi/2, denormals, NaNs and infinities. Zero differences. `smr/tests/libm_reference.rs` keeps a
+few hundred of each, and the `m_libm_*` programs compare against Spike2 itself.
 
 ## What is not known yet
 

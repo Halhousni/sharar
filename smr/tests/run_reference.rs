@@ -24,26 +24,6 @@ fn find(rel: &str) -> Option<PathBuf> {
     None
 }
 
-/// Programs whose results differ from Spike2's in the last bits, and only that: Spike2 calls
-/// the maths library of msvcr110.dll, which rounds some arguments differently from the host's.
-/// Porting its routines (they use lookup tables and a range-reduction helper) closes the gap;
-/// until then a difference of a few units in the last place is tolerated for these programs
-/// and nowhere else.
-const LAST_BITS: &[&str] = &["g_cos", "g_cosh", "g_sinh", "g_atan", "g_array_math", "s_rand"];
-
-fn ulps_allowed(name: &str) -> u64 {
-    if name.starts_with("m_libm_") || LAST_BITS.contains(&name) {
-        4
-    } else {
-        0
-    }
-}
-
-fn near(a: u64, b: u64, ulps: u64) -> bool {
-    let (x, y) = (f64::from_bits(a), f64::from_bits(b));
-    x.is_finite() && y.is_finite() && x.signum() == y.signum() && a.abs_diff(b) <= ulps
-}
-
 fn bits(v: &V) -> u64 {
     match v {
         V::Int(i) => (*i as f64).to_bits(),
@@ -114,7 +94,6 @@ fn programs_compute_what_spike2_computes() {
                         (Some(&w), Some(&g)) => {
                             w != g
                                 && !(nan(w) && nan(g))
-                                && !(ulps_allowed(name) > 0 && near(w, g, ulps_allowed(name)))
                         }
                         _ => true,
                     })
