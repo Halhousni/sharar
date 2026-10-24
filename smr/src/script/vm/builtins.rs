@@ -29,7 +29,7 @@ impl Vm {
         }
     }
 
-    fn a_str(&self, a: &Arg) -> Result<String, RunError> {
+    pub(super) fn a_str(&self, a: &Arg) -> Result<String, RunError> {
         match self.a_val(a)? {
             V::Str(s) => Ok(s),
             _ => Err(RunError(ERR_TYPE)),
@@ -56,11 +56,11 @@ impl Vm {
         }
     }
 
-    fn a_flt(&self, a: &Arg) -> Result<f64, RunError> {
+    pub(super) fn a_flt(&self, a: &Arg) -> Result<f64, RunError> {
         Ok(as_flt(self.a_val(a)?.num()?))
     }
 
-    fn a_int(&self, a: &Arg) -> Result<i64, RunError> {
+    pub(super) fn a_int(&self, a: &Arg) -> Result<i64, RunError> {
         to_int(self.a_val(a)?.num()?)
     }
 
@@ -170,7 +170,6 @@ impl Vm {
 
     /// Run a command; `Ok(None)` if it is not ported yet.
     pub(super) fn builtin(&mut self, name: &str, variant: usize, args: &[Arg]) -> Out {
-        let _ = variant;
         match name {
             // ---- strings -------------------------------------------------------------
             "Len" => {
@@ -517,6 +516,7 @@ impl Vm {
                 let first = it.next().ok_or(RunError(ERR_INDEX))?;
                 some(V::Flt(it.fold(first, |m, x| if max { m.max(x) } else { m.min(x) })))
             }
+            _ if super::lifted::has(name) => self.run_lifted(name, variant, args),
             _ => Ok(None),
         }
     }

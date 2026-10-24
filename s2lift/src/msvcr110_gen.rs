@@ -8833,6 +8833,33 @@ pub(super) fn f_18008c3e0(m: &mut M) {
     }
 }
 
+/// Call a routine through a pointer (a function pointer or a virtual call).
+fn call_ptr(m: &mut M, t: u64) {
+    match t {
+        0x18007f6f4 => f_18007f6f4(m),
+        0x180080908 => f_180080908(m),
+        0x180080e7c => f_180080e7c(m),
+        0x180081398 => f_180081398(m),
+        0x1800815f8 => f_1800815f8(m),
+        0x180082660 => f_180082660(m),
+        0x180082df0 => f_180082df0(m),
+        0x18008319c => f_18008319c(m),
+        0x1800836b0 => f_1800836b0(m),
+        0x1800847c0 => f_1800847c0(m),
+        0x180084a80 => f_180084a80(m),
+        0x1800853e0 => f_1800853e0(m),
+        0x1800867d0 => f_1800867d0(m),
+        0x180086fe0 => f_180086fe0(m),
+        0x1800873d8 => f_1800873d8(m),
+        0x180087adc => f_180087adc(m),
+        0x180087da8 => f_180087da8(m),
+        0x180088550 => f_180088550(m),
+        0x180088678 => f_180088678(m),
+        0x18008c3e0 => f_18008c3e0(m),
+        _ => m.fail(&format!("a call through a pointer to {t:#x}")),
+    }
+}
+
 static BLOB: &[u8] = include_bytes!("msvcr110.dat");
 /// (address in the DLL, offset in the blob, length)
 const RANGES: &[(u64, u32, u32)] = &[

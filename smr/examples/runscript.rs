@@ -10,6 +10,9 @@ fn main() {
     let mut vm = Vm::new(c, true).unwrap();
     let stop = vm.run();
     print!("{}", vm.log);
+    if let Some(why) = &vm.lifted_error {
+        println!("translated code stopped: {why}");
+    }
     println!("stopped: {stop:?}");
     if let Some(res) = vm.array("res") {
         println!("res = {res:?}");

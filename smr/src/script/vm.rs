@@ -127,10 +127,13 @@ pub enum Arg {
 }
 
 mod builtins;
+pub mod lifted;
 pub use s2lift::{msvcrt, special};
 mod printf;
 
 pub struct Vm {
+    /// Why the last translated command stopped, when it reached something not provided.
+    pub lifted_error: Option<String>,
     code: Code,
     cells: Vec<Cell>,
     stack: Vec<Item>,
@@ -196,6 +199,7 @@ impl Vm {
         let pool_base = first_word + prog.globals.len() as u16;
         let code = Code::new(prog.code.clone());
         Ok(Vm {
+            lifted_error: None,
             code,
             cells,
             stack: Vec::new(),
@@ -273,7 +277,7 @@ impl Vm {
 
     /// Write, converting to the place's own type as the typed setters do: an integer place
     /// takes `to_int`, a real one `cvtsi2sd`.
-    fn set(&mut self, r: Ref, v: V) -> Result<(), RunError> {
+    pub(super) fn set(&mut self, r: Ref, v: V) -> Result<(), RunError> {
         let ty = self.ty_of(r);
         let v = match (ty, v) {
             (Ty::Int, v) => V::Int(to_int(v.num()?)?),

@@ -48,12 +48,21 @@ class Lifter:
               to it become `m.fail(..)` instead of being translated.
     """
 
-    def __init__(self, dll, roots, stubs, imports, fail_imports):
+    def __init__(self, dll, roots, stubs, imports, fail_imports, svc=False, default_import=None, cross=None):
+        # `svc`: functions take a second argument, the services the host provides.
+        # `default_import(name)` gives the statements for an import `imports` does not list.
+        # `cross(name)` gives (module, address) for an import that another translated module
+        # supplies, or None.
+        self.svc = svc
+        self.default_import = default_import
+        self.cross = cross
+        self.import_names = []
         self.im = Image(dll)
         self.roots = list(roots)
         self.stubs = stubs
         self.imports = imports
         self.fail_re = re.compile(fail_imports)
+        self.args = "m, s" if svc else "m"
         self.iat = self.im.imports()
         self.data_refs = set()
         self.table_bases = set()
@@ -138,6 +147,30 @@ class Lifter:
                 rngs.append((i.address, i.address + i.size))
         return out, rngs
 
+    def is_function_start(self, t):
+        """Is `t` the start of a routine, so that a pointer to it may be called?"""
+        im = self.im
+        if not (im.tva <= t < im.tva + im.text[2]):
+            return False
+        if t in self.ranges:
+            return True
+        # a thunk: jmp qword ptr [rip + import]
+        o = im.off(t)
+        return im.b[o:o + 2] == b"\xff\x25"
+
+    def import_stmt(self, name, tail=False):
+        """Statements that do what a call through the import table to `name` does."""
+        if name in self.imports:
+            return self.imports[name]
+        if self.cross:
+            c = self.cross(name)
+            if c:
+                mod, addr = c
+                return f"crate::{mod}::enter_{addr:x}({self.args});"
+        if self.default_import:
+            return self.default_import(self, name)
+        return None
+
     def import_of(self, ins):
         op = ins.operands[0]
         if op.type == X.X86_OP_MEM and op.mem.base == X.X86_REG_RIP:
@@ -146,6 +179,7 @@ class Lifter:
         return None, None
 
     def discover(self):
+        self.known, self.failing, self.imports_used = set(), set(), set()
         work = list(self.roots)
         while work:
             s = work.pop()
@@ -159,6 +193,19 @@ class Lifter:
                 continue
             self.known.add(s)
             for i in ins:
+                for op in i.operands:
+                    if op.type == X.X86_OP_MEM and op.mem.base == X.X86_REG_RIP and i.mnemonic not in ("call", "jmp"):
+                        slot = (i.address + i.size + op.mem.disp) & 0xffffffffffffffff
+                        if slot in self.iat and not self.iat[slot].startswith("_") and not self.iat[slot] in ("_Nan",):
+                            self.imports_used.add(self.iat[slot])
+                if i.mnemonic == "lea" and i.operands[1].type == X.X86_OP_MEM and i.operands[1].mem.base == X.X86_REG_RIP:
+                    t = (i.address + i.size + i.operands[1].mem.disp) & 0xffffffffffffffff
+                    if self.is_function_start(t):
+                        work.append(t)
+                if i.mnemonic in ("call", "jmp") and i.operands[0].type == X.X86_OP_MEM:
+                    _, imp = self.import_of(i)
+                    if imp:
+                        self.imports_used.add(imp)
                 if i.mnemonic in ("call", "jmp") and i.operands[0].type == X.X86_OP_IMM:
                     t = i.operands[0].imm
                     if not any(b <= t < e for b, e in rngs):
@@ -421,18 +468,22 @@ class Lifter:
                 if t in self.stubs:
                     return f"{self.stubs[t]} m.pop(); return;", True
                 if t in self.known:
-                    return f"f_{t:x}(m); return;", True
+                    return f"f_{t:x}({self.args}); return;", True
                 if t in self.failing:
                     return f"m.fail(\"an error path at {t:#x}\");", True
                 raise Unsupported(f"jump out of the function to {t:#x} at {ins.address:x}")
             a, name = self.import_of(ins)
             if name is not None:
-                code = self.imports.get(name)
+                code = self.import_stmt(name, True)
                 if code is None:
                     return f"m.fail(\"the import {name}\");", True
                 return f"{code} m.pop(); return;", True
             if ops[0].type == X.X86_OP_REG:
-                targets = self.jump_table(ins_list, k, rng)
+                try:
+                    targets = self.jump_table(ins_list, k, rng)
+                except Unsupported:
+                    ptr = val(ins, ops[0], 8)
+                    return f"{{ let t = {ptr}; call_ptr({self.args}, t); m.pop(); return; }}", True
                 reg = GPR[ins.reg_name(ops[0].reg)][0]
                 arms = " ".join(f"{t:#x} => {t:#x}," for t in targets)
                 return f"pc = m.r[{reg}]; continue;", True
@@ -450,18 +501,19 @@ class Lifter:
                 return self.call_stmt(ops[0].imm), False
             a, name = self.import_of(ins)
             if name is not None:
-                code = self.imports.get(name)
+                code = self.import_stmt(name)
                 if code is None:
                     return f"m.fail(\"the import {name}\");", False
                 return code, False
-            return f"m.fail(\"an indirect call at {ins.address:#x}\");", False
+            ptr = val(ins, ops[0], 8)
+            return f"{{ let t = {ptr}; m.push(0); call_ptr({self.args}, t); }}", False
         raise Unsupported(f"{mn} {ins.op_str} at {ins.address:x}")
 
     def call_stmt(self, t):
         if t in self.stubs:
             return self.stubs[t]
         if t in self.known:
-            return f"m.push(0); f_{t:x}(m);"
+            return f"m.push(0); f_{t:x}({self.args});"
         if t in self.failing:
             return f"m.fail(\"an error path at {t:#x}\");"
         raise Unsupported(f"call to {t:#x}")
@@ -489,11 +541,14 @@ class Lifter:
                 if inside(i.operands[0].imm):
                     leaders.add(i.operands[0].imm)
             elif i.mnemonic == "jmp" and i.operands[0].type == X.X86_OP_REG:
-                jt[k] = self.jump_table(ins_list, k, rng)
-                leaders.update(jt[k])
+                try:
+                    jt[k] = self.jump_table(ins_list, k, rng)
+                    leaders.update(jt[k])
+                except Unsupported:
+                    pass  # a jump through a pointer, not a table: lift_ins stops there
             if i.mnemonic in ("jmp", "ret", "repz ret") or (i.mnemonic.startswith("j") and i.mnemonic != "jmp"):
                 leaders.add(i.address + i.size)
-        lines = [f"pub(super) fn f_{s:x}(m: &mut M) {{", f"    let mut pc: u64 = {s:#x};", "    loop {", "        match pc {"]
+        lines = [f"pub(super) fn f_{s:x}({'m: &mut M, s: &mut dyn Svc' if self.svc else 'm: &mut M'}) {{", f"    let mut pc: u64 = {s:#x};", "    loop {", "        match pc {"]
         cur, body, terminated = None, [], True
 
         def close(next_addr):
@@ -529,13 +584,23 @@ class Lifter:
         lines += ["            _ => unreachable!(\"jump to {pc:#x}\"),", "        }", "    }", "}", ""]
         return "\n".join(lines)
 
-    def write(self, out_dir, name, header, trailer=""):
+    def import_id(self, name):
+        if name not in self.import_names:
+            self.import_names.append(name)
+        return self.import_names.index(name)
+
+    def write(self, out_dir, name, header, trailer="", entries=(), module=None):
         self.discover()
         parts = [f"//! Generated by tools/{header} from the machine code of {name}. Do not edit.", "",
                  "#![allow(clippy::all, unused_variables, unused_assignments, unused_mut, unused_parens)]",
                  "use crate::mach::*;", ""]
+        if self.svc:
+            parts.insert(-1, "use crate::Svc;")
         for s in sorted(self.known):
-            parts.append(self.lift_function(s))
+            try:
+                parts.append(self.lift_function(s))
+            except Unsupported as why:
+                raise Unsupported(f"in the routine at {s:#x}: {why}")
         spans = [(a, a + 16) for a in self.data_refs] + [(a, a + 8192) for a in self.table_bases]
         spans.sort()
         merged = []
@@ -566,7 +631,18 @@ class Lifter:
                 ranges.append((fake, len(blob), 16))
                 blob += struct.pack("<QQ", data_imports[imp], 0)
                 fake += 16
-        stem = name.lower().replace(".dll", "").replace(".s2l", "")
+        # A function imported by pointer (loaded from its import slot and called later): the slot
+        # holds a made-up address, and calling it does what a call through the import does.
+        fnimp = {}
+        fake_fn = 0x4000_0000_0000
+        for slot, imp in sorted(self.iat.items()):
+            if imp not in data_imports and slot in self.data_refs:
+                at = next(i for i, (a, o, n) in enumerate(ranges) if a <= slot < a + n)
+                a, o, n = ranges[at]
+                struct.pack_into("<Q", blob, o + slot - a, fake_fn)
+                fnimp[fake_fn] = imp
+                fake_fn += 16
+        stem = module or name.lower().replace(".dll", "").replace(".s2l", "")
         parts.append(f'static BLOB: &[u8] = include_bytes!("{stem}.dat");')
         parts.append("/// (address in the DLL, offset in the blob, length)")
         parts.append("const RANGES: &[(u64, u32, u32)] = &[")
@@ -574,6 +650,23 @@ class Lifter:
             parts.append(f"    ({a:#x}, {o}, {n}),")
         parts.append("];")
         parts.append("pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES };")
+        sig = "m: &mut M, s: &mut dyn Svc, t: u64" if self.svc else "m: &mut M, t: u64"
+        arms = "\n".join(f"        {f:#x} => f_{f:x}({self.args})," for f in sorted(self.known))
+        for fa, imp in sorted(fnimp.items()):
+            code = self.import_stmt(imp) or f'm.fail("the import {imp}");'
+            arms += f"\n        {fa:#x} => {{ {code} m.pop(); }}"
+        parts.append(f"/// Call a routine through a pointer (a function pointer or a virtual call).\n"
+                     f"fn call_ptr({sig}) {{\n    match t {{\n{arms}\n"
+                     f"        _ => m.fail(&format!(\"a call through a pointer to {{t:#x}}\")),\n    }}\n}}\n")
+
+        for e in entries:
+            if self.svc:
+                parts.append(f"/// Run the routine at {e:#x} with the machine's registers as the caller set them.\n"
+                             f"pub(crate) fn enter_{e:x}(m: &mut M, s: &mut dyn Svc) {{\n"
+                             f"    m.with_img(&IMG, |m| {{ m.push(0); f_{e:x}(m, s); }});\n}}")
+            else:
+                parts.append(f"pub(crate) fn enter_{e:x}(m: &mut M) {{\n"
+                             f"    m.with_img(&IMG, |m| {{ m.push(0); f_{e:x}(m); }});\n}}")
         parts.append(trailer)
         open(os.path.join(out_dir, f"{stem}_gen.rs"), "w").write("\n".join(parts) + "\n")
         open(os.path.join(out_dir, f"{stem}.dat"), "wb").write(blob)

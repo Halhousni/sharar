@@ -36,6 +36,8 @@ pub struct M {
     heap: Vec<u8>,
     /// Image ranges the code has written to (its own static data), copied on the first write.
     over: Vec<Option<Vec<u8>>>,
+    /// The static data of the other modules while one is running.
+    saved: std::collections::HashMap<usize, Vec<Option<Vec<u8>>>>,
 }
 
 fn mask(size: u32) -> u64 {
@@ -57,9 +59,26 @@ fn sext(v: u64, size: u32) -> i64 {
 
 impl M {
     pub fn new(img: &'static Img) -> M {
-        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: [0; STACK], img, heap: Vec::new(), over: vec![None; img.ranges.len()] };
+        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: [0; STACK], img, heap: Vec::new(), over: vec![None; img.ranges.len()], saved: Default::default() };
         m.r[RSP] = STACK_BASE + STACK as u64 - 0x100;
         m
+    }
+
+    /// Run `f` with another module's static data in view (its own constants, kept apart from the
+    /// others' because every module's addresses begin at its own image base).
+    pub fn with_img<R>(&mut self, img: &'static Img, f: impl FnOnce(&mut M) -> R) -> R {
+        let key = |i: &'static Img| i as *const Img as usize;
+        if key(img) == key(self.img) {
+            return f(self);
+        }
+        let old_img = std::mem::replace(&mut self.img, img);
+        let theirs = self.saved.remove(&key(img)).unwrap_or_else(|| vec![None; img.ranges.len()]);
+        let old_over = std::mem::replace(&mut self.over, theirs);
+        let r = f(self);
+        let mine = std::mem::replace(&mut self.over, old_over);
+        self.saved.insert(key(img), mine);
+        self.img = old_img;
+        r
     }
 
     // ---- memory ------------------------------------------------------------------------
