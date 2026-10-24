@@ -1,0 +1,35 @@
+var res[400], h%, a[12], b%[8], n%, tf, i%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+n% := ChanData(2, a[], 0, 10, tf);
+res[0] := n%; res[1] := tf;
+for i% := 0 to 11 do res[2 + i%] := a[i%] next
+n% := ChanData(2, a[], 1, 3);
+res[14] := n%;
+for i% := 0 to 3 do res[15 + i%] := a[i%] next
+n% := ChanData(1, a[], 0, 0.05, tf);
+res[19] := n%; res[20] := tf;
+for i% := 0 to 11 do res[21 + i%] := a[i%] next
+n% := ChanData(1, a[], 0.0123, 0.0456, tf);
+res[33] := n%; res[34] := tf;
+for i% := 0 to 5 do res[35 + i%] := a[i%] next
+n% := ChanData(1, b%[], 0, 0.05);
+res[41] := n%;
+for i% := 0 to 5 do res[42 + i%] := b%[i%] next
+n% := ChanData(2, b%[], 0, 10);
+res[48] := n%;
+for i% := 0 to 7 do res[49 + i%] := b%[i%] next
+n% := ChanData(1, a[], 5, 1);
+res[57] := n%;
+n% := ChanData(1, a[], 0, 0.001);
+res[58] := n%;
+n% := ChanData(1, a[], 0, 0.0009);
+res[59] := n%;
+n% := ChanData(3, a[], 0, 1);
+res[60] := n%;
+n% := ChanData(4, a[], 0, 100);
+res[61] := n%;
+n% := ChanData(9, a[], 0, 1);
+res[62] := n%;
+n% := ChanData(2, a[], 1000, 2000);
+res[63] := n%;
+View(h%); FileClose();

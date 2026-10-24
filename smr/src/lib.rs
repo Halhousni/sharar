@@ -140,6 +140,10 @@ pub struct Block {
 #[derive(Debug, Clone)]
 pub struct Channel {
     pub index: usize,
+    /// The title, units and comment as stored, trailing spaces and all.
+    pub title_raw: String,
+    pub units_raw: String,
+    pub comment_raw: String,
     pub title: String,
     pub comment: String,
     pub kind: Kind,
@@ -593,6 +597,14 @@ impl<'a> Reader<'a> {
         text.trim_end().to_string()
     }
 
+    /// The Pascal string at the cursor exactly as stored (every byte kept as a Latin-1
+    /// character, trailing spaces included), without moving on. Spike2 hands scripts this form.
+    fn peek_raw(&self, n: usize) -> String {
+        let field = &self.buf[self.at..self.at + n];
+        let len = (field[0] as usize).min(n.saturating_sub(1));
+        field[1..1 + len].iter().map(|&b| b as char).collect()
+    }
+
     fn skip(&mut self, n: usize) {
         self.at += n;
     }
@@ -669,16 +681,19 @@ impl SonFile {
             let _free0 = c.i16();
             let _py_sz = c.i16();
             let _max_data = c.i16();
+            let comment_raw = c.peek_raw(72);
             let comment = c.pstr(72);
             let _max_chan_time = c.i32();
             let l_chan_dvd = c.i32();
             let _phy_chan = c.i16();
+            let title_raw = c.peek_raw(10);
             let title = c.pstr(10);
             let ideal_rate = c.f32();
             let kind = Kind::from_code(c.u8());
             let _unused1 = c.u8();
 
             let mut units = String::new();
+            let mut units_raw = String::new();
             let mut scale = 1.0f32;
             let mut offset = 0.0f32;
 
@@ -686,11 +701,13 @@ impl SonFile {
                 Kind::Adc | Kind::AdcMark => {
                     scale = c.f32();
                     offset = c.f32();
+                    units_raw = c.peek_raw(6);
                     units = c.pstr(6);
                 }
                 Kind::RealWave | Kind::RealMark => {
                     let _min = c.f32();
                     let _max = c.f32();
+                    units_raw = c.peek_raw(6);
                     units = c.pstr(6);
                 }
                 _ => {}
@@ -758,6 +775,9 @@ impl SonFile {
 
             channels.push(Channel {
                 index: idx,
+                title_raw,
+                units_raw,
+                comment_raw,
                 title,
                 comment,
                 kind,
@@ -854,6 +874,34 @@ impl SonFile {
             cursor = 0;
         }
 
+        Ok(out)
+    }
+
+    /// Read `count` raw 16-bit ADC values of an `Adc` channel from sample `first`, before the
+    /// scale and offset are applied. Values past the end are left out.
+    pub fn read_adc_raw(&mut self, ch: usize, first: u64, count: usize) -> io::Result<Vec<i16>> {
+        let channel = &self.channels[ch];
+        let mut out = Vec::new();
+        if count == 0 || channel.kind != Kind::Adc {
+            return Ok(out);
+        }
+        let mut cursor = first;
+        for block in &channel.blocks {
+            let n = block.items.max(0) as u64;
+            if cursor >= n {
+                cursor -= n;
+                continue;
+            }
+            let take = ((n - cursor) as usize).min(count - out.len());
+            let mut raw = vec![0u8; take * 2];
+            self.file.seek(SeekFrom::Start(block.data_pos + cursor * 2))?;
+            self.file.read_exact(&mut raw)?;
+            out.extend(raw.chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]])));
+            if out.len() >= count {
+                break;
+            }
+            cursor = 0;
+        }
         Ok(out)
     }
 

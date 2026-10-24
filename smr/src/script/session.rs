@@ -92,6 +92,39 @@ impl Session {
         f.channels.iter().position(|c| c.index == n as usize - 1)
     }
 
+    /// The ticks of the items of the channel at `pos` in the file's list.
+    fn items(&mut self, pos: usize) -> Items {
+        let file = &mut self.view_mut().unwrap().file;
+        let tf = file.time_factor;
+        let ch = &file.channels[pos];
+        if ch.kind.is_waveform() {
+            let dt = ticks_per_sample(ch);
+            let blocks = ch.blocks.iter().map(|b| (b.start_tick, b.items.max(0) as i64)).collect();
+            return Items::Waveform { blocks, dt };
+        }
+        let ticks: Vec<i64> = if ch.kind.is_wavemark() {
+            file.read_wavemarks(pos).unwrap_or_default().iter().map(|m| (m.time / tf).round() as i64).collect()
+        } else {
+            file.read_events(pos).unwrap_or_default().iter().map(|e| (e.time / tf).round() as i64).collect()
+        };
+        Items::Events(ticks)
+    }
+
+    /// The values of waveform samples `lo..hi` in the channel's units, worked out in double
+    /// precision from the raw counts the way Spike2 does.
+    fn wave_values(&mut self, pos: usize, lo: i64, hi: i64) -> Vec<f64> {
+        let file = &mut self.view_mut().unwrap().file;
+        let items = Items::Waveform {
+            blocks: file.channels[pos].blocks.iter().map(|b| (b.start_tick, b.items.max(0) as i64)).collect(),
+            dt: 0,
+        };
+        let (scale, offset) = (file.channels[pos].scale as f64, file.channels[pos].offset as f64);
+        if file.channels[pos].kind == Kind::RealWave {
+            return file.read_waveform(pos, lo as u64, (hi - lo) as usize).unwrap_or_default().iter().map(|&v| v as f64).collect();
+        }
+        raw_samples(file, pos, &items, lo, hi).into_iter().map(|r| r as f64 * scale / 6553.6 + offset).collect()
+    }
+
     fn chan(&self, n: i64) -> Option<&crate::Channel> {
         let p = self.chan_pos(n)?;
         self.view().map(|v| &v.file.channels[p])
@@ -106,6 +139,68 @@ fn ticks_per_sample(ch: &crate::Channel) -> i64 {
         .find(|b| b.items > 1)
         .map(|b| ((b.end_tick - b.start_tick) as f64 / (b.items - 1) as f64).round() as i64)
         .unwrap_or(0)
+}
+
+/// The ticks of a channel's items, kept without listing the samples of a waveform. A recording
+/// that was paused has gaps between blocks, so a waveform's sample times are block by block.
+enum Items {
+    Waveform { blocks: Vec<(i64, i64)>, dt: i64 },
+    Events(Vec<i64>),
+}
+
+impl Items {
+    fn len(&self) -> i64 {
+        match self {
+            Items::Waveform { blocks, .. } => blocks.iter().map(|b| b.1).sum(),
+            Items::Events(v) => v.len() as i64,
+        }
+    }
+
+    /// The tick of item `g`.
+    fn tick(&self, g: i64) -> i64 {
+        match self {
+            Items::Waveform { blocks, dt } => {
+                let mut base = 0;
+                for &(start, n) in blocks {
+                    if g < base + n {
+                        return start + (g - base) * dt;
+                    }
+                    base += n;
+                }
+                0
+            }
+            Items::Events(v) => v[g as usize],
+        }
+    }
+
+    /// The index of the first item whose tick is at least `x`, or the number of items.
+    fn first_ge(&self, x: i64) -> i64 {
+        match self {
+            Items::Waveform { blocks, dt } => {
+                let mut base = 0;
+                for &(start, n) in blocks {
+                    if n == 0 {
+                        continue;
+                    }
+                    if x <= start {
+                        return base;
+                    }
+                    let last = start + (n - 1) * dt;
+                    if x <= last {
+                        return base + (x - start + dt - 1).div_euclid(*dt);
+                    }
+                    base += n;
+                }
+                base
+            }
+            Items::Events(v) => v.partition_point(|&t| t < x) as i64,
+        }
+    }
+}
+
+/// Raw ADC counts of samples `lo..hi`.
+fn raw_samples(file: &mut SonFile, pos: usize, _items: &Items, lo: i64, hi: i64) -> Vec<i16> {
+    file.read_adc_raw(pos, lo as u64, (hi - lo) as usize).unwrap_or_default()
 }
 
 fn kind_code(k: Kind) -> i64 {
@@ -140,6 +235,65 @@ fn flt(mem: &dyn Mem, a: &Arg) -> Result<f64, RunError> {
 }
 
 impl Session {
+    /// `ChanData(chan, array[], t0, t1 {, &tFirst})`: the items of a channel from the tick of
+    /// `t0` to the tick of `t1` inclusive, as many as the array holds. A real array gets
+    /// times in seconds (events) or values in the channel's units (waveforms); an integer
+    /// array gets ticks or raw ADC counts. Returns how many, or -1506 for a channel it
+    /// cannot read.
+    fn chan_data(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let some = |v: V| Ok(Some(Some(v)));
+        let (n, t0, t1) = (int(mem, &args[0])?, flt(mem, &args[2])?, flt(mem, &args[3])?);
+        let Some((cur, dims)) = mem.array(&args[1]) else { return Ok(None) };
+        if dims.len() != 1 {
+            return Ok(None);
+        }
+        let want_int = matches!(cur.first(), Some(V::Int(_)));
+        let cap = dims[0];
+        let Some(idx) = self.chan_pos(n) else { return some(V::Int(-1506)) };
+        let (tf, kind) = {
+            let f = &self.view().unwrap().file;
+            (f.time_factor, f.channels[idx].kind)
+        };
+        let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64 + 1);
+        let mut out: Vec<V> = Vec::new();
+        let mut first_time = 0.0;
+        let is_event = kind.is_event() || kind.is_wavemark();
+        if !is_event && !kind.is_waveform() {
+            return some(V::Int(-1506));
+        }
+        let items = self.items(idx);
+        if b > a {
+            let lo = items.first_ge(a);
+            let hi = items.first_ge(b).min(lo + cap as i64);
+            if hi > lo {
+                first_time = items.tick(lo) as f64 * tf;
+                if is_event {
+                    for g in lo..hi {
+                        let k = items.tick(g);
+                        out.push(if want_int { V::Int(k) } else { V::Flt(k as f64 * tf) });
+                    }
+                } else if want_int {
+                    let file = &mut self.view_mut().unwrap().file;
+                    out.extend(raw_samples(file, idx, &items, lo, hi).into_iter().map(|r| V::Int(r as i64)));
+                } else {
+                    out.extend(self.wave_values(idx, lo, hi).into_iter().map(V::Flt));
+                }
+            }
+        }
+        let count = out.len();
+        let mut full = cur;
+        for (slot, v) in full.iter_mut().zip(out) {
+            *slot = v;
+        }
+        mem.set_array(&args[1], full)?;
+        if count > 0 {
+            if let Some(Arg::Ref(r)) = args.get(4) {
+                mem.store(*r, V::Flt(first_time))?;
+            }
+        }
+        some(V::Int(count as i64))
+    }
+
     /// The cursor commands. A cursor sits at a time between 0 and the end of the file.
     fn cursor_command(&mut self, name: &str, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         let some = |v: V| Ok(Some(Some(v)));
@@ -311,9 +465,9 @@ impl Host for Session {
                 let s = match (name, c) {
                     ("ChanComment$", None) if n >= 1 => "No comment".to_string(),
                     (_, None) => String::new(),
-                    ("ChanTitle$", Some(c)) => c.title.clone(),
-                    ("ChanUnits$", Some(c)) => c.units.clone(),
-                    (_, Some(c)) => c.comment.clone(),
+                    ("ChanTitle$", Some(c)) => c.title_raw.clone(),
+                    ("ChanUnits$", Some(c)) => c.units_raw.clone(),
+                    (_, Some(c)) => c.comment_raw.clone(),
                 };
                 some(V::Str(s))
             }
@@ -324,7 +478,7 @@ impl Host for Session {
                 }
                 let v = self
                     .chan(n)
-                    .map(|c| if c.kind.is_waveform() { if name == "ChanScale" { c.scale } else { c.offset } } else { 0.0 })
+                    .map(|c| if c.kind.is_waveform() || c.kind.is_wavemark() { if name == "ChanScale" { c.scale } else { c.offset } } else { 0.0 })
                     .unwrap_or(0.0);
                 some(V::Flt(v as f64))
             }
@@ -386,6 +540,7 @@ impl Host for Session {
                 }
                 some(V::Int(was as i64))
             }
+            "ChanData" if args.len() >= 4 && self.view().is_some() => self.chan_data(args, mem),
             "Cursor" | "CursorNew" | "CursorExists" | "CursorDelete" | "CursorValid" | "CursorSet"
                 if self.view().is_some() =>
             {
@@ -396,85 +551,54 @@ impl Host for Session {
                 if self.view().is_none() {
                     return Ok(None);
                 }
-                let Some(idx) = self.chan_pos(n) else { return some(V::Flt(NO_CHANNEL)) };
+                let Some(pos) = self.chan_pos(n) else { return some(V::Flt(NO_CHANNEL)) };
+                let tf = self.view().unwrap().file.time_factor;
                 // A time past the largest tick a file can hold finds nothing.
-                if (t / self.view().unwrap().file.time_factor).abs() > i32::MAX as f64 {
+                if (t / tf).abs() > i32::MAX as f64 {
                     return some(V::Flt(-1.0));
                 }
-                let kind = self.view().unwrap().file.channels[idx].kind;
-                let tf = self.view().unwrap().file.time_factor;
-                let next = name == "NextTime";
-                let times: Vec<f64> = if kind.is_waveform() {
-                    // Samples sit at start + k * interval ticks; find the first after (or last
-                    // before) the time without listing them.
-                    let ch = &self.view().unwrap().file.channels[idx];
-                    let dt = ticks_per_sample(ch);
-                    let first = ch.blocks.first().map(|b| b.start_tick).unwrap_or(0);
-                    let total: i64 = ch.blocks.iter().map(|b| b.items.max(0) as i64).sum();
-                    if dt <= 0 || total == 0 {
-                        return some(V::Flt(-1.0));
-                    }
-                    let tick = t / tf;
-                    let k = if next {
-                        ((tick - first as f64) / dt as f64).floor() as i64 + 1
-                    } else {
-                        ((tick - first as f64) / dt as f64).ceil() as i64 - 1
-                    };
-                    let k = if next { k.max(0) } else { k.min(total - 1) };
-                    if k < 0 || k >= total {
-                        return some(V::Flt(-1.0));
-                    }
-                    return some(V::Flt((first + k * dt) as f64 * tf));
-                } else {
-                    let file = &mut self.view_mut().unwrap().file;
-                    file.read_events(idx).map(|e| e.into_iter().map(|e| e.time).collect()).unwrap_or_default()
-                };
-                let hit = if next {
-                    times.iter().copied().find(|&x| x > t)
-                } else {
-                    times.iter().copied().rev().find(|&x| x < t)
-                };
-                some(V::Flt(hit.unwrap_or(-1.0)))
+                let x = (t / tf).round() as i64;
+                let items = self.items(pos);
+                let g = if name == "NextTime" { items.first_ge(x + 1) } else { items.first_ge(x) - 1 };
+                if g < 0 || g >= items.len() {
+                    return some(V::Flt(-1.0));
+                }
+                some(V::Flt(items.tick(g) as f64 * tf))
             }
             "Count" if args.len() == 3 => {
                 let (n, t0, t1) = (int(mem, &args[0])?, flt(mem, &args[1])?, flt(mem, &args[2])?);
                 if self.view().is_none() {
                     return Ok(None);
                 }
-                let Some(idx) = self.chan_pos(n) else { return some(V::Flt(0.0)) };
+                let Some(pos) = self.chan_pos(n) else { return some(V::Flt(0.0)) };
                 let tf = self.view().unwrap().file.time_factor;
                 // Times are whole ticks; a range runs from its first tick up to, not
                 // including, its last.
                 let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64);
-                let kind = self.view().unwrap().file.channels[idx].kind;
-                if kind.is_waveform() {
-                    // On a waveform channel `Count` is the mean of the samples whose ticks
-                    // fall in the range.
-                    let file = &mut self.view_mut().unwrap().file;
-                    let ch = &file.channels[idx];
-                    let dt = ticks_per_sample(ch);
-                    let first = ch.blocks.first().map(|b| b.start_tick).unwrap_or(0);
-                    let total: i64 = ch.blocks.iter().map(|b| b.items.max(0) as i64).sum();
-                    if dt <= 0 || b <= a {
-                        return some(V::Flt(0.0));
-                    }
-                    let ceil_div = |x: i64| -> i64 { (x + dt - 1).div_euclid(dt) };
-                    let lo = ceil_div(a - first).max(0);
-                    let hi = ceil_div(b - first).min(total);
-                    if hi <= lo {
-                        return some(V::Flt(0.0));
-                    }
-                    let data = file.read_waveform(idx, lo as u64, (hi - lo) as usize).unwrap_or_default();
-                    let sum: f64 = data.iter().map(|&v| v as f64).sum();
-                    return some(V::Flt(sum / data.len() as f64));
+                let items = self.items(pos);
+                let (lo, hi) = (items.first_ge(a), items.first_ge(b));
+                if b <= a || hi <= lo {
+                    return some(V::Flt(0.0));
                 }
-                let file = &mut self.view_mut().unwrap().file;
-                let events = file.read_events(idx).unwrap_or_default();
-                let n = events.iter().filter(|e| {
-                    let k = (e.time / tf).round() as i64;
-                    k >= a && k < b
-                }).count();
-                some(V::Flt(n as f64))
+                if !self.view().unwrap().file.channels[pos].kind.is_waveform() {
+                    return some(V::Flt((hi - lo) as f64));
+                }
+                // On a waveform channel `Count` is the mean of the samples in the range.
+                let (scale, offset, kind) = {
+                    let c = &self.view().unwrap().file.channels[pos];
+                    (c.scale as f64, c.offset as f64, c.kind)
+                };
+                if kind == Kind::Adc {
+                    // The mean of the raw counts, then scaled: that is the order Spike2 works in,
+                    // and it differs from averaging the scaled values in the last bit.
+                    let file = &mut self.view_mut().unwrap().file;
+                    let raw = file.read_adc_raw(pos, lo as u64, (hi - lo) as usize).unwrap_or_default();
+                    let sum: i64 = raw.iter().map(|&r| r as i64).sum();
+                    return some(V::Flt((sum as f64 / raw.len() as f64) * (scale / 6553.6) + offset));
+                }
+                let vals = self.wave_values(pos, lo, hi);
+                let sum: f64 = vals.iter().sum();
+                some(V::Flt(sum / vals.len() as f64))
             }
             _ => Ok(None),
         }

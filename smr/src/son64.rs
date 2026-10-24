@@ -303,6 +303,9 @@ pub(crate) fn open(path: PathBuf, mut file: File) -> io::Result<SonFile> {
 
         channels.push(Channel {
             index: idx,
+            title_raw: title.clone(),
+            units_raw: units.clone(),
+            comment_raw: comment.clone(),
             title,
             comment,
             kind,

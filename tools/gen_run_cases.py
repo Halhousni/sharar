@@ -123,6 +123,53 @@ def arrays():
     write("g_arr_sort", pre + body, at + 5)
 
 
+DATA_FILES = ["Blood Pressure Waveform", "Burst Data as Events", "Cardiac Action Potentials", "Cellular firing activity",
+              "Cricket Song", "ECG Waveform", "EEG Waveform", "EMG Waveform", "Extracellular Spikes", "Eye Movements",
+              "Field Potentials", "Flow and CO2 Waveform", "Spike data as Waveform"]
+
+
+def data_file(name):
+    """Every channel of an example recording, asked the same questions."""
+    stem = "".join(ch if ch.isalnum() else "_" for ch in name).lower()
+    path = "C:\\\\Users\\\\Hilal\\\\Documents\\\\Spike8\\\\data\\\\" + name + ".smr"
+    K = 200
+    body = f"""var h%, c%, b%, n%, t0, t1, tf, mx, i%, a[8], b2%[4];
+h% := FileOpen("{path}", 0, 0);
+mx := MaxTime();
+res[0] := mx;
+res[1] := FileTimeBase();
+for c% := 1 to 32 do
+  b% := 2 + (c% - 1) * {K};
+  res[b%] := ChanKind(c%);
+  if ChanKind(c%) <> 0 then
+    Enc(ChanTitle$(c%), b% + 1);
+    Enc(ChanUnits$(c%), b% + 22);
+    Enc(ChanComment$(c%), b% + 32);
+    res[b% + 111] := ChanScale(c%);
+    res[b% + 112] := ChanOffset(c%);
+    res[b% + 113] := ChanVisible(c%);
+    t0 := NextTime(c%, -1);
+    res[b% + 114] := t0;
+    res[b% + 115] := NextTime(c%, t0);
+    res[b% + 116] := LastTime(c%, mx + 1);
+    res[b% + 117] := LastTime(c%, t0);
+    res[b% + 118] := Count(c%, 0, mx / 2);
+    res[b% + 119] := Count(c%, t0, t0 + 0.5);
+    t1 := t0 + 0.05;
+    n% := ChanData(c%, a[], t0, t1, tf);
+    res[b% + 120] := n%;
+    res[b% + 121] := tf;
+    for i% := 0 to 7 do res[b% + 122 + i%] := a[i%] next
+    n% := ChanData(c%, b2%[], t0, t1);
+    res[b% + 130] := n%;
+    for i% := 0 to 3 do res[b% + 131 + i%] := b2%[i%] next
+  endif
+next
+View(h%); FileClose();
+"""
+    write(f"d_file_{stem}", body, 2 + 32 * K, enc=True)
+
+
 def main():
     for f in os.listdir(OUT):
         if f.startswith("g_"):
@@ -130,6 +177,8 @@ def main():
     formatting()
     formatting2()
     arrays()
+    for n in DATA_FILES:
+        data_file(n)
 
     strings("g_left_right", [f"Left$({q(s)}, {n})" for s in S for n in [0, 1, 3, 50]]
             + [f"Right$({q(s)}, {n})" for s in S for n in [0, 1, 3, 50]], 16)
