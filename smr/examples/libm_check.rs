@@ -2,9 +2,9 @@
 //!
 //!   libm_check <function> <inputs> <outputs>
 //!
-//! `inputs` and `outputs` are the files tools/libm_oracle.c reads and writes. Prints the first
+//! `inputs` and `outputs` are the files tools/libm_oracle.c and tools/util_oracle.c read and write. Prints the first
 //! differences and how many calls differed.
-use smr::script::vm::msvcrt::call;
+use smr::script::vm::{msvcrt, special};
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
@@ -14,10 +14,15 @@ fn main() {
     let (mut n, mut bad) = (0, 0);
     for (line, want) in ins.lines().zip(outs.lines()) {
         let mut it = line.split_whitespace().map(|h| u64::from_str_radix(h, 16).unwrap());
-        let x = f64::from_bits(it.next().unwrap());
-        let y = f64::from_bits(it.next().unwrap_or(0));
+        let words: Vec<u64> = it.by_ref().collect();
+        let int_args = name == "BinomialC";
+        let arg = |k: usize| -> f64 {
+            let w = words.get(k).copied().unwrap_or(0);
+            if int_args { w as u32 as i32 as f64 } else { f64::from_bits(w) }
+        };
+        let (x, y, z) = (arg(0), arg(1), arg(2));
         let want = u64::from_str_radix(want, 16).unwrap();
-        let Some(got) = call(name, x, y) else {
+        let Some(got) = msvcrt::call(name, x, y).or_else(|| special::call(name, x, y, z)) else {
             eprintln!("no function {name}");
             std::process::exit(2);
         };
@@ -27,9 +32,8 @@ fn main() {
             bad += 1;
             if bad <= std::env::var("SHOW").ok().and_then(|v| v.parse().ok()).unwrap_or(8) {
                 println!(
-                    "{name}({x:e} [{:016x}]{}) want {:016x} got {:016x}",
+                    "{name}({x:e} [{:016x}], {y:e}, {z:e}) want {:016x} got {:016x}",
                     x.to_bits(),
-                    if it.next().is_some() || y != 0.0 { format!(", {y:e}") } else { String::new() },
                     want,
                     got.to_bits()
                 );

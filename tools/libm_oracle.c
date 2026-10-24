@@ -22,11 +22,11 @@ int main(int argc, char **argv)
     if (argc < 5) return 2;
     HMODULE m = LoadLibraryA(argv[1]);
     if (!m) { fprintf(stderr, "cannot load %s\n", argv[1]); return 3; }
-    FARPROC f = GetProcAddress(m, argv[2]);
+    FARPROC f = GetProcAddress(m, !strcmp(argv[2], "hypot") ? "_hypot" : argv[2]);
     if (!f) { fprintf(stderr, "no %s\n", argv[2]); return 4; }
     FILE *in = fopen(argv[3], "r"), *out = fopen(argv[4], "w");
     if (!in || !out) return 5;
-    int two = !strcmp(argv[2], "pow") || !strcmp(argv[2], "atan2") || !strcmp(argv[2], "fmod");
+    int two = !strcmp(argv[2], "pow") || !strcmp(argv[2], "atan2") || !strcmp(argv[2], "fmod") || !strcmp(argv[2], "_hypot") || !strcmp(argv[2], "hypot");
     char line[128];
     while (fgets(line, sizeof line, in)) {
         unsigned long long a = 0, b = 0;

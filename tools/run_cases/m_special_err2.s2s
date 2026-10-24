@@ -1,0 +1,2 @@
+var res[4];
+res[0] := BinomialC(5, 7);

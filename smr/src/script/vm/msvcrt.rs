@@ -1,11 +1,11 @@
 //! The maths functions of msvcr110.dll, which is what Spike2's `Sin`, `Cos`, `Ln`, `Pow` and the
 //! rest call. A host libm rounds differently in the last place for many arguments, so these are
 //! the DLL's own routines: `tools/lift_libm.py` translates each instruction of them into a call on
-//! the small machine model in `mach.rs`, and `msvcrt_gen.rs` is the result. They are checked
+//! the small machine model in `mach.rs`, and `msvcr110_gen.rs` is the result. They are checked
 //! against the DLL, run under Wine, on hundreds of thousands of arguments each
 //! (`tools/libm_fuzz.py`) and against Spike2 itself (`tools/run_cases/m_libm_*`).
 
-pub use super::msvcrt_gen::{atan, atan2, cos, cosh, exp, log, log10, pow, sin, sinh, tan, tanh};
+pub use super::msvcr110_gen::{acos, asin, atan, atan2, cos, cosh, exp, hypot, log, log10, pow, sin, sinh, tan, tanh};
 
 /// What the DLL answers for an infinite or NaN argument of a function that is not defined there:
 /// the indefinite NaN for an infinity, the argument made quiet for a NaN.
@@ -32,6 +32,9 @@ pub fn call(name: &str, a: f64, b: f64) -> Option<f64> {
         "sinh" => sinh(a),
         "cosh" => cosh(a),
         "tanh" => tanh(a),
+        "asin" => asin(a),
+        "acos" => acos(a),
+        "hypot" => hypot(a, b),
         _ => return None,
     })
 }

@@ -1,0 +1,19 @@
+var res[300], i%, k%;
+var x;
+k% := 0;
+for i% := 1 to 30 do
+  x := i% * 0.37;
+  res[k%] := LnGamma(x); k% += 1;
+  res[k%] := GammaP(x, i% * 0.5); k% += 1;
+  res[k%] := GammaQ(x, i% * 0.25); k% += 1;
+next
+for i% := 1 to 12 do
+  res[k%] := BinomialC(i% * 13, i% + 2); k% += 1;
+  res[k%] := BetaI(i% * 0.5, 3.5 - i% * 0.1); k% += 1;
+  res[k%] := BetaI(i% * 0.5, 3.5, i% / 13.0); k% += 1;
+next
+res[k%] := LnGamma(-2.5); k% += 1;
+res[k%] := LnGamma(0); k% += 1;
+res[k%] := BinomialC(200, 100); k% += 1;
+res[k%] := BinomialC(1000, 3); k% += 1;
+res[k%] := BinomialC(5, 5); k% += 1;

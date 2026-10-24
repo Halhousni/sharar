@@ -6,6 +6,7 @@
 //! says so. A command not listed here stops the run with [`Stop::Command`](super::Stop).
 
 use super::msvcrt;
+use super::special;
 use super::printf::{self, Fv};
 use super::{Arg, Cell, Ref, RunError, Vm, ERR_INDEX, ERR_TYPE, V};
 use crate::script::exec::{as_flt, to_int};
@@ -32,6 +33,26 @@ impl Vm {
         match self.a_val(a)? {
             V::Str(s) => Ok(s),
             _ => Err(RunError(ERR_TYPE)),
+        }
+    }
+
+    /// A real argument that must lie in `lo..=hi`, as `CRunInfo::GetFloatErr` checks.
+    fn a_flt_in(&self, a: &Arg, lo: f64, hi: f64) -> Result<f64, RunError> {
+        let v = self.a_flt(a)?;
+        if lo <= v && v <= hi {
+            Ok(v)
+        } else {
+            Err(RunError(super::ERR_ARG_REAL))
+        }
+    }
+
+    /// An integer argument that must lie in `lo..=hi`, as `GetI32Err` checks.
+    fn a_int_in(&self, a: &Arg, lo: i64, hi: i64) -> Result<i64, RunError> {
+        let v = self.a_int(a)?;
+        if lo <= v && v <= hi {
+            Ok(v)
+        } else {
+            Err(RunError(super::ERR_ARG_INT))
         }
     }
 
@@ -441,6 +462,30 @@ impl Vm {
             "ATan" => {
                 let (y, x) = (self.a_flt(&args[0])?, self.a_flt(&args[1])?);
                 some(V::Flt(msvcrt::atan2(y, x)))
+            }
+            // ---- special functions ---------------------------------------------------
+            "LnGamma" => {
+                let x = self.a_flt(&args[0])?;
+                some(V::Flt(special::ln_gamma(x)))
+            }
+            "BinomialC" => {
+                let n = self.a_int_in(&args[0], 1, 0x7fff_ffff)?;
+                let k = self.a_int_in(&args[1], 0, n)?;
+                some(V::Flt(special::binomial_c(n as i32, k as i32)))
+            }
+            "GammaP" | "GammaQ" => {
+                let a = self.a_flt_in(&args[0], 0.0, f64::MAX)?;
+                let x = self.a_flt_in(&args[1], 0.0, f64::MAX)?;
+                some(V::Flt(if name == "GammaP" { special::gamma_p(a, x) } else { special::gamma_q(a, x) }))
+            }
+            "BetaI" => {
+                let a = self.a_flt_in(&args[0], f64::MIN_POSITIVE, f64::MAX)?;
+                let b = self.a_flt_in(&args[1], f64::MIN_POSITIVE, f64::MAX)?;
+                if args.len() < 3 {
+                    return some(V::Flt(special::beta(a, b)));
+                }
+                let x = self.a_flt_in(&args[2], 0.0, 1.0)?;
+                some(V::Flt(special::beta_i(a, b, x)))
             }
             "Pow" => {
                 let (x, y) = (self.a_flt(&args[0])?, self.a_flt(&args[1])?);

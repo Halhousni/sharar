@@ -560,6 +560,16 @@ a million arguments each: random bit patterns, log-uniform magnitudes, values ne
 pi/2, denormals, NaNs and infinities. Zero differences. `smr/tests/libm_reference.rs` keeps a
 few hundred of each, and the `m_libm_*` programs compare against Spike2 itself.
 
+### Special functions
+
+`LnGamma`, `GammaP`, `GammaQ`, `BetaI` and `BinomialC` are Boost.Math code inside `SpikeUtl.dll`.
+`tools/lift_spikeutl.py` translates the routines the same way (`tools/lift.py` is the shared
+translator: it follows calls, takes functions split into pieces by their unwind data, resolves
+jump tables and calls through the import table, and cuts the C++ error-reporting paths).
+`tools/util_fuzz.py` compares them with the real `SpikeUtl.dll` under Wine on tens of thousands of
+arguments each, with no difference; `m_special` compares with Spike2 itself. Out-of-range
+arguments raise the codes `GetI32Err` (-1000) and `GetFloatErr` (-1001) raise.
+
 ## What is not known yet
 
 - what the `MakeNDArr` operand counts. `ResizeArray`'s operand is settled in the

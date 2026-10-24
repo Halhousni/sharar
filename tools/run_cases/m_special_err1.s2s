@@ -1,0 +1,2 @@
+var res[4];
+res[0] := GammaP(-1, 2);

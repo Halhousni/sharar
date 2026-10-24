@@ -9,7 +9,7 @@ awkward ones: zeros, infinities, NaNs, denormals, ends of the ranges the code br
 import argparse, os, random, struct, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TWO = {"pow", "atan2"}
+TWO = {"pow", "atan2", "hypot"}
 
 def bits(x): return struct.unpack("<Q", struct.pack("<d", x))[0]
 def flt(b): return struct.unpack("<d", struct.pack("<Q", b))[0]

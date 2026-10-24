@@ -24,6 +24,10 @@ use super::exec::{
 /// Raised for an array subscript out of range. The vendor's own code has not been read for
 /// this one: the value is a placeholder until a run in Spike2 gives it.
 pub const ERR_INDEX: i32 = -7000;
+/// An integer argument outside the range its command allows (`GetI32Err`), and a real one
+/// (`GetFloatErr`); the same codes Spike2 raises.
+pub const ERR_ARG_INT: i32 = -1000;
+pub const ERR_ARG_REAL: i32 = -1001;
 /// A call with the wrong kind of value, e.g. a string where a number is wanted.
 pub const ERR_TYPE: i32 = -7001;
 
@@ -125,7 +129,9 @@ pub enum Arg {
 mod builtins;
 pub mod msvcrt;
 mod mach;
-mod msvcrt_gen;
+mod msvcr110_gen;
+pub mod special;
+mod spikeutl_gen;
 mod printf;
 
 pub struct Vm {
