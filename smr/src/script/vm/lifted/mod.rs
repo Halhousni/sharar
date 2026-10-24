@@ -361,6 +361,18 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 };
                 m.r[0] = if m.r[1] == 0 { 0 } else { o };
             }
+            "_CxxThrowException" => {
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  throw from blocks {:x?}", m.recent_blocks());
+                }
+                s2lift::mach::throw(m.r[1], m.r[2])
+            }
+            "?_Xregex_error@std@@YAXW4error_type@regex_constants@1@@Z" => {
+                // the exception object: a runtime_error with the error code after it
+                let obj = m.alloc(0x40);
+                m.st(obj + 0x18, 4, m.r[1] & 0xffff_ffff);
+                std::panic::resume_unwind(Box::new(s2lift::mach::CxxThrow { obj, info: 0 }))
+            }
             "?GError@@YAXF@Z" => panic_any(Thrown(m.r[1] as u16 as i16 as i32)),
             "ldexp" => {
                 let x = f64::from_bits(m.xl(0));

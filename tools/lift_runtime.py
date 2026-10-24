@@ -160,6 +160,15 @@ for a in REGISTRARS:
         lifters["runtime"].roots.append(a)
 entries_extra.setdefault("runtime", set()).update(REGISTRARS)
 
+# `--addr=module:0x180012340`: a routine only ever reached through a pointer.
+for a in sys.argv:
+    if a.startswith("--addr="):
+        mod, ad = a[len("--addr="):].split(":", 1)
+        ad = int(ad, 16)
+        if ad not in lifters[mod].roots:
+            lifters[mod].roots.append(ad)
+        entries_extra.setdefault(mod, set()).add(ad)
+
 # Extra routines to translate whatever the commands call: `--root module:regex` (the exports of
 # that module whose names match), entered from the host.
 for a in sys.argv:

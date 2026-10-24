@@ -161,6 +161,11 @@ impl M {
         v
     }
 
+    /// The last few blocks run, oldest first.
+    pub fn recent_blocks(&self) -> [u64; 8] {
+        self.recent
+    }
+
     pub fn st(&mut self, a: u64, n: u32, val: u64) {
         let v = val;
         if a >= HEAP_BASE && a + n as u64 <= HEAP_BASE + self.heap.len() as u64 {
@@ -736,4 +741,26 @@ impl M {
 
 pub fn sx(v: u64, size: u32) -> u64 {
     sext(v, size) as u64
+}
+
+/// A C++ exception in flight: translated code that throws unwinds (as a Rust panic carrying
+/// this) to the nearest routine with a matching `catch`.
+pub struct CxxThrow {
+    pub obj: u64,
+    pub info: u64,
+}
+
+thread_local! {
+    static HANDLING: std::cell::Cell<(u64, u64)> = std::cell::Cell::new((0, 0));
+}
+
+/// The exception a `catch` is handling, which a bare `throw;` throws again.
+pub fn handling(obj: u64, info: u64) {
+    HANDLING.with(|h| h.set((obj, info)));
+}
+
+/// Throw `obj`, or the exception being handled when `obj` is null.
+pub fn throw(obj: u64, info: u64) -> ! {
+    let (obj, info) = if obj == 0 { HANDLING.with(|h| h.get()) } else { (obj, info) };
+    std::panic::resume_unwind(Box::new(CxxThrow { obj, info }))
 }

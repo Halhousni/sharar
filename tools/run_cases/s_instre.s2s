@@ -1,0 +1,14 @@
+var res[100], k%, a$;
+k% := 0;
+res[k%] := InStrRE("hello world", "o w", 1, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("hello world", "l+", 1, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("hello world", "^h.*d$", 1, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("hello world", "[aeiou]", 6, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("Hello World", "world", 1, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("Hello World", "world", 1, 1, 0, 0); k% += 1;
+res[k%] := InStrRE("abc123def", "[0-9]+", 1, 1, 0, 0); k% += 1;
+res[k%] := InStrRE("abc", "x", 1, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("hello world", "o", 1, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("hello world", "o", 6, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("hello world", "o", 0, 0, 0, 0); k% += 1;
+res[k%] := InStrRE("hello world", "(", 1, 0, 0, 0); k% += 1;

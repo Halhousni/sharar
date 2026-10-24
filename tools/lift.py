@@ -106,6 +106,7 @@ class Lifter:
         self.known = set()
         self.failing = set()
         self.warnings = []
+        self.eh_cache = {}
         self.build_ranges()
 
     def resolve_ordinals(self):
@@ -192,6 +193,69 @@ class Lifter:
         for r in self.ranges.values():
             r.sort()
 
+    def eh_of(self, s):
+        """The C++ exception handling of the routine at `s` when it has one try block (the
+        __CxxFrameHandler3 FuncInfo): how much its prologue allocates, and for each catch the
+        frame offset of the exception pointer, the funclet and the address it resumes at."""
+        if s in self.eh_cache:
+            return self.eh_cache[s]
+        self.eh_cache[s] = None
+        im = self.im
+        pd = next(sec for sec in im.secs if sec[0] == b".pdata")
+        for i in range(pd[2] // 12):
+            b, e, u = struct.unpack_from("<III", im.b, pd[3] + 12 * i)
+            if im.base + b != s:
+                continue
+            o = im.rva_off(u)
+            flags, prolog, count, fr = im.b[o] >> 3, im.b[o + 1], im.b[o + 2], im.b[o + 3]
+            if not flags & 3 or fr & 15:
+                return None
+            alloc, k = 0, 0
+            codes = struct.unpack_from(f"<{count * 2}B", im.b, o + 4)
+            while k < count:
+                op, info = codes[2 * k + 1] & 15, codes[2 * k + 1] >> 4
+                if op == 0:
+                    alloc += 8; k += 1
+                elif op == 1:
+                    if info == 0:
+                        alloc += 8 * (codes[2 * k + 2] | codes[2 * k + 3] << 8); k += 2
+                    else:
+                        alloc += struct.unpack_from("<I", bytes(codes[2 * k + 2:2 * k + 6]))[0]; k += 3
+                elif op == 2:
+                    alloc += info * 8 + 8; k += 1
+                elif op in (4, 8): k += 2
+                elif op in (5, 9): k += 3
+                else:
+                    return None
+            hd = o + 4 + ((count + 1) & ~1) * 2
+            fi = struct.unpack_from("<I", im.b, hd + 4)[0]
+            fo = im.rva_off(fi)
+            if fo is None or struct.unpack_from("<I", im.b, fo)[0] & 0xfffffff0 != 0x19930520:
+                return None
+            ntry, tryrva = struct.unpack_from("<II", im.b, fo + 12)
+            nip, iprva = struct.unpack_from("<II", im.b, fo + 20)
+            # a funclet carries its parent's FuncInfo; only the parent's state map starts at it
+            if ntry != 1 or not nip or struct.unpack_from("<I", im.b, im.rva_off(iprva))[0] != b:
+                return None
+            lo, hi, chi, ncatch, hrva = struct.unpack_from("<iiiiI", im.b, im.rva_off(tryrva))
+            catches = []
+            for j in range(ncatch):
+                adj, typ, disp, fn, fsz = struct.unpack_from("<IIiII", im.b, im.rva_off(hrva) + 20 * j)
+                f = im.base + fn
+                resume = None
+                for ins in MD.disasm(im.b[im.off(f):im.off(f) + 0x200], f):
+                    if ins.mnemonic == "lea" and ins.operands[0].type == X.X86_OP_REG and ins.reg_name(ins.operands[0].reg) == "rax" \
+                            and ins.operands[1].mem.base == X.X86_REG_RIP:
+                        resume = ins.address + ins.size + ins.operands[1].mem.disp
+                    if ins.mnemonic == "ret":
+                        break
+                if resume is None:
+                    return None
+                catches.append((disp, f, resume))
+            self.eh_cache[s] = {"alloc": alloc, "catches": catches}
+            return self.eh_cache[s]
+        return None
+
     # ---- discovery ------------------------------------------------------------------------
 
     def disasm(self, s):
@@ -228,7 +292,7 @@ class Lifter:
                         pre = sorted(seen.values(), key=lambda i: i.address)
                         k = pre.index(ins)
                         try:
-                            work.extend(self.jump_table(pre, k, [(s, s + 0x10000)]))
+                            work.extend(self.jump_table(pre, k, [(max(s - 0x10000, 0), s + 0x10000)]))
                         except Unsupported:
                             pass
                     break
@@ -334,6 +398,9 @@ class Lifter:
                 self.failing.add(s)
                 continue
             self.known.add(s)
+            eh = self.eh_of(s)
+            if eh:
+                work.extend(f for _, f, _ in eh["catches"])
             for i in ins:
                 for op in i.operands:
                     if op.type == X.X86_OP_MEM and op.mem.base == X.X86_REG_RIP and i.mnemonic not in ("call", "jmp"):
@@ -769,7 +836,10 @@ class Lifter:
     def lift_function(self, s):
         ins_list, rng = self.disasm(s)
         inside = lambda t: any(b <= t < e for b, e in rng)
+        eh = self.eh_of(s)
         leaders = {s}
+        if eh:
+            leaders.update(r for _, _, r in eh["catches"] if inside(r))
         jt = {}
         for k, i in enumerate(ins_list):
             if i.mnemonic == "jmp" and i.operands[0].type == X.X86_OP_IMM and inside(i.operands[0].imm):
@@ -785,7 +855,32 @@ class Lifter:
                     pass  # a jump through a pointer, not a table: lift_ins stops there
             if i.mnemonic in ("jmp", "ret", "repz ret") or (i.mnemonic.startswith("j") and i.mnemonic != "jmp"):
                 leaders.add(i.address + i.size)
-        lines = [f"pub(super) fn f_{self.A(s):x}({'m: &mut M, s: &mut dyn Svc' if self.svc else 'm: &mut M'}) {{", f"    m.trace_enter({self.A(s):#x});", f"    let mut pc: u64 = {self.A(s):#x};", "    loop {", "        match pc {"]
+        sig = 'm: &mut M, s: &mut dyn Svc' if self.svc else 'm: &mut M'
+        lines = []
+        if eh:
+            name = f"f_{self.A(s):x}"
+            lines += [f"pub(super) fn {name}({sig}) {{",
+                      "    let entry = m.r[4];", f"    let mut start: u64 = {self.A(s):#x};",
+                      "    loop {",
+                      f"        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {name}_run(m, s, start))) {{",
+                      "            Ok(()) => return,",
+                      "            Err(p) => match p.downcast::<CxxThrow>() {",
+                      "                Ok(t) => {",
+                      f"                    let est = entry.wrapping_sub({eh['alloc']});",
+                      "                    m.r[2] = est; handling(t.obj, t.info);"]
+            c = eh["catches"][0]
+            lines += [f"                    m.st(est.wrapping_add({c[0]} as u64), 8, t.obj);",
+                      "                    m.r[4] = est.wrapping_sub(0x200); m.push(0);",
+                      f"                    f_{self.A(c[1]):x}(m, s);",
+                      "                    start = m.r[0]; m.r[4] = est;",
+                      "                }",
+                      "                Err(p) => std::panic::resume_unwind(p),",
+                      "            },",
+                      "        }", "    }", "}", ""]
+            lines += [f"fn {name}_run({sig}, start: u64) {{", f"    m.trace_enter({self.A(s):#x});",
+                      "    let mut pc: u64 = start;", "    loop {", "        match pc {"]
+        else:
+            lines = [f"pub(super) fn f_{self.A(s):x}({sig}) {{", f"    m.trace_enter({self.A(s):#x});", f"    let mut pc: u64 = {self.A(s):#x};", "    loop {", "        match pc {"]
         cur, body, terminated = None, [], True
 
         def close(next_addr):

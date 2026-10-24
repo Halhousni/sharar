@@ -1,0 +1,20 @@
+var res[600], k%, i%, r%, c[40];
+k% := 0;
+r% := IIRLp(c[], 0.1, 4, 0, 0.5);
+res[k%] := r%; k% += 1;
+for i% := 0 to 39 do res[k%] := c[i%]; k% += 1; next
+r% := IIRHp(c[], 0.2, 3, 1, 0.5);
+res[k%] := r%; k% += 1;
+for i% := 0 to 39 do res[k%] := c[i%]; k% += 1; next
+r% := IIRBp(c[], 0.1, 0.3, 2, 0, 0.5);
+res[k%] := r%; k% += 1;
+for i% := 0 to 39 do res[k%] := c[i%]; k% += 1; next
+r% := IIRBs(c[], 0.1, 0.3, 2, 2, 0.5);
+res[k%] := r%; k% += 1;
+for i% := 0 to 39 do res[k%] := c[i%]; k% += 1; next
+r% := IIRReson(c[], 0.15, 10);
+res[k%] := r%; k% += 1;
+for i% := 0 to 39 do res[k%] := c[i%]; k% += 1; next
+r% := IIRNotch(c[], 0.15, 10);
+res[k%] := r%; k% += 1;
+for i% := 0 to 39 do res[k%] := c[i%]; k% += 1; next
