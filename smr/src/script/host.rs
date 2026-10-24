@@ -35,6 +35,11 @@ pub trait Mem {
 pub type Handled = Option<Option<V>>;
 
 pub trait Host {
+    /// Offer text that `Print` produced: a host with a text file as its current view takes it
+    /// (and returns true); otherwise it goes to the script log.
+    fn print(&mut self, _text: &str) -> bool {
+        false
+    }
     /// The handle of the current view.
     fn current_view(&self) -> i64;
     /// Make `handle` the current view.

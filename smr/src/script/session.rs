@@ -10,6 +10,7 @@
 //! depend on them; here the log is 11 and files count up from 14, as the first runs did.
 
 use super::exec::RunError;
+use super::extfile::{BinFile, BinVal, TextFile};
 use super::host::{Handled, Host, Mem};
 use super::vm::{Arg, V};
 use crate::{Kind, SonFile};
@@ -33,8 +34,20 @@ impl DataView {
     }
 }
 
+/// A text or binary file a script has open.
+enum ExtKind {
+    Text(TextFile),
+    Bin(BinFile),
+}
+
+struct Ext {
+    handle: i64,
+    kind: ExtKind,
+}
+
 pub struct Session {
     views: Vec<DataView>,
+    exts: Vec<Ext>,
     log: i64,
     current: i64,
     next: i64,
@@ -52,7 +65,7 @@ impl Default for Session {
 
 impl Session {
     pub fn new() -> Session {
-        Session { views: Vec::new(), log: 11, current: 11, next: 14, maps: Vec::new() }
+        Session { views: Vec::new(), exts: Vec::new(), log: 11, current: 11, next: 14, maps: Vec::new() }
     }
 
     /// Read files whose script path starts with `windows_prefix` from `dir` instead. A script
@@ -62,7 +75,11 @@ impl Session {
     }
 
     fn resolve(&self, name: &str) -> PathBuf {
-        let norm = name.replace('/', "\\");
+        // Windows takes a doubled separator as one.
+        let mut norm = name.replace('/', "\\");
+        while norm.contains("\\\\") {
+            norm = norm.replace("\\\\", "\\");
+        }
         let lower = norm.to_ascii_lowercase();
         for (prefix, dir) in &self.maps {
             if lower.starts_with(prefix.as_str()) {
@@ -75,6 +92,11 @@ impl Session {
 
     fn view(&self) -> Option<&DataView> {
         self.views.iter().find(|v| v.handle == self.current)
+    }
+
+    fn ext_mut(&mut self) -> Option<&mut Ext> {
+        let c = self.current;
+        self.exts.iter_mut().find(|e| e.handle == c)
     }
 
     fn view_mut(&mut self) -> Option<&mut DataView> {
@@ -235,6 +257,96 @@ fn flt(mem: &dyn Mem, a: &Arg) -> Result<f64, RunError> {
 }
 
 impl Session {
+    /// The binary file commands, on the current view, which is a binary file.
+    fn bin_command(&mut self, name: &str, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let some = |v: V| Ok(Some(Some(v)));
+        let Some(Ext { kind: ExtKind::Bin(f), .. }) = self.ext_mut() else { return Ok(None) };
+        match name {
+            "BWrite" | "BWriteSize" => {
+                let (size, rest) = if name == "BWriteSize" {
+                    (Some(int(mem, &args[0])?), &args[1..])
+                } else {
+                    (None, args)
+                };
+                // It answers with how many arguments it wrote; an array is one.
+                let mut count = 0;
+                for a in rest {
+                    let vals: Vec<V> = match mem.array(a) {
+                        Some((data, _)) => data,
+                        None => vec![mem.value(a)?],
+                    };
+                    let mut ok = true;
+                    for v in vals {
+                        let bv = match v {
+                            V::Int(i) => BinVal::Int(i),
+                            V::Flt(x) => BinVal::Real(x),
+                            V::Str(s) => BinVal::Str(s),
+                        };
+                        ok &= f.write(&bv, size).is_ok();
+                    }
+                    if ok {
+                        count += 1;
+                    }
+                }
+                some(V::Int(count))
+            }
+            "BRead" | "BReadSize" => {
+                let (size, rest) = if name == "BReadSize" {
+                    (Some(int(mem, &args[0])?), &args[1..])
+                } else {
+                    (None, args)
+                };
+                let mut count = 0;
+                let mut eof = false;
+                for a in rest {
+                    let Some(t) = mem.target(a) else { return Err(RunError(super::vm::ERR_TYPE)) };
+                    for k in 0..t.array_len.unwrap_or(1) {
+                        let v = if eof {
+                            None
+                        } else {
+                            match t.ty {
+                                super::compile::Ty::Int => f.read_int(size).map(V::Int),
+                                super::compile::Ty::Float => f.read_real(size).map(V::Flt),
+                                super::compile::Ty::Str => f.read_str(size).map(V::Str),
+                            }
+                        };
+                        if v.is_none() {
+                            eof = true;
+                        } else {
+                            count += 1;
+                        }
+                        let v = v.unwrap_or(match t.ty {
+                            super::compile::Ty::Int => V::Int(0),
+                            super::compile::Ty::Float => V::Flt(0.0),
+                            super::compile::Ty::Str => V::Str(String::new()),
+                        });
+                        match a {
+                            Arg::Ref(r) if t.array_len.is_none() => mem.store(*r, v)?,
+                            _ => mem.store_element(a, k, v)?,
+                        }
+                    }
+                }
+                some(V::Int(count))
+            }
+            "BSeek" => {
+                if args.is_empty() {
+                    return some(V::Int(f.position()));
+                }
+                let off = int(mem, &args[0])?;
+                let mode = if args.len() > 1 { int(mem, &args[1])? } else { 0 };
+                some(V::Int(f.seek(off, mode)))
+            }
+            "BRWEndian" => {
+                let was = f.big_endian as i64;
+                if let Some(a) = args.first() {
+                    f.big_endian = int(mem, a)? != 0;
+                }
+                some(V::Int(was))
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// `ChanData(chan, array[], t0, t1 {, &tFirst})`: the items of a channel from the tick of
     /// `t0` to the tick of `t1` inclusive, as many as the array holds. A real array gets
     /// times in seconds (events) or values in the channel's units (waveforms); an integer
@@ -384,12 +496,25 @@ impl Host for Session {
     }
 
     fn set_view(&mut self, handle: i64) -> Result<(), RunError> {
-        if handle == self.log || self.views.iter().any(|v| v.handle == handle) {
+        if handle == self.log
+            || self.views.iter().any(|v| v.handle == handle)
+            || self.exts.iter().any(|e| e.handle == handle)
+        {
             self.current = handle;
             Ok(())
         } else {
             Err(RunError(super::vm::ERR_TYPE))
         }
+    }
+
+    fn print(&mut self, text: &str) -> bool {
+        if let Some(Ext { kind: ExtKind::Text(t), .. }) = self.ext_mut() {
+            if t.writing {
+                t.print(text);
+                return true;
+            }
+        }
+        false
     }
 
     fn command(
@@ -408,6 +533,11 @@ impl Host for Session {
                     some(V::Int(1))
                 } else if self.views.iter().any(|v| v.handle == h) {
                     some(V::Int(0))
+                } else if let Some(e) = self.exts.iter().find(|e| e.handle == h) {
+                    some(V::Int(match e.kind {
+                        ExtKind::Text(_) => 8,
+                        ExtKind::Bin(_) => 9,
+                    }))
                 } else {
                     some(V::Int(-1))
                 }
@@ -418,6 +548,29 @@ impl Host for Session {
                     _ => return Err(RunError(super::vm::ERR_TYPE)),
                 };
                 let kind = int(mem, &args[1])?;
+                if kind == 8 || kind == 9 {
+                    let mode = if args.len() > 2 { int(mem, &args[2])? } else { 0 };
+                    let p = self.resolve(&path);
+                    let opened = if kind == 8 {
+                        if mode & 1 != 0 {
+                            Ok(ExtKind::Text(TextFile::create(p)))
+                        } else {
+                            TextFile::open(p).map(ExtKind::Text)
+                        }
+                    } else {
+                        BinFile::open(&p, mode).map(ExtKind::Bin)
+                    };
+                    return match opened {
+                        Ok(kind) => {
+                            let handle = self.next;
+                            self.next += 1;
+                            self.exts.push(Ext { handle, kind });
+                            self.current = handle;
+                            some(V::Int(handle))
+                        }
+                        Err(_) => some(V::Int(-1518)),
+                    };
+                }
                 if kind != 0 {
                     return Ok(None);
                 }
@@ -434,12 +587,35 @@ impl Host for Session {
             }
             "FileClose" => {
                 let c = self.current;
-                let Some(at) = self.views.iter().position(|v| v.handle == c) else {
+                if let Some(at) = self.exts.iter().position(|e| e.handle == c) {
+                    let e = self.exts.remove(at);
+                    if let ExtKind::Text(t) = e.kind {
+                        let _ = t.close();
+                    }
+                } else if let Some(at) = self.views.iter().position(|v| v.handle == c) {
+                    self.views.remove(at);
+                } else {
                     return Ok(None);
-                };
-                self.views.remove(at);
-                self.current = self.views.last().map(|v| v.handle).unwrap_or(self.log);
+                }
+                // The most recently opened view still open becomes the current one.
+                let newest = self.views.iter().map(|v| v.handle).chain(self.exts.iter().map(|e| e.handle)).max();
+                self.current = newest.unwrap_or(self.log);
                 some(V::Int(0))
+            }
+            "Read" => {
+                let line = match self.ext_mut() {
+                    Some(Ext { kind: ExtKind::Text(t), .. }) if !t.writing => t.read_line(),
+                    _ => return Ok(None),
+                };
+                let Some(line) = line else { return some(V::Int(-1530)) };
+                let cfg = mem.read_cfg().clone();
+                let n = super::text::read_values(&line, &cfg, args, mem)?;
+                some(V::Int(n))
+            }
+            "BWrite" | "BWriteSize" | "BRead" | "BReadSize" | "BSeek" | "BRWEndian"
+                if matches!(self.ext_mut(), Some(Ext { kind: ExtKind::Bin(_), .. })) =>
+            {
+                self.bin_command(name, args, mem)
             }
             "MaxTime" => match self.view() {
                 Some(v) => some(V::Flt(v.file.duration())),

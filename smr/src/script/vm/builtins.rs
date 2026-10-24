@@ -234,6 +234,21 @@ impl Vm {
             "Print$" => some(V::Str(self.print_text(args)?)),
             "Print" => {
                 let t = self.print_text(args)?;
+                let taken = match self.host.take() {
+                    Some(mut h) => {
+                        let r = h.print(&t);
+                        self.host = Some(h);
+                        r
+                    }
+                    None => false,
+                };
+                if !taken {
+                    self.log.push_str(&t);
+                }
+                some(V::Int(0))
+            }
+            "PrintLog" => {
+                let t = self.print_text(args)?;
                 self.log.push_str(&t);
                 some(V::Int(0))
             }

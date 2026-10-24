@@ -8,6 +8,7 @@ pub mod bytecode;
 pub mod commands;
 pub mod compile;
 pub mod exec;
+pub mod extfile;
 pub mod host;
 pub mod lexer;
 pub mod parser;
