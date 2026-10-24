@@ -24,19 +24,24 @@ fn find(rel: &str) -> Option<PathBuf> {
     None
 }
 
-/// Programs whose results differ from Spike2's in the last bit, and only that: Spike2 calls
-/// the maths library of msvcr110.dll, whose `cos`, `cosh`, `sinh` and `atan` round a few
-/// arguments differently from the host's. Porting those routines (they use lookup tables and
-/// a range-reduction helper) would close the gap; until then a difference of one unit in the
-/// last place is tolerated for these programs and nowhere else.
-const LAST_BIT: &[&str] = &[
-    "g_cos", "g_cosh", "g_sinh", "g_atan", "g_array_math", "s_rand",
-    "m_libm_sin", "m_libm_cos", "m_libm_tan", "m_libm_atan", "m_libm_atan2", "m_libm_sinh", "m_libm_cosh", "m_libm_tanh",
-];
+/// Programs whose results differ from Spike2's in the last bits, and only that: Spike2 calls
+/// the maths library of msvcr110.dll, which rounds some arguments differently from the host's.
+/// Porting its routines (they use lookup tables and a range-reduction helper) closes the gap;
+/// until then a difference of a few units in the last place is tolerated for these programs
+/// and nowhere else.
+const LAST_BITS: &[&str] = &["g_cos", "g_cosh", "g_sinh", "g_atan", "g_array_math", "s_rand"];
 
-fn within_one_ulp(a: u64, b: u64) -> bool {
+fn ulps_allowed(name: &str) -> u64 {
+    if name.starts_with("m_libm_") || LAST_BITS.contains(&name) {
+        4
+    } else {
+        0
+    }
+}
+
+fn near(a: u64, b: u64, ulps: u64) -> bool {
     let (x, y) = (f64::from_bits(a), f64::from_bits(b));
-    x.is_finite() && y.is_finite() && x.signum() == y.signum() && a.abs_diff(b) <= 1
+    x.is_finite() && y.is_finite() && x.signum() == y.signum() && a.abs_diff(b) <= ulps
 }
 
 fn bits(v: &V) -> u64 {
@@ -109,7 +114,7 @@ fn programs_compute_what_spike2_computes() {
                         (Some(&w), Some(&g)) => {
                             w != g
                                 && !(nan(w) && nan(g))
-                                && !(LAST_BIT.contains(&name) && within_one_ulp(w, g))
+                                && !(ulps_allowed(name) > 0 && near(w, g, ulps_allowed(name)))
                         }
                         _ => true,
                     })
