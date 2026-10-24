@@ -1705,6 +1705,9 @@ impl Host for SharedSession {
     fn view_info(&self, handle: i64) -> Option<(i64, Option<std::path::PathBuf>)> {
         self.0.lock().unwrap().view_info(handle)
     }
+    fn wave_info(&self, view: i64, chan: i64) -> Option<(f64, i64)> {
+        self.0.lock().unwrap().wave_info(view, chan)
+    }
     fn command(&mut self, name: &str, variant: usize, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         self.0.lock().unwrap().command(name, variant, args, mem)
     }

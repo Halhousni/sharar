@@ -40,3 +40,23 @@ fn a_script_changes_the_view_it_started_in() {
     assert_eq!(after.x_range, (100.0, 110.0));
     assert_eq!(after.selected, vec![4]);
 }
+
+/// The commands that run Spike2's own code reach the file through the shared session too.
+#[test]
+fn translated_commands_see_the_attached_file() {
+    let Some(path) = demo() else {
+        println!("skip: no Demo.smr in testdata");
+        return;
+    };
+    let start = ViewState { hidden: vec![], cursors: vec![], x_range: (0.0, 10.0), selected: vec![] };
+    let mut session = Session::new();
+    session.attach(&path, &start).unwrap();
+    let shared = Arc::new(Mutex::new(session));
+    let src = "var ok%;\n\
+               Print(\"%g %d\\n\", ChanMeasure(1, 2, 1, 5, ok%), ok%);\n\
+               Print(\"%g\\n\", ChanSearch(1, 1, 1, 8, 0.5));";
+    let compiled = smr::script::compile_with_commands(src).unwrap();
+    let mut vm = Vm::new(compiled, true).unwrap().with_host(Box::new(SharedSession(shared)));
+    assert_eq!(vm.run(), Stop::Done);
+    assert_eq!(vm.log, "1.35101 1\n1.981\n");
+}
