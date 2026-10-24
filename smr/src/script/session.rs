@@ -66,11 +66,13 @@ struct DataView {
     label_pos: f64,
     /// The display switches a script can set (`XAxis`, `Grid` …), by command name.
     opts: std::collections::HashMap<&'static str, i64>,
+    /// Per-channel display settings a script can set (`ChanWeight` …), by command name and channel.
+    chopts: std::collections::HashMap<(&'static str, i64), f64>,
 }
 
 impl DataView {
     fn new(handle: i64, file: SonFile) -> DataView {
-        DataView { mem: Vec::new(), shown: Vec::new(), x_range: (0.0, 1.0), y_range: Default::default(), title: None, visible: false, script_name: String::new(), over: Default::default(), handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9], label_mode: [2; 9], label_pos: 20.0, opts: Default::default() }
+        DataView { mem: Vec::new(), shown: Vec::new(), x_range: (0.0, 1.0), y_range: Default::default(), title: None, visible: false, script_name: String::new(), over: Default::default(), handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9], label_mode: [2; 9], label_pos: 20.0, opts: Default::default(), chopts: Default::default() }
     }
 }
 
@@ -509,6 +511,39 @@ impl Session {
                 let old = *v.opts.get(key).unwrap_or(&default);
                 if let Some(x) = stored {
                     v.opts.insert(key, x);
+                }
+                some(V::Int(old))
+            }
+            "ChanWeight" | "ChanPenWidth" | "MarkShow" | "YAxisAttrib" => {
+                // chan{, value}: answers with the old value; a channel that is not there is an error.
+                let (key, default, int_result): (&'static str, f64, bool) = match name {
+                    "ChanWeight" => ("ChanWeight", 1.0, false),
+                    "ChanPenWidth" => ("ChanPenWidth", -1.0, false),
+                    "MarkShow" => ("MarkShow", 0.0, true),
+                    _ => ("YAxisAttrib", 0.0, true),
+                };
+                if !matches!(mem.value(&args[0])?, V::Int(_) | V::Flt(_)) {
+                    return Ok(None);
+                }
+                let n = int(mem, &args[0])?;
+                if self.chan_pos(n).is_none() && self.mem_index(n).is_none() {
+                    return Err(RunError(super::vm::ERR_ARG_INT));
+                }
+                let new = if args.len() > 1 { Some(flt(mem, &args[1])?) } else { None };
+                let new = new.map(|x| if key == "YAxisAttrib" { ((x as i64) & 12) as f64 } else { x });
+                let v = self.view_mut().unwrap();
+                let old = *v.chopts.get(&(key, n)).unwrap_or(&default);
+                if let Some(x) = new {
+                    v.chopts.insert((key, n), x);
+                }
+                some(if int_result { V::Int(old as i64) } else { V::Flt(old) })
+            }
+            "YAxisMode" if args.len() <= 1 => {
+                let new = if args.is_empty() { None } else { Some(int(mem, &args[0])?) };
+                let v = self.view_mut().unwrap();
+                let old = *v.opts.get("YAxisMode").unwrap_or(&0);
+                if let Some(x) = new {
+                    v.opts.insert("YAxisMode", x);
                 }
                 some(V::Int(old))
             }
@@ -1465,7 +1500,8 @@ impl Host for Session {
             "XRange" | "XLow" | "XHigh" | "YRange" | "YLow" | "YHigh" | "Draw" | "DrawAll" | "Optimise"
             | "Window" | "WindowVisible" | "WindowTitle$" | "FrontView" | "FileName$" | "FileComment$"
             | "FileSize" | "Modified" | "ViewStandard" | "FileTimeDate" | "XAxis" | "XAxisAttrib" | "XAxisMode"
-            | "XScroller" | "YAxis" | "ChanNumbers" | "Grid" | "ViewUseColour"
+            | "XScroller" | "YAxis" | "ChanNumbers" | "Grid" | "ViewUseColour" | "ChanWeight" | "ChanPenWidth"
+            | "MarkShow" | "YAxisAttrib" | "YAxisMode"
                 if self.view().is_some() =>
             {
                 self.display_command(name, args, mem)
