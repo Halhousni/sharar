@@ -489,6 +489,63 @@ scripts (including a matching procedure and several near misses for each group),
 compiler fixture is, so a fresh clone skips that test and runs the unit tests in
 `compile.rs`, which pin the same rules on a few scripts.
 
+## The interpreter
+
+`smr::script::vm` runs a compiled program. Storage is an arena of cells, globals first, with
+a call allocating cells for its by-value parameters, locals and result above them. A
+reference is a cell or one element of an array cell, so a by-reference parameter and a
+whole array passed to a procedure are the caller's own cells. The scalar arithmetic, the
+comparisons and the loop opcodes use the helpers transcribed from the vendor's `Execute`
+methods in `exec.rs`.
+
+Commands the interpreter does not run itself go to a `Host` (`host.rs`), which also owns the
+current view: `GetView`, `SetView`, `GetSetView` and `SetViewSwap` call it. `Session`
+(`session.rs`) is a host built on the `.smr` reader: it opens and closes files and answers
+the queries on a view and its channels. Everything else (the pure commands) is in
+`vm/builtins.rs`, with the C formatter that `Str$`, `Print` and `Print$` use in
+`vm/printf.rs`.
+
+### How it is checked
+
+The compiler is held to the vendor's words. The interpreter is held to Spike2's behaviour by
+running the same programs in Spike2. `tools/run_oracle.py` takes every program in
+`tools/run_cases/`, each of which declares a global array `res` and fills it, appends code that
+writes `res` to a file with `BWrite`, and chains them: `ScriptRun` at the end of one program
+starts the next, so one launch of Spike2 in the Windows guest runs a batch (a program that
+raises a script error leaves a dialog open and stops the chain; the program that wrote no file
+is the one that failed, and the batch restarts after it). `smr/tests/run_reference.rs` runs the
+same programs through the port and compares every element bit for bit. Programs named `g_*`
+are written by `tools/gen_run_cases.py` and grid a command over its inputs; `d_*` open the
+example recordings.
+
+What that found, beyond what could be read from the code:
+
+- Symbols are numbered in the order the source declares them, routines included, and a `var`
+  inside a block at the top level is a global. The compiler had numbered variables first and
+  routines after, which is only the same when the routines come last.
+- `Str$`, `Print` and `Print$` format with the old Microsoft C runtime: three-digit exponents
+  (`1e+006`), a number cut to 17 significant digits and then rounded half up (`2.25` with
+  `%.1f` is `2.3`), only the conversions `d x X c s f e E g G`, `*` for a missing argument or a
+  number given to `%s`, and any argument the format does not use appended after it with a
+  newline.
+- `Max` and `Min` of an array return the index of the first extreme element.
+- `Len` of an array with more than one dimension is an error.
+- An integer array met by a real scalar: `ArrAdd`, `ArrSub` and `ArrSubR` cut the scalar to an
+  integer first; `ArrMul`, `ArrDiv` and `ArrDivR` work in real and cut the result. Against a
+  real array, all work in real and cut the result.
+- `ArrSort` sorts descending when its mode is odd and permutes any further arrays the same
+  way; `ArrSum(a[], &mean, &sd)` returns the sum and sets the mean and the sample standard
+  deviation.
+- `Count` on an event channel counts the events whose tick is in `[round(t0/tick),
+  round(t1/tick))`, and on a waveform channel is the mean of the samples whose ticks are.
+- A query on a channel that does not exist returns a code rather than raising an error:
+  `ChanKind` 0, `ChanTitle$` an empty string, `ChanComment$` `No comment`, `NextTime` -1505.
+
+Known gap: Spike2's `Cos`, `Cosh`, `Sinh` and `ATan` come from `msvcr110.dll`'s maths library
+and differ from the host's in the last bit for a few arguments. The test tolerates one unit
+in the last place for exactly those programs and nowhere else; porting the library's routines
+(they use lookup tables and a range-reduction helper) would close it.
+
 ## What is not known yet
 
 - what the `MakeNDArr` operand counts. `ResizeArray`'s operand is settled in the

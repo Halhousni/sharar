@@ -286,6 +286,10 @@ def creation_order(im, recs, slots):
                 continue
             pick.append(c)
         assert len(pick) == 1, (hex(addr), [c['name'] for c in pick])
+        pick[0]['vtable'] = vt
+        # Execute is the ninth slot of the vtable (after the destructor, Initialize and six
+        # thunks into compiler.dll's base class).
+        pick[0]['exec'] = im.u64(vt + 0x40)
         order.append(pick[0])
     return order
 
