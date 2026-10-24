@@ -1,0 +1,22 @@
+var res[600], h%, i%;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+res[0] := Yield(); res[1] := Yield(0.01);
+for i% := 0 to 5 do Enc(FileName$(i%), 2 + i% * 60) next
+Enc(WindowTitle$(), 400); Enc(WindowTitle$("hello"), 430); Enc(WindowTitle$(), 460);
+res[490] := WindowVisible(); res[491] := WindowVisible(1); res[492] := WindowVisible();
+res[493] := Window(0, 0, 50, 50);
+res[494] := FileSize(); res[495] := Modified();
+Enc(FileComment$(1), 500);
+res[580] := YLow(1); res[581] := YHigh(1);
+YRange(1, -2, 3);
+res[582] := YLow(1); res[583] := YHigh(1);
+YRange(1);
+res[584] := YLow(1); res[585] := YHigh(1);
+res[586] := FrontView() = h%;
+Draw(); DrawAll(); Optimise(1);
+View(h%); FileClose();

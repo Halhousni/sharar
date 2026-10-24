@@ -642,13 +642,13 @@ impl SonFile {
         let mut dtime_base = r.f64();
         let _datetime_detail = r.u8();
         let _datetime_year = r.i16();
-        r.skip(52);
+        r.skip(57);
+        // The five comment lines are Pascal strings, as stored (so `FileComment$` can return
+        // them as they are); an empty line keeps its place.
         let mut comments = Vec::new();
         for _ in 0..5 {
-            let c = r.fixed(80);
-            if !c.is_empty() {
-                comments.push(c);
-            }
+            comments.push(r.peek_raw(80));
+            r.skip(80);
         }
 
         // Before version 6 the header has no usable time base and no date fields.

@@ -44,6 +44,14 @@ struct Over {
 struct DataView {
     mem: Vec<Option<MemChan>>,
     shown: Vec<i64>,
+    /// The time axis the view shows, and per channel the value axis. Display state: the app
+    /// draws from it; Spike2 snaps it to its window's pixels, which this does not.
+    x_range: (f64, f64),
+    y_range: std::collections::HashMap<i64, (f64, f64)>,
+    title: Option<String>,
+    visible: bool,
+    /// The name the script opened the file by, as it wrote it.
+    script_name: String,
     over: std::collections::HashMap<i64, Over>,
     handle: i64,
     file: SonFile,
@@ -57,7 +65,7 @@ struct DataView {
 
 impl DataView {
     fn new(handle: i64, file: SonFile) -> DataView {
-        DataView { mem: Vec::new(), shown: Vec::new(), over: Default::default(), handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9] }
+        DataView { mem: Vec::new(), shown: Vec::new(), x_range: (0.0, 1.0), y_range: Default::default(), title: None, visible: false, script_name: String::new(), over: Default::default(), handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9] }
     }
 }
 
@@ -333,6 +341,108 @@ fn flt(mem: &dyn Mem, a: &Arg) -> Result<f64, RunError> {
 }
 
 impl Session {
+    /// Display state and descriptions of the view: what a script reads and sets about how a
+    /// window looks, not what it holds.
+    fn display_command(&mut self, name: &str, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let some = |v: V| Ok(Some(Some(v)));
+        let none = Ok(Some(None));
+        match name {
+            "XLow" => some(V::Flt(self.view().unwrap().x_range.0)),
+            "XHigh" => some(V::Flt(self.view().unwrap().x_range.1)),
+            "XRange" => {
+                let a = flt(mem, &args[0])?;
+                let v = self.view_mut().unwrap();
+                v.x_range = if args.len() > 1 {
+                    (a, flt(mem, &args[1])?)
+                } else {
+                    // One value moves the window and keeps its width.
+                    (a, a + (v.x_range.1 - v.x_range.0))
+                };
+                none
+            }
+            "YLow" | "YHigh" => {
+                let n = if args.is_empty() { 1 } else { int(mem, &args[0])? };
+                let r = self.view().unwrap().y_range.get(&n).copied().unwrap_or((-5.0, 5.0));
+                some(V::Flt(if name == "YLow" { r.0 } else { r.1 }))
+            }
+            "YRange" => {
+                let n = int(mem, &args[0])?;
+                let v = self.view_mut().unwrap();
+                if args.len() >= 3 {
+                    let (lo, hi) = (flt(mem, &args[1])?, flt(mem, &args[2])?);
+                    v.y_range.insert(n, (lo, hi));
+                } else {
+                    v.y_range.remove(&n);
+                }
+                none
+            }
+            "Draw" | "DrawAll" | "Optimise" | "ViewStandard" => none,
+            "Window" => {
+                self.view_mut().unwrap().visible = true;
+                some(V::Int(1))
+            }
+            "WindowVisible" => {
+                let v = self.view_mut().unwrap();
+                let was = v.visible;
+                if let Some(a) = args.first() {
+                    v.visible = int(mem, a)? != 0;
+                }
+                some(V::Int(was as i64))
+            }
+            "WindowTitle$" => {
+                let default = {
+                    let v = self.view().unwrap();
+                    let win = v.script_name.replace('/', "\\");
+                    let file = win.rsplit('\\').next().unwrap_or("");
+                    let stem = file.rsplit_once('.').map(|(a, _)| a).unwrap_or(file).to_string();
+                    format!("{}[Read only, {}-bit]", stem, if v.file.son64 { 64 } else { 32 })
+                };
+                let v = self.view_mut().unwrap();
+                let old = v.title.clone().unwrap_or(default);
+                if let Some(a) = args.first() {
+                    if let V::Str(s) = mem.value(a)? {
+                        v.title = Some(s);
+                    }
+                }
+                some(V::Str(old))
+            }
+            "FrontView" => some(V::Int(self.current)),
+            "Modified" => some(V::Int(0)),
+            "FileSize" => some(V::Int(std::fs::metadata(&self.view().unwrap().file.path).map(|m| m.len() as i64).unwrap_or(0))),
+            "FileName$" => {
+                let n = if args.is_empty() { 0 } else { int(mem, &args[0])? };
+                let win = self.view().unwrap().script_name.replace('/', "\\");
+                let (drive, rest) = match win.find(':') {
+                    Some(i) => (win[..=i].to_string(), win[i + 1..].to_string()),
+                    None => (String::new(), win.clone()),
+                };
+                let cut = rest.rfind('\\').map(|i| i + 1).unwrap_or(0);
+                let (dir, file) = (rest[..cut].to_string(), rest[cut..].to_string());
+                let dot = file.rfind('.');
+                let (stem, ext) = match dot {
+                    Some(i) => (file[..i].to_string(), file[i..].to_string()),
+                    None => (file.clone(), String::new()),
+                };
+                some(V::Str(match n {
+                    0 => win,
+                    1 => drive,
+                    2 => dir,
+                    3 => stem,
+                    4 => String::new(),
+                    5 => ext,
+                    _ => String::new(),
+                }))
+            }
+            "FileComment$" => {
+                let n = int(mem, &args[0])?;
+                let f = &self.view().unwrap().file;
+                let c = if n >= 1 { f.comments.get(n as usize - 1).cloned().unwrap_or_default() } else { String::new() };
+                some(V::Str(c))
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// The memory channel commands. Only event, marker and text-mark channels are held so far.
     fn mem_command(&mut self, name: &str, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         let some = |v: V| Ok(Some(Some(v)));
@@ -872,7 +982,9 @@ impl Host for Session {
                     Ok(file) => {
                         let handle = self.next;
                         self.next += 1;
-                        self.views.push(DataView::new(handle, file));
+                        let mut dv = DataView::new(handle, file);
+                        dv.script_name = path.clone();
+                        self.views.push(dv);
                         self.current = handle;
                         some(V::Int(handle))
                     }
@@ -1048,6 +1160,14 @@ impl Host for Session {
             {
                 self.mem_command(name, args, mem)
             }
+            "XRange" | "XLow" | "XHigh" | "YRange" | "YLow" | "YHigh" | "Draw" | "DrawAll" | "Optimise"
+            | "Window" | "WindowVisible" | "WindowTitle$" | "FrontView" | "FileName$" | "FileComment$"
+            | "FileSize" | "Modified" | "ViewStandard"
+                if self.view().is_some() =>
+            {
+                self.display_command(name, args, mem)
+            }
+            "Yield" => some(V::Int(1)),
             "Cursor" | "CursorNew" | "CursorExists" | "CursorDelete" | "CursorValid" | "CursorSet"
                 if self.view().is_some() =>
             {
