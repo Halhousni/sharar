@@ -653,3 +653,11 @@ object, `CSamModeInfo`'s constructor, SONVIEW's own start-up routine `0x14008bc8
 defaults, reading "Preferences" through a stand-in application object whose `GetProfileInt` answers with
 its default), and the `CConfig`. The commands find it through message `0x2059`. Commands that depend on
 the connected 1401 (`SampleTimePerAdc`'s limits, starting, stopping) are not covered.
+
+### The filter bank
+
+`Filters.dll` is translated as a ninth module (`filters`). The main-window stand-in holds a `CIIRFilterBank`
+(+0xcdf0) and the `IIRDefine` the bank commands edit (+0xcdd0); messages `0x540`/`0x541` (set / get a
+filter) are SONVIEW's own handlers. Commands that share a class (`IIRName$` / `IIRComment$`) are told
+apart by the order their objects are built in. Note for tests: the application keeps this state for the whole
+Spike2 session, so a test case must set what it reads.
