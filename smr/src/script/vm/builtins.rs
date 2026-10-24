@@ -67,6 +67,57 @@ impl Vm {
         some(V::Flt(f(self.a_flt(a)?)))
     }
 
+    /// The values of an array argument, in storage order.
+    fn array_vals(&self, a: &Arg) -> Result<Vec<V>, RunError> {
+        let Some(c) = self.a_array(a) else { return Err(RunError(ERR_TYPE)) };
+        match &self.cells[c] {
+            Cell::Array { data, .. } => Ok(data.clone()),
+            _ => unreachable!(),
+        }
+    }
+
+    /// `ArrConst`, `ArrAdd` and the rest: the second argument, a number or an array of the
+    /// same size, combined element by element into the first, in the first's own type.
+    fn array_arith(&mut self, name: &str, args: &[Arg]) -> Out {
+        let Some(c) = self.a_array(&args[0]) else { return Err(RunError(ERR_TYPE)) };
+        let array_rhs = self.a_array(&args[1]).is_some();
+        let rhs: Vec<V> = if array_rhs {
+            self.array_vals(&args[1])?
+        } else {
+            vec![self.a_val(&args[1])?]
+        };
+        let Cell::Array { ty, data, .. } = &mut self.cells[c] else { unreachable!() };
+        let ty = *ty;
+        let scalar = rhs.len() == 1 && !array_rhs;
+        for (i, e) in data.iter_mut().enumerate() {
+            // An array of another size is used as far as it goes.
+            if rhs.len() > 1 && i >= rhs.len() {
+                break;
+            }
+            let r = if rhs.len() == 1 { &rhs[0] } else { &rhs[i] };
+            // Into an integer array, a real scalar is cut to an integer first by add and
+            // subtract but not by multiply and divide, which work in real and cut the result.
+            let cut;
+            let r = match (ty, r) {
+                (crate::script::compile::Ty::Int, V::Flt(f)) if scalar && matches!(name, "ArrAdd" | "ArrSub" | "ArrSubR") => {
+                    cut = V::Int(to_int(crate::script::exec::Value::Flt(*f))?);
+                    &cut
+                }
+                _ => r,
+            };
+            *e = match name {
+                "ArrConst" => conv(r, ty)?,
+                "ArrAdd" => add_vals(e, r, ty)?,
+                "ArrSub" => sub_vals(e, r, ty)?,
+                "ArrSubR" => sub_vals(r, e, ty)?,
+                "ArrMul" => mul_vals(e, r, ty)?,
+                "ArrDiv" => div_vals(e, r, ty)?,
+                _ => div_vals(r, e, ty)?,
+            };
+        }
+        some(V::Int(0))
+    }
+
     /// The text `Print$` returns and `Print` writes: the first argument is a format.
     /// Arguments the format does not use follow it, and then a newline.
     fn print_text(&self, args: &[Arg]) -> Result<String, RunError> {
@@ -186,6 +237,84 @@ impl Vm {
                 self.log.push_str(&t);
                 some(V::Int(0))
             }
+            // ---- arrays --------------------------------------------------------------
+            "ArrConst" | "ArrAdd" | "ArrSub" | "ArrSubR" | "ArrMul" | "ArrDiv" | "ArrDivR" => {
+                self.array_arith(name, args)
+            }
+            "ArrDot" => {
+                let (a, b) = (self.array_vals(&args[0])?, self.array_vals(&args[1])?);
+                if a.len() != b.len() {
+                    return Err(RunError(ERR_INDEX));
+                }
+                let mut t = 0.0;
+                for (x, y) in a.iter().zip(&b) {
+                    t += as_flt(x.num()?) * as_flt(y.num()?);
+                }
+                some(V::Flt(t))
+            }
+            "ArrSum" => {
+                let a = self.array_vals(&args[0])?;
+                let xs: Vec<f64> = a.iter().map(|v| v.num().map(as_flt)).collect::<Result<_, _>>()?;
+                let n = xs.len() as f64;
+                let sum: f64 = xs.iter().sum();
+                if let Some(Arg::Ref(r)) = args.get(1) {
+                    self.set(*r, V::Flt(sum / n))?;
+                }
+                if let Some(Arg::Ref(r)) = args.get(2) {
+                    let mean = sum / n;
+                    let ss: f64 = xs.iter().map(|x| (x - mean) * (x - mean)).sum();
+                    // The sample standard deviation: divided by n - 1.
+                    self.set(*r, V::Flt(if xs.len() > 1 { (ss / (n - 1.0)).sqrt() } else { 0.0 }))?;
+                }
+                some(V::Flt(sum))
+            }
+            "ArrDiff" | "ArrIntgl" => {
+                let Some(c) = self.a_array(&args[0]) else { return Err(RunError(ERR_TYPE)) };
+                if let Cell::Array { ty, data, .. } = &mut self.cells[c] {
+                    if name == "ArrDiff" {
+                        for i in (1..data.len()).rev() {
+                            data[i] = sub_vals(&data[i], &data[i - 1], *ty)?;
+                        }
+                    } else {
+                        for i in 1..data.len() {
+                            data[i] = add_vals(&data[i], &data[i - 1], *ty)?;
+                        }
+                    }
+                }
+                none()
+            }
+            "ArrSort" => {
+                let Some(c) = self.a_array(&args[0]) else { return Err(RunError(ERR_TYPE)) };
+                let mode = if args.len() > 1 { self.a_int(&args[1])? } else { 0 };
+                let desc = mode & 1 != 0;
+                let keys = self.array_vals(&args[0])?;
+                let mut order: Vec<usize> = (0..keys.len()).collect();
+                let cmp = |a: &V, b: &V| -> std::cmp::Ordering {
+                    match (a, b) {
+                        (V::Str(x), V::Str(y)) => x.cmp(y),
+                        _ => as_flt(a.num().unwrap_or(crate::script::exec::Value::Int(0)))
+                            .partial_cmp(&as_flt(b.num().unwrap_or(crate::script::exec::Value::Int(0))))
+                            .unwrap_or(std::cmp::Ordering::Equal),
+                    }
+                };
+                // A stable sort: equal keys keep their order.
+                order.sort_by(|&i, &j| if desc { cmp(&keys[j], &keys[i]) } else { cmp(&keys[i], &keys[j]) });
+                let n = keys.len();
+                for a in std::iter::once(&args[0]).chain(args.iter().skip(2)) {
+                    let Some(cc) = self.a_array(a) else { continue };
+                    if let Cell::Array { data, .. } = &mut self.cells[cc] {
+                        if data.len() != n {
+                            continue;
+                        }
+                        let old = data.clone();
+                        for (k, &i) in order.iter().enumerate() {
+                            data[k] = old[i].clone();
+                        }
+                    }
+                }
+                let _ = c;
+                some(V::Int(n as i64))
+            }
             // ---- real functions ------------------------------------------------------
             "Abs" => {
                 if let Some(_) = self.a_array(&args[0]) {
@@ -287,4 +416,55 @@ fn parse_leading_number(s: &str) -> f64 {
         }
     }
     t[..end].parse().unwrap_or(0.0)
+}
+
+/// A value converted to an array's element type, as the typed setters do.
+fn conv(v: &V, ty: crate::script::compile::Ty) -> Result<V, RunError> {
+    use crate::script::compile::Ty;
+    Ok(match (ty, v) {
+        (Ty::Int, v) => V::Int(to_int(v.num()?)?),
+        (Ty::Float, v) => V::Flt(as_flt(v.num()?)),
+        (Ty::Str, V::Str(s)) => V::Str(s.clone()),
+        _ => return Err(RunError(ERR_TYPE)),
+    })
+}
+
+fn arith(
+    l: &V,
+    r: &V,
+    ty: crate::script::compile::Ty,
+    int_op: impl Fn(i64, i64) -> Result<i64, RunError>,
+    flt_op: impl Fn(f64, f64) -> Result<f64, RunError>,
+) -> Result<V, RunError> {
+    use crate::script::compile::Ty;
+    let real_operand = matches!(l, V::Flt(_)) || matches!(r, V::Flt(_));
+    match ty {
+        // An integer array met by a real number is worked out as real and then cut back.
+        Ty::Int if real_operand => {
+            let v = flt_op(as_flt(l.num()?), as_flt(r.num()?))?;
+            Ok(V::Int(to_int(crate::script::exec::Value::Flt(v))?))
+        }
+        Ty::Int => Ok(V::Int(int_op(to_int(l.num()?)?, to_int(r.num()?)?)?)),
+        Ty::Float => Ok(V::Flt(flt_op(as_flt(l.num()?), as_flt(r.num()?))?)),
+        Ty::Str => Err(RunError(ERR_TYPE)),
+    }
+}
+
+fn add_vals(l: &V, r: &V, ty: crate::script::compile::Ty) -> Result<V, RunError> {
+    arith(l, r, ty, |a, b| Ok(a.wrapping_add(b)), |a, b| Ok(a + b))
+}
+fn sub_vals(l: &V, r: &V, ty: crate::script::compile::Ty) -> Result<V, RunError> {
+    arith(l, r, ty, |a, b| Ok(a.wrapping_sub(b)), |a, b| Ok(a - b))
+}
+fn mul_vals(l: &V, r: &V, ty: crate::script::compile::Ty) -> Result<V, RunError> {
+    arith(l, r, ty, crate::script::exec::int_mul, |a, b| Ok(a * b))
+}
+fn div_vals(l: &V, r: &V, ty: crate::script::compile::Ty) -> Result<V, RunError> {
+    arith(
+        l,
+        r,
+        ty,
+        crate::script::exec::int_div,
+        |a, b| crate::script::exec::flt_div_check(b).map(|_| a / b),
+    )
 }

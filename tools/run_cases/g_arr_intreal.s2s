@@ -1,0 +1,58 @@
+var res[56];
+var a[5], b[5], c%[4], d%[4], e[2][3], k%, x, y;
+proc Rst()
+  a[0] := 1.5; a[1] := -2; a[2] := 3; a[3] := 0.25; a[4] := 10;
+  b[0] := 2; b[1] := 4; b[2] := -1; b[3] := 0.5; b[4] := 8;
+  c%[0] := 7; c%[1] := -3; c%[2] := 12; c%[3] := 5;
+  d%[0] := 2; d%[1] := 2; d%[2] := 3; d%[3] := 1;
+end;
+proc Dump(at%)
+  var j%;
+  for j% := 0 to 4 do res[at% + j%] := a[j%] next
+end;
+proc DumpC(at%)
+  var j%;
+  for j% := 0 to 3 do res[at% + j%] := c%[j%] next
+end;
+Rst();
+ArrAdd(c%[], 2.7);
+DumpC(0);
+Rst();
+ArrMul(c%[], 1.5);
+DumpC(4);
+Rst();
+ArrDiv(c%[], 2.5);
+DumpC(8);
+Rst();
+ArrSub(c%[], 0.5);
+DumpC(12);
+Rst();
+ArrConst(c%[], -2.7);
+DumpC(16);
+Rst();
+ArrSubR(c%[], 2.7);
+DumpC(20);
+Rst();
+ArrSubR(c%[], -0.5);
+DumpC(24);
+Rst();
+ArrDivR(c%[], -20.5);
+DumpC(28);
+Rst();
+ArrAdd(c%[], -2.7);
+DumpC(32);
+Rst();
+ArrMul(c%[], -1.5);
+DumpC(36);
+Rst();
+ArrAdd(c%[], b[]);
+DumpC(40);
+Rst();
+ArrMul(c%[], b[]);
+DumpC(44);
+Rst();
+ArrDiv(c%[], b[]);
+DumpC(48);
+Rst();
+ArrSub(c%[], a[]);
+DumpC(52);

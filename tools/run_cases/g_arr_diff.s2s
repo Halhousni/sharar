@@ -1,0 +1,28 @@
+var res[18];
+var a[5], b[5], c%[4], d%[4], e[2][3], k%, x, y;
+proc Rst()
+  a[0] := 1.5; a[1] := -2; a[2] := 3; a[3] := 0.25; a[4] := 10;
+  b[0] := 2; b[1] := 4; b[2] := -1; b[3] := 0.5; b[4] := 8;
+  c%[0] := 7; c%[1] := -3; c%[2] := 12; c%[3] := 5;
+  d%[0] := 2; d%[1] := 2; d%[2] := 3; d%[3] := 1;
+end;
+proc Dump(at%)
+  var j%;
+  for j% := 0 to 4 do res[at% + j%] := a[j%] next
+end;
+proc DumpC(at%)
+  var j%;
+  for j% := 0 to 3 do res[at% + j%] := c%[j%] next
+end;
+Rst();
+ArrDiff(a[]);
+Dump(0);
+Rst();
+ArrIntgl(a[]);
+Dump(5);
+Rst();
+ArrDiff(c%[]);
+DumpC(10);
+Rst();
+ArrIntgl(c%[]);
+DumpC(14);

@@ -73,12 +73,63 @@ def formatting2():
     strings("g_print3", [f"Print$({a})" for a in items], 40)
 
 
+def arrays():
+    pre = ("var a[5], b[5], c%[4], d%[4], e[2][3], k%, x, y;\n"
+           "proc Rst()\n  a[0] := 1.5; a[1] := -2; a[2] := 3; a[3] := 0.25; a[4] := 10;\n"
+           "  b[0] := 2; b[1] := 4; b[2] := -1; b[3] := 0.5; b[4] := 8;\n"
+           "  c%[0] := 7; c%[1] := -3; c%[2] := 12; c%[3] := 5;\n  d%[0] := 2; d%[1] := 2; d%[2] := 3; d%[3] := 1;\nend;\n"
+           "proc Dump(at%)\n  var j%;\n  for j% := 0 to 4 do res[at% + j%] := a[j%] next\nend;\n"
+           "proc DumpC(at%)\n  var j%;\n  for j% := 0 to 3 do res[at% + j%] := c%[j%] next\nend;\n")
+    ops = []
+    for fn in ["ArrAdd", "ArrSub", "ArrSubR", "ArrMul", "ArrDiv", "ArrDivR"]:
+        ops.append(f"Rst();\nres[{{r}}] := {fn}(a[], 2.5);\nDump({{d}});\n")
+        ops.append(f"Rst();\nres[{{r}}] := {fn}(a[], b[]);\nDump({{d}});\n")
+        ops.append(f"Rst();\nres[{{r}}] := {fn}(c%[], 2);\nDumpC({{d}});\n")
+        ops.append(f"Rst();\nres[{{r}}] := {fn}(c%[], d%[]);\nDumpC({{d}});\n")
+    body = ""
+    at = 0
+    for o in ops:
+        body += o.format(r=at, d=at + 1)
+        at += 6
+    write("g_arr_arith", pre + body, at)
+    ops = ["res[{r}] := ArrConst(a[], 7);\nDump({d});\n", "res[{r}] := ArrConst(a[], b[]);\nDump({d});\n",
+           "res[{r}] := ArrConst(c%[], 2.7);\nDumpC({d});\n", "res[{r}] := ArrConst(c%[], d%[]);\nDumpC({d});\n"]
+    body = ""
+    at = 0
+    for o in ops:
+        body += "Rst();\n" + o.format(r=at, d=at + 1)
+        at += 6
+    write("g_arr_const", pre + body, at)
+    body = ("Rst();\nres[0] := ArrAdd(a[], c%[]);\nDump(1);\nRst();\nres[6] := ArrConst(a[], d%[]);\nDump(7);\n"
+            "Rst();\nres[12] := ArrMul(c%[], b[]);\nDumpC(13);\nRst();\nres[17] := ArrSub(a[], d%[]);\nDump(18);\n")
+    write("g_arr_sizes", pre + body, 23)
+    body = ("Rst();\nres[0] := ArrDot(a[], b[]);\nres[1] := ArrSum(a[]);\nres[2] := ArrSum(a[], x, y);\nres[3] := x;\nres[4] := y;\n"
+            "res[5] := ArrSum(c%[], x, y);\nres[6] := x;\nres[7] := y;\nres[8] := ArrDot(c%[], d%[]);\n")
+    write("g_arr_sum", pre + body, 9)
+    ops = ["ArrAdd(c%[], 2.7)", "ArrMul(c%[], 1.5)", "ArrDiv(c%[], 2.5)", "ArrSub(c%[], 0.5)", "ArrConst(c%[], -2.7)", "ArrSubR(c%[], 2.7)", "ArrSubR(c%[], -0.5)", "ArrDivR(c%[], -20.5)", "ArrAdd(c%[], -2.7)", "ArrMul(c%[], -1.5)", "ArrAdd(c%[], b[])", "ArrMul(c%[], b[])", "ArrDiv(c%[], b[])", "ArrSub(c%[], a[])"]
+    body = ""
+    for k, o in enumerate(ops):
+        body += f"Rst();\n{o};\nDumpC({k * 4});\n"
+    write("g_arr_intreal", pre + body, len(ops) * 4)
+    body = ("Rst();\nArrDiff(a[]);\nDump(0);\nRst();\nArrIntgl(a[]);\nDump(5);\nRst();\nArrDiff(c%[]);\nDumpC(10);\nRst();\nArrIntgl(c%[]);\nDumpC(14);\n")
+    write("g_arr_diff", pre + body, 18)
+    body = ""
+    at = 0
+    for mode in [0, 1, 2, 3, -1]:
+        body += f"Rst();\nres[{at}] := ArrSort(a[], {mode}, b[]);\nDump({at + 1});\n"
+        body += "".join(f"res[{at + 6 + j}] := b[{j}];\n" for j in range(5))
+        at += 11
+    body += f"Rst();\nres[{at}] := ArrSort(c%[]);\nDumpC({at + 1});\n"
+    write("g_arr_sort", pre + body, at + 5)
+
+
 def main():
     for f in os.listdir(OUT):
         if f.startswith("g_"):
             os.remove(os.path.join(OUT, f))
     formatting()
     formatting2()
+    arrays()
 
     strings("g_left_right", [f"Left$({q(s)}, {n})" for s in S for n in [0, 1, 3, 50]]
             + [f"Right$({q(s)}, {n})" for s in S for n in [0, 1, 3, 50]], 16)
