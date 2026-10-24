@@ -2475,6 +2475,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
+name = "s2lift"
+version = "0.1.0"
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2699,6 +2703,9 @@ dependencies = [
 [[package]]
 name = "smr"
 version = "0.1.0"
+dependencies = [
+ "s2lift",
+]
 
 [[package]]
 name = "spirv"

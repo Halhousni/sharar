@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Translate msvcr110.dll's maths routines into Rust.
 
-    tools/lift_libm.py vmbin/msvcr110.dll smr/src/script/vm
+    tools/lift_libm.py vmbin/msvcr110.dll s2lift/src
 
 Writes `msvcr110_gen.rs` and `msvcr110.dat` (see tools/lift.py). Needs `capstone`."""
 import os, sys
@@ -26,8 +26,8 @@ STUBS = {
     0x18008cea0: "m.set_xl(0, m.xl(1));",                        # log10 error
     0x18008d100: "m.set_xl(0, m.xl(2));",                        # pow error
     0x180088db4: "m.set_xl(0, m.r[8]);",                         # the general error report
-    0x18008c8e0: "m.set_xl(0, super::msvcrt::invalid(m.xl(0)).to_bits());",  # sin of inf/nan
-    0x18008c8b8: "m.set_xl(0, super::msvcrt::invalid(m.xl(0)).to_bits());",  # cos of inf/nan
+    0x18008c8e0: "m.set_xl(0, crate::msvcrt::invalid(m.xl(0)).to_bits());",  # sin of inf/nan
+    0x18008c8b8: "m.set_xl(0, crate::msvcrt::invalid(m.xl(0)).to_bits());",  # cos of inf/nan
 }
 
 lifter = Lifter(sys.argv[1], ROOTS.values(), STUBS, {}, r"$^")

@@ -127,11 +127,7 @@ pub enum Arg {
 }
 
 mod builtins;
-pub mod msvcrt;
-mod mach;
-mod msvcr110_gen;
-pub mod special;
-mod spikeutl_gen;
+pub use s2lift::{msvcrt, special};
 mod printf;
 
 pub struct Vm {

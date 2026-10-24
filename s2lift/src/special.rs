@@ -2,7 +2,7 @@
 //! `BinomialC` call: the DLL's own routines, translated from its machine code by
 //! `tools/lift_spikeutl.py` (they are Boost.Math's, and the last bits depend on every step).
 
-pub use super::spikeutl_gen::{beta, beta_i, binomial_c, gamma_p, gamma_q, ln_gamma};
+pub use crate::spikeutl_gen::{beta, beta_i, binomial_c, gamma_p, gamma_q, ln_gamma};
 
 /// A function by name, for the tests that compare against the DLL.
 pub fn call(name: &str, a: f64, b: f64, c: f64) -> Option<f64> {

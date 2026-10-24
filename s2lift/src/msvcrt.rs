@@ -5,11 +5,11 @@
 //! against the DLL, run under Wine, on hundreds of thousands of arguments each
 //! (`tools/libm_fuzz.py`) and against Spike2 itself (`tools/run_cases/m_libm_*`).
 
-pub use super::msvcr110_gen::{acos, asin, atan, atan2, cos, cosh, exp, hypot, log, log10, pow, sin, sinh, tan, tanh};
+pub use crate::msvcr110_gen::{acos, asin, atan, atan2, cos, cosh, exp, hypot, log, log10, pow, sin, sinh, tan, tanh};
 
 /// What the DLL answers for an infinite or NaN argument of a function that is not defined there:
 /// the indefinite NaN for an infinity, the argument made quiet for a NaN.
-pub(super) fn invalid(x: u64) -> f64 {
+pub fn invalid(x: u64) -> f64 {
     if x & 0xf_ffff_ffff_ffff == 0 {
         f64::from_bits(0xfff8_0000_0000_0000)
     } else {

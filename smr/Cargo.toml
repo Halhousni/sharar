@@ -6,3 +6,4 @@ license.workspace = true
 description = "Reader for CED Spike2 .smr (SON) files"
 
 [dependencies]
+s2lift = { path = "../s2lift" }

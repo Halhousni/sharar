@@ -546,8 +546,8 @@ What that found, beyond what could be read from the code:
 `Sin`, `Cos`, `Tan`, `ATan`, `Sinh`, `Cosh`, `Tanh`, `Exp`, `Ln`, `Log` and `Pow` (and the
 distributions in `Rand*`, which take logarithms) call `msvcr110.dll`'s routines, and a host libm
 rounds many arguments differently in the last bit. They are therefore the DLL's own:
-`tools/lift_libm.py` reads the DLL and writes `smr/src/script/vm/msvcrt_gen.rs`, one Rust function
-per routine in which each x86 instruction is one call on the small machine model in `mach.rs`
+`tools/lift_libm.py` reads the DLL and writes `s2lift/src/msvcr110_gen.rs`, one Rust function
+per routine in which each x86 instruction is one call on the small machine model in `s2lift/src/mach.rs`
 (registers, flags, SSE2 scalar arithmetic, a stack), plus `msvcrt.dat`, the constant tables the
 routines read. The DLL's error reporting (errno, `_matherr`) is not translated; each of its entry
 points answers with the value it was given. Translating the instructions rather than transcribing

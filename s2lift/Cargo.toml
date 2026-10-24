@@ -1,0 +1,6 @@
+[package]
+name = "s2lift"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Spike2's own maths routines, translated from its DLLs' machine code"

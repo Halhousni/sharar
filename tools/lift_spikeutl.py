@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Translate SpikeUtl.dll's numeric routines into Rust.
 
-    tools/lift_spikeutl.py vmbin/SpikeUtl.dll smr/src/script/vm
+    tools/lift_spikeutl.py vmbin/SpikeUtl.dll s2lift/src
 
 Writes `spikeutl_gen.rs` and `spikeutl.dat` (see tools/lift.py). Needs `capstone`."""
 import os, sys
@@ -18,10 +18,10 @@ ROOTS = {
 }
 
 def libm1(fn):
-    return f"m.set_xl(0, super::msvcrt::{fn}(f64::from_bits(m.xl(0))).to_bits());"
+    return f"m.set_xl(0, crate::msvcrt::{fn}(f64::from_bits(m.xl(0))).to_bits());"
 
 def libm2(fn):
-    return f"m.set_xl(0, super::msvcrt::{fn}(f64::from_bits(m.xl(0)), f64::from_bits(m.xl(1))).to_bits());"
+    return f"m.set_xl(0, crate::msvcrt::{fn}(f64::from_bits(m.xl(0)), f64::from_bits(m.xl(1))).to_bits());"
 
 IMPORTS = {n: libm1(n) for n in ("sin", "cos", "tan", "sinh", "cosh", "exp", "log", "log10", "asin", "acos")}
 IMPORTS.update({"pow": libm2("pow"), "atan2": libm2("atan2"), "_hypot": libm2("hypot")})
