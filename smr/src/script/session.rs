@@ -1340,3 +1340,68 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     era * 146097 + doe - 719468
 }
+
+/// How a data view looks, as a script can set it: handed to a session before a script runs, and
+/// read back after.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ViewState {
+    /// Channels (numbered from one) that are hidden.
+    pub hidden: Vec<i64>,
+    /// Cursors by number (1 to 9) and their times in seconds.
+    pub cursors: Vec<(i64, f64)>,
+    pub x_range: (f64, f64),
+    /// Channels that are selected.
+    pub selected: Vec<i64>,
+}
+
+impl Session {
+    /// Open `path` as the view the script starts in, with the look `state` gives it. Returns the
+    /// handle. The script's `FileName$`, `MaxTime` and the rest then answer about this file.
+    pub fn attach(&mut self, path: &std::path::Path, state: &ViewState) -> std::io::Result<i64> {
+        let file = SonFile::open(path)?;
+        let handle = self.next;
+        self.next += 1;
+        let mut dv = DataView::new(handle, file);
+        dv.script_name = path.to_string_lossy().to_string();
+        dv.hidden = state.hidden.clone();
+        dv.selected = state.selected.clone();
+        for &(n, t) in &state.cursors {
+            if (1..=9).contains(&n) {
+                dv.cursors[n as usize - 1] = Some(t);
+            }
+        }
+        dv.x_range = state.x_range;
+        self.views.push(dv);
+        self.current = handle;
+        Ok(handle)
+    }
+
+    /// The look of a view now, if it is still open.
+    pub fn state_of(&self, handle: i64) -> Option<ViewState> {
+        let v = self.views.iter().find(|v| v.handle == handle)?;
+        Some(ViewState {
+            hidden: v.hidden.clone(),
+            cursors: v.cursors.iter().enumerate().filter_map(|(i, c)| c.map(|t| (i as i64 + 1, t))).collect(),
+            x_range: v.x_range,
+            selected: v.selected.clone(),
+        })
+    }
+}
+
+/// A session shared between the thread that runs a script and the one that reads the result.
+pub struct SharedSession(pub std::sync::Arc<std::sync::Mutex<Session>>);
+
+impl Host for SharedSession {
+    fn current_view(&self) -> i64 {
+        self.0.lock().unwrap().current_view()
+    }
+    fn set_view(&mut self, handle: i64) -> Result<(), RunError> {
+        self.0.lock().unwrap().set_view(handle)
+    }
+    fn print(&mut self, text: &str) -> bool {
+        self.0.lock().unwrap().print(text)
+    }
+    fn command(&mut self, name: &str, variant: usize, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        self.0.lock().unwrap().command(name, variant, args, mem)
+    }
+}

@@ -5,7 +5,7 @@
 //! interpreter and its `Session` have ported: a script that reaches a command that is not
 //! ported stops there and the log says which.
 
-use smr::script::session::Session;
+use smr::script::session::{Session, SharedSession, ViewState};
 use smr::script::vm::{Stop, Vm};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,8 +13,14 @@ use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::sync::Arc;
 
 struct Run {
-    done: Receiver<String>,
+    done: Receiver<(String, Option<ViewState>)>,
     cancel: Arc<AtomicBool>,
+}
+
+/// The file on screen and how it looks, for a script to start in.
+pub struct Front {
+    pub path: PathBuf,
+    pub state: ViewState,
 }
 
 #[derive(Default)]
@@ -24,19 +30,33 @@ pub struct ScriptUi {
     pub path: Option<PathBuf>,
     run: Option<Run>,
     picker: Option<Receiver<Option<PathBuf>>>,
+    /// What the last run left the front view looking like; the app applies it once.
+    pub result: Option<ViewState>,
+    /// A script chosen in the picker, for the app to start with the front view in hand.
+    pub picked: Option<PathBuf>,
 }
 
-/// Compile and run a script to its end, returning the log and a line saying how it stopped.
-pub fn run_script(src: &str, cancel: &AtomicBool) -> String {
+/// Compile and run a script to its end, returning the log and a line saying how it stopped, and
+/// how the front view (if there was one) ended up looking.
+pub fn run_script(src: &str, cancel: &AtomicBool, front: Option<&Front>) -> (String, Option<ViewState>) {
     let compiled = match smr::script::compile_with_commands(src) {
         Ok(c) => c,
-        Err(e) => return format!("Compile error: {}\n", e.0),
+        Err(e) => return (format!("Compile error: {}\n", e.0), None),
     };
     let vm = match Vm::new(compiled, true) {
         Ok(vm) => vm,
-        Err(e) => return format!("Cannot start: {e}\n"),
+        Err(e) => return (format!("Cannot start: {e}\n"), None),
     };
-    let mut vm = vm.with_host(Box::new(Session::new()));
+    let mut session = Session::new();
+    let mut handle = None;
+    if let Some(f) = front {
+        match session.attach(&f.path, &f.state) {
+            Ok(h) => handle = Some(h),
+            Err(e) => return (format!("Cannot open {}: {e}\n", f.path.display()), None),
+        }
+    }
+    let shared = Arc::new(std::sync::Mutex::new(session));
+    let mut vm = vm.with_host(Box::new(SharedSession(shared.clone())));
     let stop = vm.run_cancellable(cancel);
     let mut out = std::mem::take(&mut vm.log);
     out.push_str(&match stop {
@@ -46,11 +66,12 @@ pub fn run_script(src: &str, cancel: &AtomicBool) -> String {
         Stop::Unported { op, at } => format!("Script stopped: opcode {op:#x} at {at} is not ported yet.\n"),
         Stop::Cancelled => "Script cancelled.\n".to_string(),
     });
-    out
+    let state = handle.and_then(|h| shared.lock().ok().and_then(|s| s.state_of(h)));
+    (out, state)
 }
 
 impl ScriptUi {
-    pub fn start(&mut self, path: &Path) {
+    pub fn start(&mut self, path: &Path, front: Option<Front>) {
         if self.run.is_some() {
             return;
         }
@@ -71,7 +92,7 @@ impl ScriptUi {
         let cancel = Arc::new(AtomicBool::new(false));
         let flag = cancel.clone();
         std::thread::spawn(move || {
-            let _ = tx.send(run_script(&src, &flag));
+            let _ = tx.send(run_script(&src, &flag, front.as_ref()));
         });
         self.run = Some(Run { done: rx, cancel });
     }
@@ -108,7 +129,7 @@ impl ScriptUi {
                 Ok(choice) => {
                     self.picker = None;
                     if let Some(p) = choice {
-                        self.start(&p);
+                        self.picked = Some(p);
                     }
                 }
                 Err(TryRecvError::Empty) => {}
@@ -117,8 +138,9 @@ impl ScriptUi {
         }
         if let Some(run) = &self.run {
             match run.done.try_recv() {
-                Ok(text) => {
+                Ok((text, state)) => {
                     self.log.push_str(&text);
+                    self.result = state;
                     self.run = None;
                 }
                 Err(TryRecvError::Empty) => ctx.request_repaint_after(std::time::Duration::from_millis(100)),
@@ -140,7 +162,7 @@ impl ScriptUi {
                     }
                 } else if let Some(p) = self.path.clone() {
                     if ui.button("Run again").clicked() {
-                        self.start(&p);
+                        self.picked = Some(p);
                     }
                 }
                 if ui.button("Clear").clicked() {

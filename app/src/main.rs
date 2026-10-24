@@ -393,6 +393,46 @@ impl App {
         }
     }
 
+    /// The file on screen and how it looks, for a script to start in.
+    fn script_front(&self) -> Option<script_ui::Front> {
+        let son = self.son.as_ref()?;
+        let number = |i: usize| son.channels[i].index as i64 + 1;
+        Some(script_ui::Front {
+            path: son.path.clone(),
+            state: smr::script::session::ViewState {
+                hidden: (0..son.channels.len()).filter(|&i| !self.visible.get(i).copied().unwrap_or(true)).map(number).collect(),
+                cursors: vec![(1, self.cursors[0]), (2, self.cursors[1])],
+                x_range: (self.t_start, self.t_end),
+                selected: self.selected.map(|i| vec![number(i)]).unwrap_or_default(),
+            },
+        })
+    }
+
+    /// Take on how a script left the view: which channels show, where the cursors are, the time
+    /// range and the selected channel.
+    fn apply_script_state(&mut self, st: &smr::script::session::ViewState) {
+        let Some(son) = self.son.as_ref() else { return };
+        let numbers: Vec<i64> = son.channels.iter().map(|c| c.index as i64 + 1).collect();
+        for (i, n) in numbers.iter().enumerate() {
+            if let Some(v) = self.visible.get_mut(i) {
+                *v = !st.hidden.contains(n);
+            }
+        }
+        for &(n, t) in &st.cursors {
+            if (1..=2).contains(&n) {
+                self.cursors[n as usize - 1] = t;
+            }
+        }
+        if st.x_range.1 > st.x_range.0 {
+            self.t_start = st.x_range.0;
+            self.t_end = st.x_range.1;
+        }
+        if let Some(&n) = st.selected.first() {
+            self.selected = numbers.iter().position(|&x| x == n);
+        }
+        self.refresh_readouts();
+    }
+
     fn load(&mut self, path: &Path) {
         match SonFile::open(path) {
             Ok(f) => {
@@ -1091,6 +1131,13 @@ impl eframe::App for App {
 
         self.poll_picker();
         self.script.ui(ctx);
+        if let Some(p) = self.script.picked.take() {
+            let front = self.script_front();
+            self.script.start(&p, front);
+        }
+        if let Some(state) = self.script.result.take() {
+            self.apply_script_state(&state);
+        }
         self.refresh_readouts();
         self.refresh_stats();
 
@@ -3441,7 +3488,7 @@ fn main() -> eframe::Result {
                         std::process::exit(2);
                     }
                 };
-                let log = script_ui::run_script(&src, &std::sync::atomic::AtomicBool::new(false));
+                let (log, _) = script_ui::run_script(&src, &std::sync::atomic::AtomicBool::new(false), None);
                 print!("{log}");
                 std::process::exit(if log.ends_with("Script finished.\n") { 0 } else { 1 });
             }
@@ -3496,7 +3543,8 @@ fn main() -> eframe::Result {
                 app.chan_info = true;
             }
             if let Some(p) = &script_on_start {
-                app.script.start(p);
+                let front = app.script_front();
+                app.script.start(p, front);
             }
             if yaxis_on_start {
                 app.selected = Some(0);

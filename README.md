@@ -65,7 +65,7 @@ pointer, middle-drag pans, dragging near a cursor moves it.
   window, then plots the mean waveform with the trial count.
 - CSV export of the selected channel over the visible window: `File → Export channel…`,
   or `--export` on the command line.
-- Scripts: `Script → Run Script…` compiles and runs a `.s2s` with the port's own interpreter on a worker thread and shows `Print` output in a log window you can cancel. The language is complete and checked against Spike2; commands are ported a family at a time (strings, maths, arrays and formatting, and the file and channel queries are), and a script that reaches one that is not stops there and says which.
+- Scripts: `Script → Run Script…` compiles and runs a `.s2s` with the port's own interpreter on a worker thread and shows `Print` output in a log window you can cancel. A script starts in the file on screen: `MaxTime`, `ChanTitle$`, `NextTime` and the rest answer about it, and what it does to the view — channels shown or hidden, the cursors, the time range, the selected channel — is applied to the window when it ends. The language is complete and checked against Spike2; commands are ported a family at a time (strings, maths, arrays and formatting, and the file and channel queries are), and a script that reaches one that is not stops there and says which.
 - Live strip chart: `--record` opens a scrolling view of the last five seconds, one trace per
   channel, fed by a synthetic source until the 1401 path is wired.
 - Digital filters: `Analysis → Digital filters…` applies a low pass, high pass, band pass or
