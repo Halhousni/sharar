@@ -38,6 +38,8 @@ pub struct M {
     over: Vec<Option<Vec<u8>>>,
     /// The static data of the other modules while one is running.
     saved: std::collections::HashMap<usize, Vec<Option<Vec<u8>>>>,
+    /// The last blocks entered, newest last, for the message when the code goes wrong.
+    recent: [u64; 8],
 }
 
 fn mask(size: u32) -> u64 {
@@ -59,7 +61,7 @@ fn sext(v: u64, size: u32) -> i64 {
 
 impl M {
     pub fn new(img: &'static Img) -> M {
-        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: [0; STACK], img, heap: Vec::new(), over: vec![None; img.ranges.len()], saved: Default::default() };
+        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: [0; STACK], img, heap: Vec::new(), over: vec![None; img.ranges.len()], saved: Default::default(), recent: [0; 8] };
         m.r[RSP] = STACK_BASE + STACK as u64 - 0x100;
         m
     }
@@ -144,7 +146,12 @@ impl M {
                 }
             }
         }
-        assert!(a >= STACK_BASE && a + n as u64 <= STACK_BASE + STACK as u64, "translated code wrote outside its memory at {a:#x}");
+        assert!(
+            a >= STACK_BASE && a + n as u64 <= STACK_BASE + STACK as u64,
+            "translated code wrote outside its memory at {a:#x} (blocks {:x?}, registers {:x?})",
+            self.recent,
+            self.r
+        );
         let o = (a - STACK_BASE) as usize;
         for i in 0..n as usize {
             self.stack[o + i] = (v >> (8 * i)) as u8;
@@ -186,6 +193,27 @@ impl M {
             self.st(d + i as u64, 1, *b as u64);
         }
         self.r[RAX] = d;
+    }
+
+    /// With S2LIFT_CALLS set, print each routine entered and the registers it was given.
+    pub fn trace_enter(&self, at: u64) {
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        if *ON.get_or_init(|| std::env::var_os("S2LIFT_CALLS").is_some()) {
+            eprintln!(
+                "enter {at:#x} rcx={:#x} rdx={:#x} r8={:#x} r9={:#x} rsp={:#x}",
+                self.r[1], self.r[2], self.r[8], self.r[9], self.r[4]
+            );
+        }
+    }
+
+    /// With S2LIFT_BLOCKS set, print each basic block entered.
+    pub fn block(&mut self, at: u64) {
+        self.recent.rotate_left(1);
+        self.recent[7] = at;
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        if *ON.get_or_init(|| std::env::var_os("S2LIFT_BLOCKS").is_some()) {
+            eprintln!("  block {at:#x} rbx={:#x} rsp={:#x}", self.r[3], self.r[4]);
+        }
     }
 
     pub fn fail(&self, what: &str) -> ! {
@@ -470,6 +498,48 @@ impl M {
         self.r[RDX] = (full >> 64) as u64;
         self.cf = self.r[RDX] != 0;
         self.of = self.cf;
+    }
+
+    /// `idiv`/`div r/m` of 4 or 8 bytes: rdx:rax by the operand, quotient in rax, remainder in rdx.
+    /// A zero divisor, or a quotient that does not fit, is the hardware's divide error.
+    pub fn idiv(&mut self, src: u64, size: u32) {
+        if size == 4 {
+            let n = ((self.r[RDX] as u32 as u64) << 32 | self.r[RAX] as u32 as u64) as i64;
+            let d = src as u32 as i32 as i64;
+            if d == 0 || n / d > i32::MAX as i64 || n / d < i32::MIN as i64 {
+                panic!("divide error");
+            }
+            self.r[RAX] = (n / d) as i32 as u32 as u64;
+            self.r[RDX] = (n % d) as i32 as u32 as u64;
+        } else {
+            let n = ((self.r[RDX] as u128) << 64 | self.r[RAX] as u128) as i128;
+            let d = src as i64 as i128;
+            if d == 0 || n / d > i64::MAX as i128 || n / d < i64::MIN as i128 {
+                panic!("divide error");
+            }
+            self.r[RAX] = (n / d) as i64 as u64;
+            self.r[RDX] = (n % d) as i64 as u64;
+        }
+    }
+
+    pub fn div(&mut self, src: u64, size: u32) {
+        if size == 4 {
+            let n = (self.r[RDX] as u32 as u64) << 32 | self.r[RAX] as u32 as u64;
+            let d = src as u32 as u64;
+            if d == 0 || n / d > u32::MAX as u64 {
+                panic!("divide error");
+            }
+            self.r[RAX] = n / d;
+            self.r[RDX] = n % d;
+        } else {
+            let n = (self.r[RDX] as u128) << 64 | self.r[RAX] as u128;
+            let d = src as u128;
+            if d == 0 || n / d > u64::MAX as u128 {
+                panic!("divide error");
+            }
+            self.r[RAX] = (n / d) as u64;
+            self.r[RDX] = (n % d) as u64;
+        }
     }
 
     /// `movmskpd`: the sign bits of the two doubles.

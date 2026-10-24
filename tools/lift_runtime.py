@@ -13,11 +13,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lift import Lifter
 from command_table import Image
 
-vmbin, out_dir, wanted = sys.argv[1], sys.argv[2], sys.argv[3:]
+args = [a for a in sys.argv[1:] if not a.startswith("--")]
+REPORT = "--report" in sys.argv
+vmbin, out_dir, wanted = args[0], args[1], args[2:]
 HERE = os.path.dirname(os.path.abspath(__file__))
 table = json.loads(subprocess.run([sys.executable, os.path.join(HERE, "command_table.py"),
                                    os.path.join(vmbin, "runtime.s2l")], capture_output=True, text=True).stdout)
 execs = {c["name"]: c["exec"] for c in table}
+if "--all" in sys.argv:
+    wanted = [c["name"] for c in table]
 
 
 def exports(path):
@@ -34,8 +38,13 @@ def exports(path):
 
 
 # The DLLs whose code is translated, and what they export.
-MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll"}
-EXPORTS = {m: exports(os.path.join(vmbin, f)) for m, f in MODULES.items() if m != "runtime"}
+MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll"}
+def find(f):
+    for d in (vmbin, os.environ.get("ORACLE_DIR", "")):
+        if d and os.path.exists(os.path.join(d, f)):
+            return os.path.join(d, f)
+    raise SystemExit(f"{f} not found in {vmbin} or $ORACLE_DIR")
+EXPORTS = {m: exports(find(f)) for m, f in MODULES.items() if m != "runtime"}
 
 # Imports the host answers even where a translated DLL exports them: they reach into the script
 # interpreter's own structures, which the host keeps.
@@ -87,7 +96,7 @@ def cross(name):
 
 for mod, f in MODULES.items():
     roots = [execs[n] for n in wanted] if mod == "runtime" else []
-    lifters[mod] = Lifter(os.path.join(vmbin, f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross)
+    lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross)
     lifters[mod].import_names = import_names
 
 # Follow the imports: a routine another module supplies becomes a root there, until nothing is new.
@@ -104,6 +113,54 @@ while changed:
                 lifters[r[0]].roots.append(r[1])
                 entries[r[0]].add(r[1])
                 changed = True
+
+if REPORT:
+    # which commands each service is needed by: walk the call graph from each command
+    import collections
+    need = collections.defaultdict(set)
+    calls = {}
+    for mod, lf in lifters.items():
+        for fn in lf.known:
+            ins, _ = lf.disasm(fn)
+            tg, im_ = set(), set()
+            for i in ins:
+                if i.mnemonic in ("call", "jmp") and i.operands[0].type.__class__ and i.operands[0].type == 2 and False:
+                    pass
+            calls[(mod, fn)] = (lf, ins)
+    print(f"{sum(len(lf.known) for lf in lifters.values())} routines translated")
+    from capstone import x86_const as X
+    def walk(root):
+        seen, work, svcs = set(), [("runtime", root)], set()
+        while work:
+            mod, fn = work.pop()
+            if (mod, fn) in seen or (mod, fn) not in calls:
+                continue
+            seen.add((mod, fn))
+            lf, ins = calls[(mod, fn)]
+            for i in ins:
+                if i.mnemonic in ("call", "jmp"):
+                    op = i.operands[0]
+                    if op.type == X.X86_OP_IMM:
+                        work.append((mod, op.imm))
+                    elif op.type == X.X86_OP_MEM:
+                        _, imp = lf.import_of(i)
+                        if imp:
+                            r = resolve(imp)
+                            if r:
+                                work.append((r[0], r[1]))
+                            elif imp not in NATIVE:
+                                svcs.add(imp)
+        return svcs
+    freq = collections.Counter()
+    for n in wanted:
+        sv = walk(execs[n])
+        for x in sv:
+            need[x].add(n)
+        print(n, len(sv), "services")
+    json.dump({x: sorted(cs) for x, cs in need.items()}, open("/tmp/services.json", "w"), indent=0)
+    for x, cs in sorted(need.items(), key=lambda kv: -len(kv[1])):
+        print(f"{len(cs):4d} {x}   {' '.join(sorted(cs)[:6])}")
+    sys.exit(0)
 
 for mod, lf in lifters.items():
     if lf.roots:

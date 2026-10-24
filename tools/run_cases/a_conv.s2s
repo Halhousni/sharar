@@ -1,0 +1,16 @@
+var res[300], a[16], b[5], c[40], d[12], e[16], i%, k%, n%;
+k% := 0;
+for i% := 0 to 15 do a[i%] := Sin(i% * 0.9) + i% * 0.1 next
+b[0] := 0.2; b[1] := 0.5; b[2] := 1; b[3] := 0.5; b[4] := 0.2;
+n% := ArrConv(c[], a[], b[]);
+res[k%] := n%; k% += 1;
+for i% := 0 to 19 do res[k%] := c[i%]; k% += 1; next
+n% := ArrConv(d[], a[], b[], 1);
+res[k%] := n%; k% += 1;
+for i% := 0 to 11 do res[k%] := d[i%]; k% += 1; next
+n% := ArrConv(e[], a[], b[], 2);
+res[k%] := n%; k% += 1;
+for i% := 0 to 15 do res[k%] := e[i%]; k% += 1; next
+n% := ArrConv(e[], a[], b[], 3, 2);
+res[k%] := n%; k% += 1;
+for i% := 0 to 15 do res[k%] := e[i%]; k% += 1; next

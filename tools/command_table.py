@@ -66,20 +66,24 @@ class Image:
     def u64(self, va):
         return struct.unpack_from('<Q', self.b, self.off(va))[0]
 
-    def imports(self):
-        """IAT slot address -> import name (by-ordinal imports are skipped)."""
+    def imports(self, ordinals=False):
+        """IAT slot address -> import name. By-ordinal imports are skipped, or with `ordinals`
+        named `dll!#ordinal`."""
         b = self.b
         rva, = struct.unpack_from('<I', b, self.dd + 8)
         o, out = self.rva_off(rva), {}
         while True:
             oft, _, _, name_rva, iat = struct.unpack_from('<IIIII', b, o)
             if name_rva == 0: break
+            dll = b[self.rva_off(name_rva):].split(b'\0')[0].decode().lower()
             t, k = self.rva_off(oft or iat), 0
             while True:
                 e, = struct.unpack_from('<Q', b, t + 8 * k)
                 if e == 0: break
                 if not e >> 63:
                     out[self.base + iat + 8 * k] = b[self.rva_off(e) + 2:].split(b'\0')[0].decode()
+                elif ordinals:
+                    out[self.base + iat + 8 * k] = f"{dll}!#{e & 0xffff}"
                 k += 1
             o += 20
         return out

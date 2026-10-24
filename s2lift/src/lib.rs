@@ -7,6 +7,7 @@
 pub mod mach;
 mod msvcr110_gen;
 mod rt_compiler_gen;
+mod rt_msvcp110_gen;
 mod rt_runtime_gen;
 mod rt_spikeutl_gen;
 mod spikeutl_gen;

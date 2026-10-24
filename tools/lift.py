@@ -30,6 +30,29 @@ for i, n in enumerate(("ah", "ch", "dh", "bh")):
     GPR[n] = (i, 1, True)
 
 
+def exports_by_ordinal(path):
+    """{ordinal: name} of a DLL's named exports."""
+    b = open(path, "rb").read()
+    pe = struct.unpack_from("<I", b, 0x3c)[0]
+    ns, = struct.unpack_from("<H", b, pe + 6)
+    osz, = struct.unpack_from("<H", b, pe + 20)
+    secs, o = [], pe + 24 + osz
+    for _ in range(ns):
+        vs, va, rs, rp = struct.unpack_from("<IIII", b, o + 8)
+        secs.append((va, max(vs, rs), rp)); o += 40
+    off = lambda rva: next(rp + rva - va for va, sz, rp in secs if va <= rva < va + sz)
+    exp_rva, = struct.unpack_from("<I", b, pe + 24 + 112)
+    e = off(exp_rva)
+    base, nfun, nnames, afun, anames, aords = struct.unpack_from("<I", b, e + 16)[0], *struct.unpack_from("<IIIII", b, e + 20)
+    names = struct.unpack_from("<%dI" % nnames, b, off(anames))
+    ords = struct.unpack_from("<%dH" % nnames, b, off(aords))
+    out = {}
+    for n, ordv in zip(names, ords):
+        o2 = off(n)
+        out[base + ordv] = b[o2:b.index(b"\0", o2)].decode()
+    return out
+
+
 class Unsupported(Exception):
     pass
 
@@ -57,19 +80,53 @@ class Lifter:
         self.default_import = default_import
         self.cross = cross
         self.import_names = []
+        self.dll_path = dll
         self.im = Image(dll)
         self.roots = list(roots)
         self.stubs = stubs
         self.imports = imports
         self.fail_re = re.compile(fail_imports)
         self.args = "m, s" if svc else "m"
-        self.iat = self.im.imports()
+        self.iat = self.im.imports(ordinals=True)
+        self.resolve_ordinals()
         self.data_refs = set()
         self.table_bases = set()
         self.known = set()
         self.failing = set()
         self.warnings = []
         self.build_ranges()
+
+    def resolve_ordinals(self):
+        """Name the imports by ordinal from the exporting DLL's table, looked for in the directory
+        of this DLL and in $ORACLE_DIR."""
+        dirs = [os.path.dirname(os.path.abspath(self.dll_path))]
+        if os.environ.get("ORACLE_DIR"):
+            dirs.append(os.environ["ORACLE_DIR"])
+        cache = {}
+        for slot, name in list(self.iat.items()):
+            if "!#" not in name:
+                continue
+            dll, ordinal = name.split("!#")
+            if dll not in cache:
+                cache[dll] = {}
+                for d in dirs:
+                    path = os.path.join(d, dll)
+                    if os.path.exists(path):
+                        try:
+                            cache[dll] = exports_by_ordinal(path)
+                        except (StopIteration, struct.error):
+                            pass
+                        break
+                if not cache[dll]:
+                    # DLLs such as MFC export by ordinal only; Ghidra ships the names (win64/<dll>.exports)
+                    for d in [os.environ.get("GHIDRA_SYMBOLS", ""), os.path.expanduser(
+                            "~/spike8-re/tools/ghidra_12.1.4_PUBLIC/Ghidra/Features/Base/data/symbols/win64")]:
+                        path = os.path.join(d, dll[:-4] + ".exports")
+                        if d and os.path.exists(path):
+                            text = open(path, encoding="utf-8", errors="replace").read()
+                            cache[dll] = {int(o): n for o, n in re.findall(r'ORDINAL="(\d+)" NAME="([^"]*)"', text)}
+                            break
+            self.iat[slot] = cache[dll].get(int(ordinal), name)
 
     def build_ranges(self):
         """Compilers split a function into pieces, each with its own unwind entry chained to the
@@ -336,6 +393,9 @@ class Lifter:
             if len(ops) == 2:
                 return put(ins, ops[0], f"m.imul({val(ins, ops[0])}, {val(ins, ops[1], sz)}, {sz})"), False
             return put(ins, ops[0], f"m.imul({val(ins, ops[1], sz)}, {val(ins, ops[2], sz)}, {sz})"), False
+        if mn in ("idiv", "div"):
+            sz = ops[0].size
+            return f"m.{mn}({val(ins, ops[0])}, {sz});", False
         if mn == "mul":
             if ops[0].size != 8:
                 raise Unsupported("mul r/m32 at %x" % ins.address)
@@ -348,6 +408,15 @@ class Lifter:
             if expr:
                 new = put(ins, ops[0], expr.replace("v", "old").replace("b", "bit"))
             return (f"{{ let old = {val(ins, ops[0])}; let bit = ({bit}) % {8 * sz}; m.cf = old >> bit & 1 != 0; {new} }}"), False
+        m_ = re.fullmatch(r"(rep )?(stos|movs)([bwdq])", mn)
+        if m_ and not any(o.type == X.X86_OP_REG and xmm_index(ins.reg_name(o.reg)) is not None for o in ops):
+            n = {"b": 1, "w": 2, "d": 4, "q": 8}[m_.group(3)]
+            rep = bool(m_.group(1))
+            loop = "m.r[1]" if rep else "1"
+            body = ("let v = m.r[0] & %#x; m.st(m.r[7], %d, v);" % ((1 << 8 * n) - 1, n)) if m_.group(2) == "stos" else \
+                   ("let v = m.ld(m.r[6], %d); m.st(m.r[7], %d, v); m.r[6] = m.r[6].wrapping_add(%d);" % (n, n, n))
+            return (f"{{ let count: u64 = {loop}; for _ in 0..count {{ {body} m.r[7] = m.r[7].wrapping_add({n}); }} "
+                    f"{'m.r[1] = 0;' if rep else ''} }}"), False
         if mn == "cdq":
             return "m.r[2] = if m.r[0] & 0x8000_0000 != 0 { 0xffff_ffff } else { 0 };", False
         if mn == "cqo":
@@ -548,7 +617,7 @@ class Lifter:
                     pass  # a jump through a pointer, not a table: lift_ins stops there
             if i.mnemonic in ("jmp", "ret", "repz ret") or (i.mnemonic.startswith("j") and i.mnemonic != "jmp"):
                 leaders.add(i.address + i.size)
-        lines = [f"pub(super) fn f_{s:x}({'m: &mut M, s: &mut dyn Svc' if self.svc else 'm: &mut M'}) {{", f"    let mut pc: u64 = {s:#x};", "    loop {", "        match pc {"]
+        lines = [f"pub(super) fn f_{s:x}({'m: &mut M, s: &mut dyn Svc' if self.svc else 'm: &mut M'}) {{", f"    m.trace_enter({s:#x});", f"    let mut pc: u64 = {s:#x};", "    loop {", "        match pc {"]
         cur, body, terminated = None, [], True
 
         def close(next_addr):
@@ -556,6 +625,7 @@ class Lifter:
             if cur is None:
                 return
             lines.append(f"            {cur:#x} => {{")
+            lines.append(f"                m.block({cur:#x});")
             lines.extend("                " + b for b in body if b)
             if not terminated:
                 lines.append(f"                pc = {next_addr:#x}; continue;")
@@ -592,7 +662,7 @@ class Lifter:
     def write(self, out_dir, name, header, trailer="", entries=(), module=None):
         self.discover()
         parts = [f"//! Generated by tools/{header} from the machine code of {name}. Do not edit.", "",
-                 "#![allow(clippy::all, unused_variables, unused_assignments, unused_mut, unused_parens)]",
+                 "#![allow(warnings, clippy::all)]",
                  "use crate::mach::*;", ""]
         if self.svc:
             parts.insert(-1, "use crate::Svc;")
