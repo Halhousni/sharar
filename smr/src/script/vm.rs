@@ -134,6 +134,7 @@ mod printf;
 pub struct Vm {
     /// Why the last translated command stopped, when it reached something not provided.
     pub lifted_error: Option<String>,
+    lifted_world: Option<Box<lifted::World>>,
     code: Code,
     cells: Vec<Cell>,
     stack: Vec<Item>,
@@ -200,6 +201,7 @@ impl Vm {
         let code = Code::new(prog.code.clone());
         Ok(Vm {
             lifted_error: None,
+            lifted_world: None,
             code,
             cells,
             stack: Vec::new(),

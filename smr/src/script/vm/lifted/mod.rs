@@ -41,20 +41,19 @@ fn elem_size(ty: Ty) -> Option<usize> {
     }
 }
 
-struct Run<'v> {
+struct Run<'v, 'w> {
     vm: &'v mut Vm,
     args: &'v [Arg],
     result: Option<V>,
     bound: Vec<Bound>,
     /// The last service the translated code asked for that the host does not have.
     missing: Option<String>,
-    strs: cstring::State,
-    win: win::Win,
+    world: &'w mut World,
     /// String arguments the code was given to change: argument number and the holder it edits.
     holders: Vec<(i32, u64)>,
 }
 
-impl<'v> Run<'v> {
+impl<'v, 'w> Run<'v, 'w> {
     fn arg(&self, idx: i32) -> &Arg {
         if idx < 1 || idx as usize > self.args.len() {
             panic_any(Thrown(-0x1b75));
@@ -115,7 +114,7 @@ impl<'v> Run<'v> {
 
     fn copy_back(&mut self, m: &M) {
         for (idx, holder) in std::mem::take(&mut self.holders) {
-            let text = cstring::from_units(&self.strs.read(m, holder, true));
+            let text = cstring::from_units(&self.world.strs.read(m, holder, true));
             if let Arg::Ref(r) = self.args[idx as usize - 1] {
                 let _ = self.vm.set(r, V::Str(text));
             }
@@ -138,7 +137,7 @@ impl<'v> Run<'v> {
     }
 }
 
-impl<'v> Svc for Run<'v> {
+impl<'v, 'w> Svc for Run<'v, 'w> {
     fn import(&mut self, m: &mut M, id: u32) {
         let name = commands::IMPORT_NAMES[id as usize];
         if std::env::var_os("S2LIFT_SERVICES").is_some() {
@@ -219,13 +218,13 @@ impl<'v> Svc for Run<'v> {
             "?GetCString@CRunInfo@@QEBAXHAEAV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" => {
                 let text = self.str_arg(int_arg(rdx));
                 let units: Vec<u32> = text.encode_utf16().map(|u| u as u32).collect();
-                self.strs.write(m, r8, &units, true);
+                self.world.strs.write(m, r8, &units, true);
             }
             "?GetConstStringHolder@CRunInfo@@QEBAAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@H@Z" => {
                 let text = self.str_arg(int_arg(rdx));
                 let units: Vec<u32> = text.encode_utf16().map(|u| u as u32).collect();
                 let holder = m.alloc(8);
-                self.strs.write(m, holder, &units, true);
+                self.world.strs.write(m, holder, &units, true);
                 m.r[0] = holder;
             }
             "?GetStringHolder@CRunInfo@@QEBAPEAV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@H_N@Z" => {
@@ -233,7 +232,7 @@ impl<'v> Svc for Run<'v> {
                 let text = self.str_arg(idx);
                 let units: Vec<u32> = text.encode_utf16().map(|u| u as u32).collect();
                 let holder = m.alloc(8);
-                self.strs.write(m, holder, &units, true);
+                self.world.strs.write(m, holder, &units, true);
                 self.holders.push((idx, holder));
                 m.r[0] = holder;
             }
@@ -247,11 +246,11 @@ impl<'v> Svc for Run<'v> {
                 m.r[0] = p;
             }
             "?SetCString@CRunInfo@@QEBAXHAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" => {
-                let text = cstring::from_units(&self.strs.read(m, r8, true));
+                let text = cstring::from_units(&self.world.strs.read(m, r8, true));
                 self.set_arg(int_arg(rdx), V::Str(text));
             }
             "?StoreStringResult@CRunInfo@@QEBAXAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" => {
-                self.result = Some(V::Str(cstring::from_units(&self.strs.read(m, rdx, true))));
+                self.result = Some(V::Str(cstring::from_units(&self.world.strs.read(m, rdx, true))));
             }
             "?StoreStringResult@CRunInfo@@QEBAXPEB_W@Z" => {
                 let mut units = Vec::new();
@@ -260,12 +259,13 @@ impl<'v> Svc for Run<'v> {
                 }
                 self.result = Some(V::Str(String::from_utf16_lossy(&units)));
             }
-            other if cstring::call(&mut self.strs, m, other) => {}
-            other if self.win.call(m, other) => {}
+            other if cstring::call(&mut self.world.strs, m, other) => {}
+            other if self.world.win.call(m, other) => {}
             // The C++ runtime and the C library: memory is the machine's heap, which is never
             // freed during a command.
             "??2@YAPEAX_K@Z" | "??_U@YAPEAX_K@Z" => m.r[0] = m.alloc(m.r[1] as usize),
-            "??3@YAXPEAX@Z" | "??_V@YAXPEAX@Z" | "free" | "?_Orphan_all@_Container_base0@std@@QEAAXXZ" => {}
+            "??3@YAXPEAX@Z" | "??_V@YAXPEAX@Z" | "free" => m.free(m.r[1]),
+            "?_Orphan_all@_Container_base0@std@@QEAAXXZ" => {}
             "?_Xbad_alloc@std@@YAXXZ" | "?_Xlength_error@std@@YAXPEBD@Z" | "?_Xout_of_range@std@@YAXPEBD@Z" => {
                 panic_any(Thrown(-7003));
             }
@@ -342,7 +342,7 @@ impl<'v> Svc for Run<'v> {
     }
 }
 
-impl<'v> Run<'v> {
+impl<'v, 'w> Run<'v, 'w> {
     fn str_arg(&self, idx: i32) -> String {
         match self.vm.a_str(self.arg(idx)) {
             Ok(s) => s,
@@ -432,18 +432,34 @@ pub fn has(name: &str) -> bool {
     commands::COMMANDS.contains(&name)
 }
 
+/// The translated code's world, kept from one command to the next: its memory (the data files
+/// it has open live there), its strings and its open operating-system files.
+pub struct World {
+    m: Option<M>,
+    strs: cstring::State,
+    win: win::Win,
+}
+
+impl Default for World {
+    fn default() -> World {
+        World { m: Some(commands::machine()), strs: Default::default(), win: Default::default() }
+    }
+}
+
 impl Vm {
     /// Run a translated command. The run information the code reads directly is its argument
     /// count and the number of the variant the arguments matched.
     pub(super) fn run_lifted(&mut self, name: &str, variant: usize, args: &[Arg]) -> Result<Option<Option<V>>, RunError> {
-        let mut m = commands::machine();
+        let mut world = self.lifted_world.take().unwrap_or_default();
+        let mut m = world.m.take().expect("the machine is out only during a command");
+        m.reset_stack();
         let info = m.alloc(64);
         m.st(info, 4, args.len() as u64);
         m.st(info + 4, 4, variant.max(1) as u64);
         // The command object: its members start as zeros (strings in it are written before read).
         m.r[1] = m.alloc(0x400);
         m.r[2] = info;
-        let mut run = Run { vm: self, args, result: None, bound: Vec::new(), missing: None, strs: Default::default(), win: Default::default(), holders: Vec::new() };
+        let mut run = Run { vm: self, args, result: None, bound: Vec::new(), missing: None, world: &mut *world, holders: Vec::new() };
         let quiet = std::panic::take_hook();
         if std::env::var_os("S2LIFT_TRACE").is_none() {
             std::panic::set_hook(Box::new(|_| {}));
@@ -452,7 +468,7 @@ impl Vm {
             commands::run(name, &mut m, &mut run);
         }));
         std::panic::set_hook(quiet);
-        match outcome {
+        let result = match outcome {
             Ok(()) => {
                 run.copy_back(&m);
                 // A command that returns a value and did not store one gives zero.
@@ -469,7 +485,13 @@ impl Vm {
             }
             Err(payload) => {
                 if let Some(t) = payload.downcast_ref::<Thrown>() {
-                    return Err(RunError(t.0));
+                        {
+                        let t = t.0;
+                        let vm = run.vm;
+                        world.m = Some(m);
+                        vm.lifted_world = Some(world);
+                        return Err(RunError(t));
+                    }
                 }
                 let why = match payload.downcast_ref::<String>() {
                     Some(s) => s.clone(),
@@ -478,7 +500,11 @@ impl Vm {
                 run.vm.lifted_error = Some(why);
                 Err(RunError(ERR_LIFTED))
             }
-        }
+        };
+        let vm = run.vm;
+        world.m = Some(m);
+        vm.lifted_world = Some(world);
+        result
     }
 }
 
@@ -600,7 +626,8 @@ impl Svc for Bare {
         let name = commands::IMPORT_NAMES[id as usize];
         match name {
             "??2@YAPEAX_K@Z" | "??_U@YAPEAX_K@Z" => m.r[0] = m.alloc(m.r[1] as usize),
-            "??3@YAXPEAX@Z" | "??_V@YAXPEAX@Z" | "free" | "?_Orphan_all@_Container_base0@std@@QEAAXXZ" => {}
+            "??3@YAXPEAX@Z" | "??_V@YAXPEAX@Z" | "free" => m.free(m.r[1]),
+            "?_Orphan_all@_Container_base0@std@@QEAAXXZ" => {}
             other if cstring::call(&mut self.strs, m, other) => {}
             other if self.win.call(m, other) => {}
             other => panic!("the service {other} is not provided"),

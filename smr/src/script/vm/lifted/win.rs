@@ -211,17 +211,19 @@ impl Win {
                 m.st(rcx, 8, now.as_nanos() as u64 / 100 + 116_444_736_000_000_000);
             }
             // ---- memory -------------------------------------------------------------------------
+            "free" | "??3@YAXPEAX@Z" | "??_V@YAXPEAX@Z" => m.free(rcx),
             "malloc" | "_malloc_crt" => m.r[0] = self.malloc(m, rcx as usize),
             "calloc" | "_calloc_crt" => m.r[0] = self.malloc(m, (rcx * rdx) as usize),
             "realloc" => {
                 let n = rdx as usize;
                 let new = self.malloc(m, n);
                 if rcx != 0 {
-                    let old = m.ld(rcx - 8, 8) as usize;
+                    let old = m.block_size(rcx);
                     for i in 0..old.min(n) {
                         let b = m.ld(rcx + i as u64, 1);
                         m.st(new + i as u64, 1, b);
                     }
+                    m.free(rcx);
                 }
                 m.r[0] = new;
             }
@@ -433,8 +435,6 @@ impl Win {
     }
 
     fn malloc(&mut self, m: &mut M, n: usize) -> u64 {
-        let p = m.alloc(n + 16);
-        m.st(p + 8, 8, n as u64);
-        p + 16
+        m.alloc(n)
     }
 }

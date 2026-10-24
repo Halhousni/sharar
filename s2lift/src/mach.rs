@@ -41,6 +41,7 @@ pub struct M {
     imgs: &'static [&'static Img],
     /// Memory handed to the code: arrays it reads and writes. Addresses start at HEAP_BASE.
     heap: Vec<u8>,
+    free_blocks: std::collections::HashMap<usize, Vec<u64>>,
     /// Image ranges the code has written to (its own static data), copied on the first write.
     over: Vec<Vec<Option<Vec<u8>>>>,
     /// The last blocks entered, newest last, for the message when the code goes wrong.
@@ -75,7 +76,7 @@ impl M {
     }
 
     pub fn with_stack(imgs: &'static [&'static Img], stack: usize) -> M {
-        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: vec![0; stack], teb: 0, imgs, heap: Vec::new(), over: imgs.iter().map(|i| vec![None; i.ranges.len()]).collect(), recent: [0; 8] };
+        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: vec![0; stack], teb: 0, imgs, heap: Vec::new(), free_blocks: Default::default(), over: imgs.iter().map(|i| vec![None; i.ranges.len()]).collect(), recent: [0; 8] };
         m.r[RSP] = STACK_BASE + stack as u64 - 0x100;
         // The thread information block: self pointer, stack limits, the table of thread-local
         // blocks (one slot per module, which `Img::tls_slot` names).
@@ -183,11 +184,45 @@ impl M {
         }
     }
 
+    /// Start a new call on the stack: forget what the last one left.
+    pub fn reset_stack(&mut self) {
+        self.r[RSP] = STACK_BASE + self.stack.len() as u64 - 0x100;
+    }
+
     /// Give the code `n` zeroed bytes (16-aligned) and return their address.
     pub fn alloc(&mut self, n: usize) -> u64 {
+        // Blocks carry their size in the 16 bytes before them, and `free` keeps them by size so
+        // that a program that frees what it allocates does not grow the heap.
+        let size = (n.max(16) + 15) & !15;
+        if let Some(p) = self.free_blocks.get_mut(&size).and_then(|v| v.pop()) {
+            let o = (p - HEAP_BASE) as usize;
+            for b in &mut self.heap[o..o + size] {
+                *b = 0;
+            }
+            return p;
+        }
         let at = (self.heap.len() + 15) & !15;
-        self.heap.resize(at + n, 0);
-        HEAP_BASE + at as u64
+        self.heap.resize(at + 16 + size, 0);
+        let p = HEAP_BASE + at as u64 + 16;
+        self.heap[at..at + 8].copy_from_slice(&(size as u64).to_le_bytes());
+        p
+    }
+
+    /// Return a block from `alloc` for reuse. Anything else (null, a block not from the heap) is
+    /// ignored.
+    pub fn free(&mut self, p: u64) {
+        if p < HEAP_BASE + 16 || p >= HEAP_BASE + self.heap.len() as u64 {
+            return;
+        }
+        let o = (p - HEAP_BASE) as usize;
+        let size = u64::from_le_bytes(self.heap[o - 16..o - 8].try_into().unwrap()) as usize;
+        self.free_blocks.entry(size).or_default().push(p);
+    }
+
+    /// The size a block was asked for, rounded up to 16.
+    pub fn block_size(&self, p: u64) -> usize {
+        let o = (p - HEAP_BASE) as usize;
+        u64::from_le_bytes(self.heap[o - 16..o - 8].try_into().unwrap()) as usize
     }
 
     pub fn put_f64s(&mut self, a: u64, v: &[f64]) {
