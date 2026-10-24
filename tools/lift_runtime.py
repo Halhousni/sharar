@@ -196,5 +196,6 @@ lines += ["];", "",
           "    match name {"]
 lines += [f"        {json.dumps(n)} => crate::rt_runtime_gen::enter_{execs[n]:x}(m, s)," for n in wanted]
 lines += ["        _ => return false,", "    }", "    true", "}"]
-open(os.path.join(out_dir, "commands.rs"), "w").write("\n".join(lines) + "\n")
+from lift import write_if_changed
+write_if_changed(os.path.join(out_dir, "commands.rs"), ("\n".join(lines) + "\n").encode())
 print({m: len(lf.known) for m, lf in lifters.items()}, "routines;", len(import_names), "services")

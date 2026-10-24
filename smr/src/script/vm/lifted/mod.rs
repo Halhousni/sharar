@@ -7,6 +7,7 @@
 //! translated code works on it there, and the result is copied back when the command ends.
 
 use super::{Arg, Cell, Ref, RunError, Vm, V};
+mod cstring;
 use crate::script::compile::Ty;
 use s2lift::{commands, mach::M, Svc};
 use std::panic::{catch_unwind, panic_any, AssertUnwindSafe};
@@ -46,6 +47,9 @@ struct Run<'v> {
     bound: Vec<Bound>,
     /// The last service the translated code asked for that the host does not have.
     missing: Option<String>,
+    strs: cstring::State,
+    /// String arguments the code was given to change: argument number and the holder it edits.
+    holders: Vec<(i32, u64)>,
 }
 
 impl<'v> Run<'v> {
@@ -108,6 +112,12 @@ impl<'v> Run<'v> {
     }
 
     fn copy_back(&mut self, m: &M) {
+        for (idx, holder) in std::mem::take(&mut self.holders) {
+            let text = cstring::from_units(&self.strs.read(m, holder, true));
+            if let Arg::Ref(r) = self.args[idx as usize - 1] {
+                let _ = self.vm.set(r, V::Str(text));
+            }
+        }
         for b in &self.bound {
             if let Cell::Array { data, dims, .. } = &mut self.vm.cells[b.cell] {
                 let n: usize = b.dims.iter().product();
@@ -129,8 +139,12 @@ impl<'v> Run<'v> {
 impl<'v> Svc for Run<'v> {
     fn import(&mut self, m: &mut M, id: u32) {
         let name = commands::IMPORT_NAMES[id as usize];
+        if std::env::var_os("S2LIFT_SERVICES").is_some() {
+            eprintln!("service {name} rcx={:#x} rdx={:#x} r8={:#x} r9={:#x}", m.r[1], m.r[2], m.r[8], m.r[9]);
+        }
         let rdx = m.r[2];
         let r8 = m.r[8];
+        let r9 = m.r[9];
         let int_arg = |v: u64| v as u32 as i32;
         let num = |r: Result<f64, RunError>| match r {
             Ok(v) => v,
@@ -145,7 +159,7 @@ impl<'v> Svc for Run<'v> {
             "?GetIntErr@CRunInfo@@QEBA_JH_J0@Z" => {
                 let v = self.int_arg(int_arg(rdx));
                 if !(r8 as i64 <= v && v <= m.r[9] as i64) {
-                    panic_any(Thrown(super::ERR_ARG_INT));
+                    panic_any(Thrown(crate::script::vm::ERR_ARG_INT));
                 }
                 m.r[0] = v as u64;
             }
@@ -156,14 +170,14 @@ impl<'v> Svc for Run<'v> {
             "?GetI32@CRunInfo@@QEBAHH@Z" => {
                 let v = self.int_arg(int_arg(rdx));
                 if v < i32::MIN as i64 || v > i32::MAX as i64 {
-                    panic_any(Thrown(super::ERR_ARG_INT));
+                    panic_any(Thrown(crate::script::vm::ERR_ARG_INT));
                 }
                 m.r[0] = v as i32 as u32 as u64;
             }
             "?GetI32Err@CRunInfo@@QEBAHHHH@Z" => {
                 let v = self.int_arg(int_arg(rdx));
                 if !(int_arg(r8) as i64 <= v && v <= int_arg(m.r[9]) as i64) {
-                    panic_any(Thrown(super::ERR_ARG_INT));
+                    panic_any(Thrown(crate::script::vm::ERR_ARG_INT));
                 }
                 m.r[0] = v as i32 as u32 as u64;
             }
@@ -177,7 +191,7 @@ impl<'v> Svc for Run<'v> {
             "?GetFloatErr@CRunInfo@@QEBANHNN@Z" => {
                 let v = num(self.vm.a_flt(self.arg(int_arg(rdx))));
                 if !(f64::from_bits(m.xl(2)) <= v && v <= f64::from_bits(m.xl(3))) {
-                    panic_any(Thrown(super::ERR_ARG_REAL));
+                    panic_any(Thrown(crate::script::vm::ERR_ARG_REAL));
                 }
                 m.set_xl(0, v.to_bits());
             }
@@ -200,6 +214,51 @@ impl<'v> Svc for Run<'v> {
             "?FillInArray@CRunInfo@@QEBAXHAEAVCArrObj@@@Z" | "?FillInArray0@CRunInfo@@QEBAXHAEAVCArrObj@@@Z" => {
                 self.fill_in_array(m, int_arg(rdx), r8)
             }
+            "?GetCString@CRunInfo@@QEBAXHAEAV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" => {
+                let text = self.str_arg(int_arg(rdx));
+                let units: Vec<u32> = text.encode_utf16().map(|u| u as u32).collect();
+                self.strs.write(m, r8, &units, true);
+            }
+            "?GetConstStringHolder@CRunInfo@@QEBAAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@H@Z" => {
+                let text = self.str_arg(int_arg(rdx));
+                let units: Vec<u32> = text.encode_utf16().map(|u| u as u32).collect();
+                let holder = m.alloc(8);
+                self.strs.write(m, holder, &units, true);
+                m.r[0] = holder;
+            }
+            "?GetStringHolder@CRunInfo@@QEBAPEAV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@H_N@Z" => {
+                let idx = int_arg(rdx);
+                let text = self.str_arg(idx);
+                let units: Vec<u32> = text.encode_utf16().map(|u| u as u32).collect();
+                let holder = m.alloc(8);
+                self.strs.write(m, holder, &units, true);
+                self.holders.push((idx, holder));
+                m.r[0] = holder;
+            }
+            "?GetConstString@CRunInfo@@QEBAPEB_WH@Z" => {
+                let text = self.str_arg(int_arg(rdx));
+                let units: Vec<u16> = text.encode_utf16().collect();
+                let p = m.alloc(units.len() * 2 + 2);
+                for (i, u) in units.iter().enumerate() {
+                    m.st(p + 2 * i as u64, 2, *u as u64);
+                }
+                m.r[0] = p;
+            }
+            "?SetCString@CRunInfo@@QEBAXHAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" => {
+                let text = cstring::from_units(&self.strs.read(m, r8, true));
+                self.set_arg(int_arg(rdx), V::Str(text));
+            }
+            "?StoreStringResult@CRunInfo@@QEBAXAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" => {
+                self.result = Some(V::Str(cstring::from_units(&self.strs.read(m, rdx, true))));
+            }
+            "?StoreStringResult@CRunInfo@@QEBAXPEB_W@Z" => {
+                let mut units = Vec::new();
+                while m.ld(rdx + 2 * units.len() as u64, 2) != 0 {
+                    units.push(m.ld(rdx + 2 * units.len() as u64, 2) as u16);
+                }
+                self.result = Some(V::Str(String::from_utf16_lossy(&units)));
+            }
+            other if cstring::call(&mut self.strs, m, other) => {}
             // The C++ runtime and the C library: memory is the machine's heap, which is never
             // freed during a command.
             "??2@YAPEAX_K@Z" | "??_U@YAPEAX_K@Z" => m.r[0] = m.alloc(m.r[1] as usize),
@@ -216,6 +275,62 @@ impl<'v> Svc for Run<'v> {
                 m.st(m.r[2], 4, e as u32 as u64);
                 m.set_xl(0, mant.to_bits());
             }
+            "_time64" => {
+                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                if m.r[1] != 0 {
+                    m.st(m.r[1], 8, now);
+                }
+                m.r[0] = now;
+            }
+            "_localtime64_s" => {
+                // (struct tm *out, const __time64_t *t): local time, here the machine's zone
+                let t = m.ld(rdx, 8) as i64;
+                let (tm, ok) = localtime(t);
+                for (i, v) in tm.iter().enumerate() {
+                    m.st(m.r[1] + 4 * i as u64, 4, *v as u32 as u64);
+                }
+                m.r[0] = if ok { 0 } else { 22 };
+            }
+            "GetLocaleInfoW" => {
+                // (locale, type, buffer, size): the date and time formats of a US English system
+                let kind = (rdx as u32) & 0x0fff_ffff; // LOCALE_NOUSEROVERRIDE and the like are flags
+                const DAYS: [&str; 7] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+                const MONTHS: [&str; 12] = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                let text: String = match kind {
+                    0x1f => "M/d/yyyy".into(),                   // LOCALE_SSHORTDATE
+                    0x20 => "dddd, MMMM dd, yyyy".into(),        // LOCALE_SLONGDATE
+                    0x1003 => "h:mm:ss tt".into(),               // LOCALE_STIMEFORMAT
+                    0x1d => "/".into(),                           // LOCALE_SDATE
+                    0x1e => ":".into(),                           // LOCALE_STIME
+                    0x21 => "0".into(),                           // LOCALE_IDATE: month day year
+                    0x22 => "0".into(),                           // LOCALE_ILDATE
+                    0x23 => "0".into(),                           // LOCALE_ITIME: 12 hour clock
+                    0x25 => "0".into(),                           // LOCALE_ITLZERO
+                    0x28 => "AM".into(),                          // LOCALE_S1159
+                    0x29 => "PM".into(),                          // LOCALE_S2359
+                    0x2a..=0x30 => DAYS[(kind - 0x2a) as usize].into(),
+                    0x31..=0x37 => DAYS[(kind - 0x31) as usize][..3].into(),
+                    0x38..=0x43 => MONTHS[(kind - 0x38) as usize].into(),
+                    0x44..=0x4f => MONTHS[(kind - 0x44) as usize][..3].into(),
+                    _ => String::new(),
+                };
+                let units: Vec<u16> = text.encode_utf16().collect();
+                if r9 > 0 {
+                    for (i, u) in units.iter().enumerate() {
+                        m.st(r8 + 2 * i as u64, 2, *u as u64);
+                    }
+                    m.st(r8 + 2 * units.len() as u64, 2, 0);
+                }
+                m.r[0] = units.len() as u64 + 1;
+            }
+            "_wtoi" => {
+                let mut v = Vec::new();
+                while m.ld(rcx_of(m) + 2 * v.len() as u64, 2) != 0 {
+                    v.push(m.ld(rcx_of(m) + 2 * v.len() as u64, 2) as u16);
+                }
+                let s = String::from_utf16_lossy(&v);
+                m.r[0] = crate::script::text::parse_int(s.trim_start()) as i32 as u32 as u64;
+            }
             other => {
                 self.missing = Some(other.to_string());
                 panic!("the service {other} is not provided");
@@ -225,6 +340,13 @@ impl<'v> Svc for Run<'v> {
 }
 
 impl<'v> Run<'v> {
+    fn str_arg(&self, idx: i32) -> String {
+        match self.vm.a_str(self.arg(idx)) {
+            Ok(s) => s,
+            Err(e) => panic_any(Thrown(e.0)),
+        }
+    }
+
     fn int_arg(&self, idx: i32) -> i64 {
         match self.vm.a_int(self.arg(idx)) {
             Ok(v) => v,
@@ -315,9 +437,10 @@ impl Vm {
         let info = m.alloc(64);
         m.st(info, 4, args.len() as u64);
         m.st(info + 4, 4, variant.max(1) as u64);
-        m.r[1] = 0; // the command object: not used
+        // The command object: its members start as zeros (strings in it are written before read).
+        m.r[1] = m.alloc(0x400);
         m.r[2] = info;
-        let mut run = Run { vm: self, args, result: None, bound: Vec::new(), missing: None };
+        let mut run = Run { vm: self, args, result: None, bound: Vec::new(), missing: None, strs: Default::default(), holders: Vec::new() };
         let quiet = std::panic::take_hook();
         if std::env::var_os("S2LIFT_TRACE").is_none() {
             std::panic::set_hook(Box::new(|_| {}));
@@ -394,4 +517,69 @@ fn frexp(x: f64) -> (f64, i32) {
         return (m, e - 54);
     }
     (f64::from_bits(bits & 0x800f_ffff_ffff_ffff | 0x3fe0_0000_0000_0000), exp - 1022)
+}
+
+fn rcx_of(m: &M) -> u64 {
+    m.r[1]
+}
+
+/// Broken-down local time of a Unix time, in a C `struct tm`'s order: seconds, minutes, hours, day
+/// of month, month (from 0), years since 1900, weekday (Sunday 0), day of year, daylight saving.
+/// The machine's own time zone, from the C library.
+fn localtime(t: i64) -> ([i32; 9], bool) {
+    #[repr(C)]
+    struct Tm {
+        f: [i32; 9],
+        // glibc and others add a zone offset and name after the standard fields
+        extra: [i64; 4],
+    }
+    let mut tm = Tm { f: [0; 9], extra: [0; 4] };
+    #[cfg(unix)]
+    let ok = {
+        extern "C" {
+            fn localtime_r(t: *const i64, out: *mut Tm) -> *mut Tm;
+        }
+        unsafe { !localtime_r(&t, &mut tm).is_null() }
+    };
+    #[cfg(windows)]
+    let ok = {
+        extern "C" {
+            fn _localtime64_s(out: *mut Tm, t: *const i64) -> i32;
+        }
+        unsafe { _localtime64_s(&mut tm, &t) == 0 }
+    };
+    #[cfg(not(any(unix, windows)))]
+    let ok = false;
+    if ok {
+        return (tm.f, true);
+    }
+    // no C library to ask: UTC
+    let days = t.div_euclid(86400);
+    let secs = t.rem_euclid(86400);
+    let (y, mo, d) = civil_from_days(days);
+    let wday = (days + 4).rem_euclid(7);
+    let yday = days - days_from_civil(y, 1, 1);
+    ([(secs % 60) as i32, (secs / 60 % 60) as i32, (secs / 3600) as i32, d as i32, mo as i32 - 1, (y - 1900) as i32, wday as i32, yday as i32, 0], true)
+}
+
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
+}
+
+fn civil_from_days(z: i64) -> (i64, i64, i64) {
+    let z = z + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (if m <= 2 { y + 1 } else { y }, m, d)
 }

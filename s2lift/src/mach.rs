@@ -383,6 +383,31 @@ impl M {
         r
     }
 
+    pub fn adc(&mut self, a: u64, b: u64, size: u32) -> u64 {
+        let c = self.cf as u64;
+        let (a, b) = (a & mask(size), b & mask(size));
+        let full = a as u128 + b as u128 + c as u128;
+        let r = full as u64 & mask(size);
+        self.cf = full >> (size * 8) != 0;
+        self.of = sign(a, size) == sign(b, size) && sign(r, size) != sign(a, size);
+        self.zf = r == 0;
+        self.sf = sign(r, size);
+        self.pf = Self::parity(r);
+        r
+    }
+
+    pub fn sbb(&mut self, a: u64, b: u64, size: u32) -> u64 {
+        let c = self.cf as u64;
+        let (a, b) = (a & mask(size), b & mask(size));
+        let r = a.wrapping_sub(b).wrapping_sub(c) & mask(size);
+        self.cf = (a as u128) < b as u128 + c as u128;
+        self.of = sign(a, size) != sign(b, size) && sign(r, size) != sign(a, size);
+        self.zf = r == 0;
+        self.sf = sign(r, size);
+        self.pf = Self::parity(r);
+        r
+    }
+
     pub fn and(&mut self, a: u64, b: u64, size: u32) -> u64 {
         let r = a & b & mask(size);
         self.logic_flags(r, size);

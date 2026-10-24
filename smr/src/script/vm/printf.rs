@@ -403,3 +403,12 @@ mod tests {
         assert_eq!(f("%X", Fv::Int(255)), "FF");
     }
 }
+
+/// One real formatted by a C conversion (`f`, `e`, `E`, `g`, `G`) with the given flags and precision.
+pub fn format_real(x: f64, conv: char, prec: Option<usize>, flags: &str) -> String {
+    let spec = match prec {
+        Some(p) => format!("%{flags}.{p}{conv}"),
+        None => format!("%{flags}{conv}"),
+    };
+    format(&spec, &[Fv::Flt(x)]).0
+}

@@ -53,6 +53,16 @@ def exports_by_ordinal(path):
     return out
 
 
+def write_if_changed(path, data):
+    """Leave a file alone if it already says this, so that cargo does not rebuild it."""
+    try:
+        if open(path, "rb").read() == data:
+            return
+    except OSError:
+        pass
+    open(path, "wb").write(data)
+
+
 class Unsupported(Exception):
     pass
 
@@ -406,6 +416,9 @@ class Lifter:
             return f"m.push({val(ins, ops[0], 8)});", False
         if mn == "pop":
             return put(ins, ops[0], "m.pop()"), False
+        if mn in ("adc", "sbb"):
+            sz = ops[0].size
+            return put(ins, ops[0], f"m.{mn}({val(ins, ops[0])}, {val(ins, ops[1], sz)}, {sz})"), False
         if mn in ("add", "sub", "and", "or", "xor"):
             sz = ops[0].size
             return put(ins, ops[0], f"m.{mn}({val(ins, ops[0])}, {val(ins, ops[1], sz)}, {sz})"), False
@@ -794,8 +807,8 @@ class Lifter:
                 parts.append(f"pub(crate) fn enter_{self.A(e):x}(m: &mut M) {{\n"
                              f"    m.with_img(&IMG, |m| {{ m.push(0); f_{self.A(e):x}(m); }});\n}}")
         parts.append(trailer)
-        open(os.path.join(out_dir, f"{stem}_gen.rs"), "w").write("\n".join(parts) + "\n")
-        open(os.path.join(out_dir, f"{stem}.dat"), "wb").write(blob)
+        write_if_changed(os.path.join(out_dir, f"{stem}_gen.rs"), ("\n".join(parts) + "\n").encode())
+        write_if_changed(os.path.join(out_dir, f"{stem}.dat"), bytes(blob))
         for w in self.warnings:
             print("warning:", w)
         print(f"{len(self.known)} routines translated, {len(self.failing)} error paths cut, "
