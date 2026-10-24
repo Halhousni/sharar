@@ -617,3 +617,18 @@ opcodes — the array, matrix and view families — which `Machine` currently st
 by name. A partial engine that runs most scripts but differs in a corner is worse
 than no Script menu, because a script that runs is trusted, which is why each piece
 is checked against Spike2 rather than against a reading of the manual.
+
+### Window messages and exceptions in the translated code
+
+Many commands do their work by sending a window message (`SendMessageW`) to the main window or a
+view. `tools/lift_runtime.py --msg=0x244e,…` finds the handler of each listed message in SONVIEW's
+message maps and translates it; the host runs it with a zeroed object standing for the window
+(`World::wnds`). So `Error$` is SONVIEW's own `0x244e` handler, reading its text from the string
+tables dumped by `tools/dump_strings.py`, and the 1401 error texts from `USE1432_vm.dll`. Handlers
+that need the real window tree (`ViewFind`'s view list, the channel list of a view) are written
+against the session instead and compared with Spike2.
+
+C++ `catch` is supported for routines with one try block: `_CxxThrowException` unwinds as a Rust
+panic carrying `CxxThrow`, and the routine's wrapper runs the catch funclet on the frame it would
+have had and resumes where the funclet says (`Lifter.eh_of` in `tools/lift.py`). `InStrRE` relies on it
+for bad patterns.

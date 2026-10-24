@@ -64,11 +64,13 @@ struct DataView {
     /// How each cursor's label is drawn (`CursorLabel`), and where along the cursor (`CursorLabelPos`).
     label_mode: [i64; 9],
     label_pos: f64,
+    /// The display switches a script can set (`XAxis`, `Grid` …), by command name.
+    opts: std::collections::HashMap<&'static str, i64>,
 }
 
 impl DataView {
     fn new(handle: i64, file: SonFile) -> DataView {
-        DataView { mem: Vec::new(), shown: Vec::new(), x_range: (0.0, 1.0), y_range: Default::default(), title: None, visible: false, script_name: String::new(), over: Default::default(), handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9], label_mode: [2; 9], label_pos: 20.0 }
+        DataView { mem: Vec::new(), shown: Vec::new(), x_range: (0.0, 1.0), y_range: Default::default(), title: None, visible: false, script_name: String::new(), over: Default::default(), handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9], label_mode: [2; 9], label_pos: 20.0, opts: Default::default() }
     }
 }
 
@@ -479,6 +481,36 @@ impl Session {
                     }
                 }
                 some(V::Str(old))
+            }
+            "XAxis" | "XAxisAttrib" | "XAxisMode" | "XScroller" | "YAxis" | "ChanNumbers" | "Grid" | "ViewUseColour" => {
+                // Each answers with the old setting and takes a new one; some refuse values.
+                let (key, default): (&'static str, i64) = match name {
+                    "XAxis" => ("XAxis", 1),
+                    "XAxisAttrib" => ("XAxisAttrib", 0),
+                    "XAxisMode" => ("XAxisMode", 0),
+                    "XScroller" => ("XScroller", 1),
+                    "YAxis" => ("YAxis", 1),
+                    "ChanNumbers" => ("ChanNumbers", 1),
+                    "Grid" => ("Grid", 0),
+                    _ => ("ViewUseColour", 1),
+                };
+                let new = if args.is_empty() { None } else { Some(int(mem, &args[0])?) };
+                let stored = match (key, new) {
+                    (_, None) => None,
+                    ("XAxis", Some(a)) if (0..=3).contains(&a) => Some((a != 0) as i64),
+                    ("XScroller" | "YAxis", Some(a)) if (0..=1).contains(&a) => Some(a),
+                    ("XAxisAttrib", Some(a)) if a >= 0 => Some(a & 12),
+                    ("XAxisMode", Some(a)) => Some((a as i32 & !0x300) as i64),
+                    ("ChanNumbers" | "ViewUseColour", Some(a)) => Some((a != 0) as i64),
+                    ("Grid", Some(a)) if a <= 3 => if a < 0 { None } else { Some(a) },
+                    _ => return Err(RunError(super::vm::ERR_ARG_INT)),
+                };
+                let v = self.view_mut().unwrap();
+                let old = *v.opts.get(key).unwrap_or(&default);
+                if let Some(x) = stored {
+                    v.opts.insert(key, x);
+                }
+                some(V::Int(old))
             }
             "FrontView" => some(V::Int(self.current)),
             "Modified" => some(V::Int(0)),
@@ -1432,7 +1464,8 @@ impl Host for Session {
             }
             "XRange" | "XLow" | "XHigh" | "YRange" | "YLow" | "YHigh" | "Draw" | "DrawAll" | "Optimise"
             | "Window" | "WindowVisible" | "WindowTitle$" | "FrontView" | "FileName$" | "FileComment$"
-            | "FileSize" | "Modified" | "ViewStandard" | "FileTimeDate"
+            | "FileSize" | "Modified" | "ViewStandard" | "FileTimeDate" | "XAxis" | "XAxisAttrib" | "XAxisMode"
+            | "XScroller" | "YAxis" | "ChanNumbers" | "Grid" | "ViewUseColour"
                 if self.view().is_some() =>
             {
                 self.display_command(name, args, mem)
