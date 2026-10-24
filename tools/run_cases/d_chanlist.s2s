@@ -1,0 +1,25 @@
+var res[400], h%, l%[40], n%, i%, m%, c%, k%, s%[3];
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+res[0] := ChanList(l%[]); for i% := 0 to 8 do res[1 + i%] := l%[i%] next
+k% := 20;
+for m% := 1 to 9 do
+  n% := ChanList(l%[], 2 * m% - 1 + (m% > 4) * m%);
+  res[k%] := n%;
+  for i% := 0 to 3 do res[k% + 1 + i%] := l%[i%] next
+  k% += 6;
+next
+n% := ChanList(l%[], 128); res[100] := n%; res[101] := l%[0]; res[102] := l%[1]; res[103] := l%[27];
+n% := ChanList(l%[], 255); res[104] := n%; res[105] := l%[0]; res[106] := l%[32];
+n% := ChanList(l%[], -1); res[107] := n%;
+n% := ChanList(l%[]); 
+Enc(Chan$(1), 120); Enc(Chan$(31), 130);
+s%[0] := 2; s%[1] := 1; s%[2] := 31; Enc(Chan$(s%[]), 140);
+c% := MemChan(2); n% := ChanList(l%[]); res[150] := n%; res[151] := l%[0]; res[152] := l%[6];
+n% := ChanList(l%[], 2); res[153] := n%; res[154] := l%[0]; res[155] := l%[3];
+n% := ChanList(l%[], 8); res[156] := n%; 
+View(h%); FileClose();

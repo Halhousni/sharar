@@ -341,6 +341,77 @@ fn flt(mem: &dyn Mem, a: &Arg) -> Result<f64, RunError> {
 }
 
 impl Session {
+    /// `ChanList(list[] {, types%})` and `Chan$`. The list's first element is the count and the
+    /// channel numbers follow; `types%` is a mask of kinds (1 waveform, 2 event, 4 level, 8 marker,
+    /// 16 wavemark, 32 text mark, 64 real mark, 128 the channels not in use); none means every
+    /// channel in use.
+    fn chan_list(&mut self, name: &str, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let some = |v: V| Ok(Some(Some(v)));
+        if name == "Chan$" {
+            let nums: Vec<i64> = match mem.array(&args[0]) {
+                Some((data, _)) => {
+                    let all: Vec<i64> = data.iter().map(|d| match d { V::Int(i) => *i, V::Flt(f) => *f as i64, V::Str(_) => 0 }).collect();
+                    let n = all.first().copied().unwrap_or(0).max(0) as usize;
+                    all.into_iter().skip(1).take(n).collect()
+                }
+                None => vec![int(mem, &args[0])?],
+            };
+            return some(V::Str(nums.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(",")));
+        }
+        let mask = if args.len() > 1 { int(mem, &args[1])? } else { 0 };
+        if mask < 0 || args.len() > 2 {
+            return some(V::Int(0));
+        }
+        let bit = |k: Kind| -> i64 {
+            match k {
+                Kind::Adc => 1,
+                Kind::EventFall | Kind::EventRise => 2,
+                Kind::EventBoth => 4,
+                Kind::Marker => 8,
+                Kind::AdcMark => 16,
+                Kind::TextMark => 32,
+                Kind::RealMark => 64,
+                Kind::RealWave => 256,
+                Kind::Empty => 0,
+            }
+        };
+        let v = self.view().unwrap();
+        let mut list: Vec<i64> = Vec::new();
+        let used: Vec<(i64, Kind)> = v.file.channels.iter().map(|c| (c.index as i64 + 1, c.kind)).collect();
+        if mask & 128 != 0 {
+            for n in 1..=32 {
+                if !used.iter().any(|u| u.0 == n) {
+                    list.push(n);
+                }
+            }
+        }
+        for (n, k) in &used {
+            if (mask == 0 || mask & bit(*k) != 0) && mask != 128 {
+                list.push(*n);
+            }
+        }
+        for (i, m) in v.mem.iter().enumerate() {
+            if let Some(m) = m {
+                if mask == 0 || mask & bit(m.kind) != 0 {
+                    list.push(401 + i as i64);
+                }
+            }
+        }
+        list.sort();
+        let total = list.len();
+        let Some((mut data, _)) = mem.array(&args[0]) else { return Ok(None) };
+        let room = data.len().saturating_sub(1);
+        let put = total.min(room);
+        if !data.is_empty() {
+            data[0] = V::Int(put as i64);
+        }
+        for k in 0..put {
+            data[k + 1] = V::Int(list[k]);
+        }
+        mem.set_array(&args[0], data)?;
+        some(V::Int(total as i64))
+    }
+
     /// Display state and descriptions of the view: what a script reads and sets about how a
     /// window looks, not what it holds.
     fn display_command(&mut self, name: &str, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
@@ -1191,6 +1262,7 @@ impl Host for Session {
                 self.display_command(name, args, mem)
             }
             "Yield" => some(V::Int(1)),
+            "ChanList" | "Chan$" if self.view().is_some() => self.chan_list(name, args, mem),
             "Cursor" | "CursorNew" | "CursorExists" | "CursorDelete" | "CursorValid" | "CursorSet"
                 if self.view().is_some() =>
             {
