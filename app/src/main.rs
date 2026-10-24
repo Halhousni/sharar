@@ -3438,6 +3438,7 @@ fn main() -> eframe::Result {
     let mut views_check = false;
     let mut process_chain = false;
     let mut script_on_start: Option<PathBuf> = None;
+    let mut headless_script: Option<PathBuf> = None;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
@@ -3480,17 +3481,7 @@ fn main() -> eframe::Result {
             // --run-script=<file.s2s> runs a script without a window, prints its log and
             // exits with 0 if it finished, 1 if it stopped.
             other if other.starts_with("--run-script=") => {
-                let path = &other["--run-script=".len()..];
-                let src: String = match std::fs::read(path) {
-                    Ok(b) => b.iter().map(|&c| c as char).collect(),
-                    Err(e) => {
-                        eprintln!("sharar: cannot read {path}: {e}");
-                        std::process::exit(2);
-                    }
-                };
-                let (log, _) = script_ui::run_script(&src, &std::sync::atomic::AtomicBool::new(false), None);
-                print!("{log}");
-                std::process::exit(if log.ends_with("Script finished.\n") { 0 } else { 1 });
+                headless_script = Some(PathBuf::from(&other["--run-script=".len()..]));
             }
             // --script=<file.s2s> opens the window and runs a script at startup.
             other if other.starts_with("--script=") => {
@@ -3511,6 +3502,33 @@ fn main() -> eframe::Result {
             }
             _ => path = Some(PathBuf::from(arg)),
         }
+    }
+
+    if let Some(script) = headless_script {
+        let src: String = match std::fs::read(&script) {
+            Ok(b) => b.iter().map(|&c| c as char).collect(),
+            Err(e) => {
+                eprintln!("sharar: cannot read {}: {e}", script.display());
+                std::process::exit(2);
+            }
+        };
+        // A data file named on the command line is the view the script starts in.
+        let front = path.as_ref().and_then(|p| {
+            let f = SonFile::open(p).ok()?;
+            let d = f.duration();
+            Some(script_ui::Front {
+                path: p.clone(),
+                state: smr::script::session::ViewState {
+                    hidden: Vec::new(),
+                    cursors: vec![(1, d * 0.25), (2, d * 0.5)],
+                    x_range: (0.0, d),
+                    selected: Vec::new(),
+                },
+            })
+        });
+        let (log, _) = script_ui::run_script(&src, &std::sync::atomic::AtomicBool::new(false), front.as_ref());
+        print!("{log}");
+        std::process::exit(if log.ends_with("Script finished.\n") { 0 } else { 1 });
     }
 
     let options = eframe::NativeOptions {

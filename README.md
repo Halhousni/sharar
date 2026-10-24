@@ -22,7 +22,7 @@ a result computed, `--export` writes the visible window to CSV and reports the p
 `--record` opens the live strip chart on its synthetic source. The other flags in
 `app/src/main.rs` (`--chan-info`, `--yaxis`, `--yrange=<lo>,<hi>`, `--showhide`, `--copy-dump`,
 `--bands=notch`, `--bands=kill`, `--bands-apply`, `--process`, `--process-chain`,
-`--two-views`, `--views-check`) are development switches. `--run-script=<file.s2s>` runs a script without a window, prints its log and exits (0 if it finished); `--script=<file.s2s>` opens the window and runs one. Each opens one dialog or state at
+`--two-views`, `--views-check`) are development switches. `--run-script=<file.s2s> [data file]` runs a script without a window (starting in the data file, if one is named), prints its log and exits (0 if it finished); `--script=<file.s2s>` opens the window and runs one. Each opens one dialog or state at
 startup, and `--copy-dump` prints Edit → Copy's text and exits.
 
 Pass a file on the command line, or use `File → Open…` or the toolbar's Open button. Both show
