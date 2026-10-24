@@ -825,7 +825,8 @@ impl Win {
             }
             "__pctype_func" | "___lc_codepage_func" | "___mb_cur_max_func" | "___lc_locale_name_func" | "___lc_collate_cp_func" | "setlocale" => m.r[0] = 0,
             "DecodePointer" | "EncodePointer" => m.r[0] = rcx,
-            "PostMessageW" => m.r[0] = 0,
+            "PostMessageW" | "GetAsyncKeyState" | "GetForegroundWindow" => m.r[0] = 0,
+            "PlaySoundW" => m.r[0] = 1,
             "GetCurrentDirectoryW" => {
                 let d = std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
                 let d = d.replace('/', "\\");

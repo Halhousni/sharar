@@ -149,6 +149,17 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.pop();
                 true
             }
+            // the owner of a channel view: its data file (slot 0x480), seconds per tick (0x510)
+            0x480 => {
+                m.r[0] = self.world.measure_file;
+                m.pop();
+                true
+            }
+            0x510 => {
+                m.set_xl(0, self.world.measure_tf.to_bits());
+                m.pop();
+                true
+            }
             _ => false,
         }
     }
@@ -302,6 +313,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 let msg = rdx as u32;
                 m.r[0] = match msg {
                     0x14a7 => self.sonfile_of(m, view_of(rcx_of(m))),
+                    0x15d1 => self.measure(m, view_of(rcx_of(m)), r9),
                     _ => match commands::msg_handlers(msg).first().copied() {
                         Some(f) => {
                             // the window's own handler, run with an object standing for the window
@@ -501,6 +513,53 @@ fn internal_view_type(script_kind: i64) -> u64 {
 impl<'v, 'w> Run<'v, 'w> {
     /// The data file engine's object for view `h`, made (by opening the file with Spike2's own
     /// code) the first time it is asked for.
+    /// `ChanMeasure`: SONVIEW's own measuring routine, run on stand-ins for the channel view and its owner.
+    fn measure(&mut self, m: &mut M, h: i64, lp: u64) -> u64 {
+        const FAIL: u64 = -1551i64 as u64;
+        let chan = m.ld(lp, 4) as u32 as i32 as i64;
+        let ty = m.ld(lp + 4, 4) as u32 as i32 - 0x13;
+        let (t0, t1) = (f64::from_bits(m.ld(lp + 0x30, 8)), f64::from_bits(m.ld(lp + 0x28, 8)));
+        let Some((tf, real)) = self.vm.host.as_ref().and_then(|host| host.wave_info(h, chan + 1)) else { return FAIL };
+        let file = self.sonfile_of(m, h);
+        if file == 0 {
+            return FAIL;
+        }
+        self.world.measure_file = file;
+        self.world.measure_tf = tf;
+        if self.world.measure_buf == 0 {
+            self.world.measure_buf = m.alloc(4 * 8000 + 64);
+        }
+        // the global that points at the sample buffer
+        m.st(0x1_403d_a7e8 + (7u64 << 32), 8, self.world.measure_buf);
+        let (view, owner, vt) = (m.alloc(0x400), m.alloc(0x40), m.alloc(0x600));
+        m.st(vt + 0x480, 8, FAKE_CODE + 0x480);
+        m.st(vt + 0x510, 8, FAKE_CODE + 0x510);
+        m.st(owner, 8, vt);
+        m.st(view + 0x140, 8, owner);
+        m.st(view + 0x170, 2, chan as u64);
+        m.st(view + 0x174, 4, if real { 9 } else { 1 });
+        let out = m.alloc(8);
+        let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64);
+        let saved = m.r;
+        m.r[1] = view;
+        m.r[2] = a as u64;
+        m.r[8] = b as u64;
+        m.r[9] = ty as u64;
+        m.r[4] -= 0x40;
+        m.st(m.r[4] + 0x20, 8, out);
+        m.push(0);
+        commands::call_at(m, self, 0x1_4002_2d00 + (7u64 << 32));
+        let ok = m.r[0] as u8 != 0;
+        let v = m.ld(out, 8);
+        m.r = saved;
+        if ok {
+            m.st(lp + 0x18, 8, v);
+            0
+        } else {
+            FAIL
+        }
+    }
+
     fn sonfile_of(&mut self, m: &mut M, h: i64) -> u64 {
         if let Some(&o) = self.world.sonfiles.get(&h) {
             return o;
@@ -643,6 +702,11 @@ pub struct World {
     main_wnd: u64,
     /// The window object handed to message handlers, by window handle.
     wnds: std::collections::HashMap<u64, u64>,
+    /// What the stand-in for a channel's owner answers while a measurement runs: the data file object and seconds per tick.
+    measure_file: u64,
+    measure_tf: f64,
+    /// The buffer the measurement routines read samples into.
+    measure_buf: u64,
 }
 
 impl Default for World {
@@ -653,7 +717,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default() }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0 }
     }
 }
 

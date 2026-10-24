@@ -926,6 +926,48 @@ impl Session {
         Ok(Some(Some(V::Int(0))))
     }
 
+    /// `ChanMeasure(chan%, type%, start, end {, &ok%})`: one number describing the waveform samples (or
+    /// the events) from `start` up to `end`. Types without a port yet are left to the caller.
+    fn chan_measure(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let (n, ty, t0, t1) = (int(mem, &args[0])?, int(mem, &args[1])?, flt(mem, &args[2])?, flt(mem, &args[3])?);
+        if !(1..=20).contains(&ty) {
+            return Ok(None);
+        }
+        let Some(idx) = self.chan_pos(n) else { return Ok(None) };
+        let (tf, wave, event) = {
+            let f = &self.view().unwrap().file;
+            let k = f.channels[idx].kind;
+            (f.time_factor, k.is_waveform(), k.is_event())
+        };
+        let set_ok = |mem: &mut dyn Mem, ok: i64| -> Result<(), RunError> {
+            if let Some(Arg::Ref(r)) = args.get(4) {
+                mem.store(*r, V::Int(ok))?;
+            }
+            Ok(())
+        };
+        if !(t0 < t1) {
+            set_ok(mem, 0)?;
+            return Ok(Some(Some(V::Flt(0.0))));
+        }
+        let items = self.items(idx);
+        let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64);
+        let (lo, hi) = (items.first_ge(a), items.first_ge(b));
+        if event {
+            // events: their number, or their rate per second
+            let count = (hi - lo).max(0) as f64;
+            let (v, ok) = match ty {
+                1 | 4 => (count, count > 0.0),
+                2 => (count / ((b - a) as f64 * tf), count > 0.0),
+                _ => (0.0, false),
+            };
+            set_ok(mem, ok as i64)?;
+            return Ok(Some(Some(V::Flt(v))));
+        }
+        // waveforms are measured by SONVIEW's own routine (the lifted code)
+        let _ = wave;
+        Ok(None)
+    }
+
     /// `ChanValue(chan%, time)` for a waveform channel: the sample at or just before `time`.
     fn chan_value(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         let (n, t) = (int(mem, &args[0])?, flt(mem, &args[1])?);
@@ -1217,6 +1259,12 @@ impl Host for Session {
         false
     }
 
+    fn wave_info(&self, h: i64, chan: i64) -> Option<(f64, bool)> {
+        let v = self.views.iter().find(|v| v.handle == h)?;
+        let c = v.file.channels.iter().find(|c| c.index as i64 == chan - 1)?;
+        c.kind.is_waveform().then(|| (v.file.time_factor, c.kind == Kind::RealWave))
+    }
+
     fn view_info(&self, h: i64) -> Option<(i64, Option<std::path::PathBuf>)> {
         if h == self.log {
             Some((1, None))
@@ -1490,6 +1538,7 @@ impl Host for Session {
                 });
                 some(V::Int(found.map(|v| v.handle).unwrap_or(0)))
             }
+            "ChanMeasure" if (4..=6).contains(&args.len()) && self.view().is_some() => self.chan_measure(args, mem),
             "ChanValue" if args.len() == 2 && self.view().is_some() => self.chan_value(args, mem),
             "ChanData" if args.len() >= 4 && self.view().is_some() => self.chan_data(args, mem),
             "MemChan" | "MemSetItem" | "MemGetItem" | "MemDeleteItem" | "MemImport" | "ChanDelete"
