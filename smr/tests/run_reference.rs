@@ -9,6 +9,7 @@
 //! stop on it too. A program the port cannot run yet (a command not ported) is counted
 //! apart, so the number of those is visible rather than hidden in a pass.
 
+use smr::script::session::Session;
 use smr::script::vm::{Stop, Vm, V};
 use std::path::{Path, PathBuf};
 
@@ -59,6 +60,14 @@ fn programs_compute_what_spike2_computes() {
         let ran = smr::script::compile_with_commands(&src)
             .map_err(|e| format!("does not compile: {}", e.0))
             .and_then(|c| Vm::new(c, true))
+            .map(|vm| {
+                // The scripts name the guest's data folder; the same recordings are here.
+                let mut session = Session::new();
+                if let Some(dir) = find("testdata/Example_Data_Files") {
+                    session.map_path(r"C:\Users\Hilal\Documents\Spike8\data\", dir);
+                }
+                vm.with_host(Box::new(session))
+            })
             .and_then(|mut vm| match vm.run() {
                 Stop::Done => Ok(Some(vm)),
                 Stop::Error(_) => Ok(None),

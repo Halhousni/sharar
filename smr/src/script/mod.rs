@@ -8,8 +8,10 @@ pub mod bytecode;
 pub mod commands;
 pub mod compile;
 pub mod exec;
+pub mod host;
 pub mod lexer;
 pub mod parser;
+pub mod session;
 pub mod print;
 pub mod vm;
 

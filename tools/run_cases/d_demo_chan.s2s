@@ -1,0 +1,22 @@
+var res[2500];
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+var h%, c%, b%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+res[0] := MaxTime();
+res[1] := FileTimeBase();
+for c% := 1 to 20 do
+  b% := 2 + (c% - 1) * 120;
+  res[b%] := ChanKind(c%);
+  Enc(ChanTitle$(c%), b% + 1);
+  Enc(ChanUnits$(c%), b% + 22);
+  Enc(ChanComment$(c%), b% + 32);
+  res[b% + 111] := ChanScale(c%);
+  res[b% + 112] := ChanOffset(c%);
+  res[b% + 113] := ChanVisible(c%);
+  res[b% + 114] := NextTime(c%, -1);
+next
+FileClose();

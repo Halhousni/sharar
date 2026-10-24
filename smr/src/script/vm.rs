@@ -14,6 +14,7 @@
 //! has not been, the code says so rather than guess (see [`Stop`]).
 
 use super::commands;
+use super::host::{Host, Mem};
 use super::compile::{Compiled, Const, RoutineInfo, Ty};
 use super::exec::{
     as_flt, flt_div_check, flt_truthy, int_div, int_mod, int_mul, int_result, to_int, Code,
@@ -135,6 +136,9 @@ pub struct Vm {
     pub log: String,
     /// Set by a command that cannot run yet.
     pending_command: Option<String>,
+    host: Option<Box<dyn Host>>,
+    /// The current view when there is no host to say.
+    view: i64,
 }
 
 fn flt_to_num(v: &V) -> Result<f64, RunError> {
@@ -190,7 +194,34 @@ impl Vm {
             with_commands,
             log: String::new(),
             pending_command: None,
+            host: None,
+            view: 0,
         })
+    }
+
+    /// Run commands that act on Spike2's world through `host`.
+    pub fn with_host(mut self, host: Box<dyn Host>) -> Vm {
+        self.host = Some(host);
+        self
+    }
+
+    /// Hand the host back, with whatever state the run left in it.
+    pub fn into_host(self) -> Option<Box<dyn Host>> {
+        self.host
+    }
+
+    fn current_view(&self) -> i64 {
+        self.host.as_ref().map(|h| h.current_view()).unwrap_or(self.view)
+    }
+
+    fn set_view(&mut self, h: i64) -> Result<(), RunError> {
+        match self.host.as_mut() {
+            Some(host) => host.set_view(h),
+            None => {
+                self.view = h;
+                Ok(())
+            }
+        }
     }
 
     // ---- reading and writing places --------------------------------------------------
@@ -724,6 +755,28 @@ impl Vm {
                     *old = dims;
                 }
             }
+            // View(h%) as a value, View(h%) as a statement, View(), and the swap that ends
+            // View(h%).Command().
+            0x73 => {
+                let new = self.int()?;
+                let old = self.current_view();
+                self.set_view(new)?;
+                self.push(V::Int(old));
+            }
+            0x74 => {
+                let h = self.int()?;
+                self.set_view(h)?;
+            }
+            0x75 => {
+                let h = self.current_view();
+                self.push(V::Int(h));
+            }
+            0x76 => {
+                let result = self.value()?;
+                let prev = self.int()?;
+                self.set_view(prev)?;
+                self.push(result);
+            }
             0x79 => return Ok(Some(Stop::Done)),
             w if w >= 0x7a => match self.word_item(w) {
                 Some(it) => self.stack.push(it),
@@ -783,6 +836,13 @@ impl Vm {
             }
         };
         let _ = &val;
+        if let Some(mut host) = self.host.take() {
+            let r = host.command(cmd.name, variant, &args, self);
+            self.host = Some(host);
+            if let Some(out) = r? {
+                return Ok(out);
+            }
+        }
         match self.builtin(cmd.name, variant, &args)? {
             Some(out) => Ok(out),
             None => {
@@ -840,5 +900,39 @@ mod tests {
         let mut vm = Vm::new(c, true).unwrap();
         assert_eq!(vm.run(), Stop::Done);
         assert_eq!(vm.global("n%"), Some(V::Int(4)));
+    }
+}
+
+impl Mem for Vm {
+    fn value(&self, a: &Arg) -> Result<V, RunError> {
+        self.a_val(a)
+    }
+    fn store(&mut self, r: Ref, v: V) -> Result<(), RunError> {
+        self.set(r, v)
+    }
+    fn array(&self, a: &Arg) -> Option<(Vec<V>, Vec<usize>)> {
+        let c = self.a_array(a)?;
+        match &self.cells[c] {
+            Cell::Array { data, dims, .. } => Some((data.clone(), dims.clone())),
+            _ => None,
+        }
+    }
+    fn set_array(&mut self, a: &Arg, data: Vec<V>) -> Result<(), RunError> {
+        let c = self.a_array(a).ok_or(RunError(ERR_TYPE))?;
+        let ty = self.ty_of(Ref::Cell(c));
+        if let Cell::Array { data: d, .. } = &mut self.cells[c] {
+            for (slot, v) in d.iter_mut().zip(data) {
+                *slot = match (ty, v) {
+                    (Ty::Int, v) => V::Int(to_int(v.num()?)?),
+                    (Ty::Float, v) => V::Flt(as_flt(v.num()?)),
+                    (Ty::Str, V::Str(s)) => V::Str(s),
+                    _ => return Err(RunError(ERR_TYPE)),
+                };
+            }
+        }
+        Ok(())
+    }
+    fn log(&mut self, text: &str) {
+        self.log.push_str(text);
     }
 }

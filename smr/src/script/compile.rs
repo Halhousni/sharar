@@ -95,6 +95,10 @@ const O_BIT_OR: u16 = 0x65;
 const O_BIT_XOR: u16 = 0x66;
 const O_ARR_INDEX: u16 = 0x6b;
 const O_RESIZE_ARRAY: u16 = 0x71;
+const O_GET_SET_VIEW: u16 = 0x73;
+const O_SET_VIEW: u16 = 0x74;
+const O_GET_VIEW: u16 = 0x75;
+const O_SET_VIEW_SWAP: u16 = 0x76;
 const O_HALT: u16 = 0x79;
 
 /// The type a name's suffix gives it: `%` integer, `$` string, nothing float.
@@ -933,6 +937,25 @@ fn gen_stmt(g: &mut Gen, s: &Stmt, top: bool) -> Result<bool, CompileError> {
             Ok(false)
         }
         Stmt::Expr(e) => {
+            // `View(h%);` switches the current view; `View(h%).Command(…);` runs one
+            // command in another view and switches back.
+            if let Some(v) = view_call(e) {
+                if let Some(v) = v {
+                    gen_expr(g, v)?;
+                    g.emit(O_SET_VIEW);
+                }
+                return Ok(false);
+            }
+            if let Some((v, name, args)) = view_member_call(e) {
+                let Some((i, cmd)) = super::commands::find(name).filter(|_| g.commands) else {
+                    return Err(CompileError(format!("unknown command {name}")));
+                };
+                gen_expr(g, v)?;
+                g.emit(O_GET_SET_VIEW);
+                gen_command(g, i, &cmd, args, true)?;
+                g.emit(O_SET_VIEW);
+                return Ok(false);
+            }
             if let Expr::Call(callee, args) = e {
                 if let Expr::Name(name) = &**callee {
                     if g.commands && g.index_of(name).is_none() {
@@ -1205,6 +1228,31 @@ fn gen_expr(g: &mut Gen, e: &Expr) -> Result<Ty, CompileError> {
         return Ok(ty);
     }
 
+    if let Some(v) = view_call(e) {
+        return match v {
+            Some(v) => {
+                gen_expr(g, v)?;
+                g.emit(O_GET_SET_VIEW);
+                Ok(Ty::Int)
+            }
+            None => {
+                g.emit(O_GET_VIEW);
+                Ok(Ty::Int)
+            }
+        };
+    }
+    if let Some((v, name, args)) = view_member_call(e) {
+        let Some((i, cmd)) = super::commands::find(name).filter(|_| g.commands) else {
+            return Err(CompileError(format!("unknown command {name}")));
+        };
+        gen_expr(g, v)?;
+        g.emit(O_GET_SET_VIEW);
+        let Some(t) = gen_command(g, i, &cmd, args, false)? else {
+            return Err(CompileError(format!("{name} has no value")));
+        };
+        g.emit(O_SET_VIEW_SWAP);
+        return Ok(t);
+    }
     if let Expr::Call(callee, args) = e {
         if let Expr::Name(name) = &**callee {
             if g.commands && g.index_of(name).is_none() {
@@ -1294,6 +1342,26 @@ fn gen_expr(g: &mut Gen, e: &Expr) -> Result<Ty, CompileError> {
             Ok(if ta == Ty::Int && tb == Ty::Int { Ty::Int } else { Ty::Float })
         }
         other => Err(CompileError(format!("cannot compile {other:?}"))),
+    }
+}
+
+/// `View(x)` or `View()`: the argument, if there is one.
+fn view_call(e: &Expr) -> Option<Option<&Expr>> {
+    let Expr::Call(callee, args) = e else { return None };
+    match (&**callee, args.as_slice()) {
+        (Expr::Name(n), []) if n == "View" => Some(None),
+        (Expr::Name(n), [a]) if n == "View" => Some(Some(a)),
+        _ => None,
+    }
+}
+
+/// `View(x).Command(args)`: the view expression, the command's name and its arguments.
+fn view_member_call(e: &Expr) -> Option<(&Expr, &str, &[Expr])> {
+    let Expr::Call(callee, args) = e else { return None };
+    let Expr::Member(target, name) = &**callee else { return None };
+    match view_call(target)? {
+        Some(v) => Some((v, name.as_str(), args.as_slice())),
+        None => None,
     }
 }
 

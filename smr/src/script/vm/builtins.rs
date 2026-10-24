@@ -20,7 +20,7 @@ fn none() -> Out {
 }
 
 impl Vm {
-    fn a_val(&self, a: &Arg) -> Result<V, RunError> {
+    pub(super) fn a_val(&self, a: &Arg) -> Result<V, RunError> {
         match a {
             Arg::Val(v) => Ok(v.clone()),
             Arg::Ref(r) => self.try_get(*r),
@@ -43,7 +43,7 @@ impl Vm {
     }
 
     /// The array a reference names, with its element type, dimensions and cell.
-    fn a_array(&self, a: &Arg) -> Option<usize> {
+    pub(super) fn a_array(&self, a: &Arg) -> Option<usize> {
         match a {
             Arg::Ref(Ref::Cell(c)) if matches!(self.cells[*c], Cell::Array { .. }) => Some(*c),
             _ => None,

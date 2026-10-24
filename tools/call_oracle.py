@@ -38,6 +38,10 @@ PRELUDE = (
     "var ai%[3]; var ar[3]; var as$[3]; var ai2%[3][3]; var ar2[3][3]; var as2$[3][3]; "
     "var ar3[3][3][3];\n"
 )
+EXTRA = ["i% := View();", "View(i%);", "i% := View(i%);", "r := View(i%).MaxTime() + 1;", "View();", "View(1).Draw();",
+         "i% := View(View()).ChanKind(1);", "s$ := View(3).FileName$(0);", "View(i%+1);", "r := View(-1).MaxTime();",
+         "if View(i%).MaxTime() > 1 then i% := 2; endif", "r := View(App(3)).MaxTime();", "i% := View(i%).Len(s$);",
+         "r := View(i%).XRange(0, 1);", "r := i%.MaxTime();", "i% := View(i%).View();"]
 # What fills an argument slot, by the name of the shape.
 SHAPES = {
     "lit_i": "1", "lit_r": "1.5", "lit_s": '"x"',
@@ -106,8 +110,11 @@ def procs_for(ret, types):
     return out
 
 
-def call(cmd, args):
+def call(cmd, args, view=None):
+    """A statement calling the command; with `view`, through `View(view).`"""
     c = f"{cmd['name']}({','.join(args)})"
+    if view is not None:
+        c = f"View({view})." + c
     return {0: c + ";", 1: "i% := " + c + ";", 2: "r := " + c + ";", 3: "s$ := " + c + ";"}[cmd["ret"]]
 
 
@@ -120,6 +127,8 @@ def cases(cmds):
             seen.add(src)
             yield src
 
+    for stmt in EXTRA:
+        yield from add(stmt)
     for cmd in cmds:
         for v in cmd["variants"][:4]:
             words = [w for w in v if w not in (0xe, 0xf)]
@@ -148,6 +157,9 @@ def cases(cmds):
             if any(b is None for b in base):
                 continue
             yield from add(call(cmd, base))
+            yield from add(call(cmd, base, "i%"))
+            yield from add(call(cmd, base, "3"))
+            yield from add(f"View({'i%'});\n" + call(cmd, base))
             lo = cmd["min"]
             yield from add(call(cmd, base[:lo]))
             yield from add(call(cmd, base[:max(lo - 1, 0)])) if lo else iter(())
