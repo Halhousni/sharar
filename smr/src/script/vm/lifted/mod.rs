@@ -379,12 +379,14 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             }
             "?DoInit@@YAFPEAVCBaseCmd@@@Z" => {
                 // a command object has been built: remember which command it is by its vtable
+                // (several commands can share a class: the k-th object of a class is the k-th command that has it)
                 let vt = m.ld(m.r[1], 8);
-                for (n, v) in commands::VTABLES {
-                    if *v == vt {
-                        self.world.objects.insert(n.to_string(), m.r[1]);
-                    }
+                let k = self.world.seen.entry(vt).or_insert(0);
+                let names: Vec<&str> = commands::VTABLES.iter().filter(|(_, v)| *v == vt).map(|(n, _)| *n).collect();
+                if let Some(n) = names.get(*k).or(names.last()) {
+                    self.world.objects.insert(n.to_string(), m.r[1]);
                 }
+                *k += 1;
                 m.r[0] = 0;
             }
             "?AfxGetThread@@YAPEAVCWinThread@@XZ" => {
@@ -574,6 +576,16 @@ impl<'v, 'w> Run<'v, 'w> {
         m.r[1] = t + 0x1d0;
         commands::call_export("??0CSamModeInfo@@QEAA@XZ", m, self);
         m.r = saved;
+        // the IIR filter bank the application keeps (and the IIRDefine it edits)
+        let def = m.alloc(0xf8);
+        m.r[1] = def;
+        commands::call_export("??0IIRDefine@@QEAA@XZ", m, self);
+        m.st(t + 0xcdd0, 8, def);
+        let bank = m.alloc(0xbb0);
+        m.r[1] = bank;
+        commands::call_export("??0CIIRFilterBank@@QEAA@XZ", m, self);
+        m.st(bank, 8, 0x1_402a_5630 + (7u64 << 32));
+        m.st(t + 0xcdf0, 8, bank);
         // the application's own start-up of the sampling settings (their defaults)
         m.r[1] = t;
         m.push(0);
@@ -830,6 +842,8 @@ pub struct World {
     measure_buf: u64,
     /// The stand-in for the application object (settings are read from it).
     app: u64,
+    /// How many command objects of each class have been built.
+    seen: std::collections::HashMap<u64, usize>,
 }
 
 impl Default for World {
@@ -840,7 +854,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0 }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default() }
     }
 }
 

@@ -2,7 +2,7 @@
 """The string-table resources (RT_STRING) of Spike2's executable, as a Rust table: the lifted
 code loads its messages (Error$ and the dialogs' texts) by number.
 
-    tools/dump_strings.py vmbin/SONVIEW.exe vmbin/spikecmd.dll vmbin/compiler.dll vmbin/SpikeUtl.dll s2lift/src/strings_gen.rs
+    tools/dump_strings.py vmbin/SONVIEW.exe vmbin/spikecmd.dll vmbin/compiler.dll vmbin/SpikeUtl.dll vmbin/Filters.dll s2lift/src/strings_gen.rs
 """
 import struct, sys
 sys.path.insert(0, __import__("os").path.dirname(__file__))

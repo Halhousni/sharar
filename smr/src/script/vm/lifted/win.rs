@@ -518,6 +518,10 @@ impl Win {
                 if name != "strncpy" {
                     m.st(dst + at, 1, 0);
                 }
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    let t: String = (0..at).map(|k| m.ld(dst + k, 1) as u8 as char).collect();
+                    eprintln!("  {name} -> {t:?}");
+                }
                 m.r[0] = if name == "strncpy" { dst } else { 0 };
             }
             "memcmp" => {
