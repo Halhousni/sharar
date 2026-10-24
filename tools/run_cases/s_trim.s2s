@@ -1,0 +1,22 @@
+var res[300], s$;
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+s$ := "  hello " + Chr$(9) + " "; Trim(s$); Enc(s$, 0);
+s$ := "  hello " + Chr$(9) + " "; TrimLeft(s$); Enc(s$, 20);
+s$ := "  hello " + Chr$(9) + " "; TrimRight(s$); Enc(s$, 40);
+s$ := "xxhelloxx"; Trim(s$, "x"); Enc(s$, 60);
+s$ := "abcHELLOcba"; Trim(s$, "abc"); Enc(s$, 80);
+s$ := ""; Trim(s$); Enc(s$, 100);
+s$ := "   "; Trim(s$); Enc(s$, 110);
+s$ := "nospace"; Trim(s$); Enc(s$, 120);
+s$ := "  a  "; TrimLeft(s$, "ab"); Enc(s$, 140);
+s$ := "aabaa"; TrimRight(s$, "a"); Enc(s$, 160);
+s$ := " a b "; Trim(s$, ""); Enc(s$, 170);
+s$ := "x y"; Trim(s$, " "); Enc(s$, 180);
+s$ := " a " + Chr$(10) + Chr$(13); Trim(s$); Enc(s$, 190);
+s$ := " a " + Chr$(160); Trim(s$); Enc(s$, 200);
+s$ := Chr$(11) + "a" + Chr$(12); Trim(s$); Enc(s$, 210);
+s$ := Chr$(1) + "a" + Chr$(1); Trim(s$); Enc(s$, 220);

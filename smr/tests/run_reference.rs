@@ -29,7 +29,10 @@ fn find(rel: &str) -> Option<PathBuf> {
 /// arguments differently from the host's. Porting those routines (they use lookup tables and
 /// a range-reduction helper) would close the gap; until then a difference of one unit in the
 /// last place is tolerated for these programs and nowhere else.
-const LAST_BIT: &[&str] = &["g_cos", "g_cosh", "g_sinh", "g_atan", "g_array_math"];
+const LAST_BIT: &[&str] = &[
+    "g_cos", "g_cosh", "g_sinh", "g_atan", "g_array_math", "s_rand",
+    "m_libm_sin", "m_libm_cos", "m_libm_tan", "m_libm_atan", "m_libm_atan2", "m_libm_sinh", "m_libm_cosh", "m_libm_tanh",
+];
 
 fn within_one_ulp(a: u64, b: u64) -> bool {
     let (x, y) = (f64::from_bits(a), f64::from_bits(b));

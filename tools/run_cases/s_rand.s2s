@@ -1,0 +1,31 @@
+var res[200], a[6], b[4], i%;
+res[0] := Rand(0.5);
+for i% := 1 to 5 do res[i%] := Rand() next
+res[6] := Rand(0.25);
+res[7] := Rand(2, 10);
+res[8] := Rand(0.25);
+res[9] := Rand(10, -5);
+Rand(0.125); Rand(a[]);
+for i% := 0 to 5 do res[10 + i%] := a[i%] next
+Rand(0.125); Rand(b[], 4);
+for i% := 0 to 3 do res[16 + i%] := b[i%] next
+Rand(0.125); Rand(b[], 4, 100);
+for i% := 0 to 3 do res[20 + i%] := b[i%] next
+res[30] := RandExp(0.5);
+for i% := 1 to 5 do res[30 + i%] := RandExp() next
+res[36] := RandExp(0.25);
+res[37] := RandExp(2, 10);
+RandExp(0.25); RandExp(a[]);
+for i% := 0 to 5 do res[40 + i%] := a[i%] next
+RandExp(0.25); RandExp(b[], 3, 1);
+for i% := 0 to 3 do res[46 + i%] := b[i%] next
+res[60] := RandNorm(0.5);
+for i% := 1 to 7 do res[60 + i%] := RandNorm() next
+res[68] := RandNorm(0.25);
+res[69] := RandNorm(2, 10);
+RandNorm(0.25); RandNorm(a[]);
+for i% := 0 to 5 do res[70 + i%] := a[i%] next
+RandNorm(0.25); RandNorm(b[], 3, 1);
+for i% := 0 to 3 do res[76 + i%] := b[i%] next
+res[80] := Rand(0.001); res[81] := Rand(0.9999); res[82] := Rand(-0.25); res[83] := Rand(1.75);
+res[84] := Rand(0.25); res[85] := RandNorm(0.25);

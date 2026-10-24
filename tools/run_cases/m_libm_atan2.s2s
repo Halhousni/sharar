@@ -1,0 +1,5 @@
+var res[500], i%, x;
+for i% := 0 to 499 do
+  x := (i% - 250) * 0.0873651;
+  res[i%] := ATan(x, 3.1);
+next

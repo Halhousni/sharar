@@ -142,6 +142,8 @@ pub struct Vm {
     /// The current view when there is no host to say.
     view: i64,
     pub(crate) read_cfg: super::text::ReadCfg,
+    /// One generator each for `Rand`, `RandExp` and `RandNorm`, as Spike2 keeps.
+    pub(crate) rng: [builtins::CRand; 3],
 }
 
 fn flt_to_num(v: &V) -> Result<f64, RunError> {
@@ -200,6 +202,7 @@ impl Vm {
             host: None,
             view: 0,
             read_cfg: super::text::ReadCfg::default(),
+            rng: [builtins::CRand::new(0), builtins::CRand::new(0), builtins::CRand::new(0)],
         })
     }
 

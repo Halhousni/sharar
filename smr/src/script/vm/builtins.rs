@@ -330,6 +330,63 @@ impl Vm {
                 let _ = c;
                 some(V::Int(n as i64))
             }
+            "Trim" | "TrimLeft" | "TrimRight" => {
+                let Arg::Ref(r) = &args[0] else { return Err(RunError(ERR_TYPE)) };
+                let text = self.a_str(&args[0])?;
+                // By default white space goes, and a non-breaking space with it; given a
+                // string, exactly its characters do (and none, if it is empty).
+                let set: Option<Vec<char>> = if args.len() > 1 { Some(self.a_str(&args[1])?.chars().collect()) } else { None };
+                let strip = |c: char| match &set {
+                    Some(s) => s.contains(&c),
+                    None => matches!(c, ' ' | '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | '\u{a0}'),
+                };
+                let t = match name {
+                    "Trim" => text.trim_matches(strip),
+                    "TrimLeft" => text.trim_start_matches(strip),
+                    _ => text.trim_end_matches(strip),
+                };
+                let t = t.to_string();
+                self.set(*r, V::Str(t))?;
+                none()
+            }
+            "Rand" | "RandExp" | "RandNorm" => {
+                let k = match name {
+                    "Rand" => 0,
+                    "RandExp" => 1,
+                    _ => 2,
+                };
+                let draw = |r: &mut CRand, scale: f64, offset: f64| match k {
+                    0 => r.randd(scale, offset),
+                    1 => r.exponential(scale, offset),
+                    _ => r.normal(scale, offset),
+                };
+                // An array is filled; a single value takes either a seed (one argument) or a
+                // scale and an offset (two).
+                if let Some(c) = args.first().and_then(|a| self.a_array(a)) {
+                    let scale = if args.len() > 1 { self.a_flt(&args[1])? } else { 1.0 };
+                    let offset = if args.len() > 2 { self.a_flt(&args[2])? } else { 0.0 };
+                    let n = match &self.cells[c] {
+                        Cell::Array { data, .. } => data.len(),
+                        _ => 0,
+                    };
+                    for i in 0..n {
+                        let v = draw(&mut self.rng[k], scale, offset);
+                        self.set(Ref::Elem(c, i), V::Flt(v))?;
+                    }
+                    return some(V::Flt(0.0));
+                }
+                let (mut scale, mut offset) = (1.0, 0.0);
+                if args.len() == 1 {
+                    let x = self.a_flt(&args[0])?;
+                    let seed = ((x - x.floor()) * 4294967296.0) as i64 as u32;
+                    self.rng[k].seed(seed);
+                } else if args.len() == 2 {
+                    scale = self.a_flt(&args[0])?;
+                    offset = self.a_flt(&args[1])?;
+                }
+                let v = draw(&mut self.rng[k], scale, offset);
+                some(V::Flt(v))
+            }
             // ---- reading values from text ---------------------------------------------
             "ReadStr" => {
                 let line = self.a_str(&args[0])?;
@@ -378,7 +435,7 @@ impl Vm {
             "Floor" => self.map_real(&args[0], f64::floor),
             "Ceil" => self.map_real(&args[0], |x| f64::ceil(x) + 0.0),
             "Frac" => self.map_real(&args[0], f64::fract),
-            "Round" => self.map_real(&args[0], |x| x.round()),
+            "Round" => self.map_real(&args[0], |x| x.round() + 0.0),
             "ATan" if args.len() == 1 => self.map_real(&args[0], f64::atan),
             "ATan" => {
                 let (y, x) = (self.a_flt(&args[0])?, self.a_flt(&args[1])?);
@@ -506,4 +563,122 @@ fn div_vals(l: &V, r: &V, ty: crate::script::compile::Ty) -> Result<V, RunError>
         crate::script::exec::int_div,
         |a, b| crate::script::exec::flt_div_check(b).map(|_| a / b),
     )
+}
+
+/// Spike2's random number generator (`CRand` in SpikeUtl.dll): a subtract-with-borrow
+/// lagged-Fibonacci generator over 37 words. Seeded the way `CRand::Seed` does, so a seeded
+/// run gives Spike2's numbers.
+#[derive(Clone)]
+pub struct CRand {
+    carry: u32,
+    idx: i32,
+    s: [u32; 37],
+    spare: f64,
+    have_spare: bool,
+}
+
+impl CRand {
+    pub fn new(seed: u32) -> CRand {
+        let mut r = CRand { carry: 0, idx: 0, s: [0; 37], spare: 0.0, have_spare: false };
+        r.seed(seed);
+        r
+    }
+
+    /// A seed of zero means "any": the clock decides.
+    pub fn seed(&mut self, mut seed: u32) {
+        self.carry = 0;
+        self.idx = 0;
+        self.have_spare = false;
+        self.spare = 0.0;
+        while seed == 0 {
+            seed = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.subsec_nanos())
+                .unwrap_or(1);
+        }
+        let mut x = seed;
+        if x < 0x10000 {
+            x |= x << 16;
+        }
+        self.s[0] = x;
+        let mut pos: i32 = 0;
+        let mut v: u32 = 1;
+        let mut prev = x;
+        for _ in 0..37 {
+            pos += 14;
+            if pos > 36 {
+                pos -= 37;
+            }
+            self.s[pos as usize] = v;
+            let next = prev.wrapping_sub(v);
+            prev = v;
+            v = next;
+        }
+        for _ in 0..113 {
+            self.randul();
+        }
+    }
+
+    pub fn randul(&mut self) -> u32 {
+        self.idx += 1;
+        if self.idx > 36 {
+            self.idx = 0;
+            let mut j = 13usize;
+            for i in 0..37usize {
+                if j == 37 {
+                    j = 0;
+                }
+                let a = self.s[j];
+                let b = a.wrapping_sub(self.s[i]).wrapping_sub(self.carry);
+                if b < a {
+                    self.carry = 0;
+                } else if a < b {
+                    self.carry = 1;
+                }
+                self.s[i] = b;
+                j += 1;
+            }
+        }
+        self.s[self.idx as usize]
+    }
+
+    /// A real in [0, 1) built from two words.
+    fn unit(&mut self) -> f64 {
+        let lo = self.randul();
+        let hi = self.randul();
+        f64::from_bits((((hi >> 12) as u64 + 0x3ff0_0000) << 32) | lo as u64) - 1.0
+    }
+
+    pub fn randd(&mut self, scale: f64, offset: f64) -> f64 {
+        self.unit() * scale + offset
+    }
+
+    /// The exponential distribution (Spike2 calls the routine `Poisson`).
+    pub fn exponential(&mut self, scale: f64, offset: f64) -> f64 {
+        let u = loop {
+            let u = self.randul();
+            if u != 0 {
+                break u;
+            }
+        };
+        offset - (u as f64 * (1.0 / 4294967296.0)).ln() * scale
+    }
+
+    pub fn normal(&mut self, scale: f64, offset: f64) -> f64 {
+        if self.have_spare {
+            self.have_spare = false;
+            return scale * self.spare + offset;
+        }
+        loop {
+            let v1 = self.unit() * 2.0 - 1.0;
+            let v2 = self.unit() * 2.0 - 1.0;
+            let r = v2 * v2 + v1 * v1;
+            if r < 1.0 && r != 0.0 {
+                let f = ((r.ln() * -2.0) / r).sqrt();
+                self.spare = f * v1;
+                self.have_spare = true;
+                return f * v2 * scale + offset;
+            }
+        }
+    }
 }
