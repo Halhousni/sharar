@@ -643,3 +643,13 @@ answers the few virtual calls the routines make (the data file, seconds per tick
 class's own slot 0x4d0 (measure) or 0x398 (search) then runs, translated. `lift_runtime.py --vslot=` lifts
 chosen slots of a vtable; `tools/` loops that add missing slots are in the session notes. Every measure
 type (area, mean, slope, sum, … sem) and every search mode agrees with Spike2 bit for bit.
+
+### The main window and the sampling settings
+
+The `Sample*` commands that only read or change the sampling settings work on a `CConfig` object that the
+application keeps at +0xc870 of its main window (a thin wrapper over a `CSamModeInfo` inside the window,
+built by `CMainWindow`'s constructor). The host builds the same thing (`Run::main_window`): a zeroed window
+object, `CSamModeInfo`'s constructor, SONVIEW's own start-up routine `0x14008bc80` (which sets the
+defaults, reading "Preferences" through a stand-in application object whose `GetProfileInt` answers with
+its default), and the `CConfig`. The commands find it through message `0x2059`. Commands that depend on
+the connected 1401 (`SampleTimePerAdc`'s limits, starting, stopping) are not covered.

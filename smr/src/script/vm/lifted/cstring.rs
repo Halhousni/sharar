@@ -137,6 +137,13 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
             st.write(m, rcx, &v, wide);
             m.r[0] = rcx;
         }
+        ("??0", s) if s.starts_with("QEAA@_WH@Z") || s.starts_with("QEAA@DH@Z") => {
+            // a character repeated
+            let ch = if wide { rdx as u32 & 0xffff } else { rdx as u32 & 0xff };
+            let v = vec![ch; (r8 as u32 as i32).max(0) as usize];
+            st.write(m, rcx, &v, wide);
+            m.r[0] = rcx;
+        }
         ("??0", s) if s.starts_with("QEAA@PEB_W@Z") => {
             let v = cstr(m, rdx, true);
             st.write(m, rcx, &v, wide);

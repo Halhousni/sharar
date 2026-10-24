@@ -149,6 +149,12 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.pop();
                 true
             }
+            // CWinApp::GetProfileInt(section, entry, default): nothing is stored, so the default
+            0x108 => {
+                m.r[0] = m.r[9] & 0xffff_ffff;
+                m.pop();
+                true
+            }
             // the owner of a channel view: its data file (slot 0x480), seconds per tick (0x510)
             0x480 => {
                 m.r[0] = self.world.measure_file;
@@ -346,6 +352,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                             let hwnd = rcx_of(m);
                             let this = match self.world.wnds.get(&hwnd) {
                                 Some(&t) => t,
+                                None if hwnd == 0 => self.main_window(m),
                                 None => {
                                     let t = m.alloc(0x4000);
                                     m.st(t + 0x40, 8, hwnd);
@@ -395,7 +402,8 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 }
                 m.r[0] = self.world.thread;
             }
-            "?AfxGetModuleState@@YAPEAVAFX_MODULE_STATE@@XZ" | "?AfxGetModuleState@@YAPEAVAFX_MODULE_STATE@@XZ" | "?AfxGetApp@@YAPEAVCWinApp@@XZ" => {
+            "?AfxGetApp@@YAPEAVCWinApp@@XZ" => m.r[0] = self.app(m),
+            "?AfxGetModuleState@@YAPEAVAFX_MODULE_STATE@@XZ" => {
                 let key = name.len() as i64 + 1_000_000;
                 let o = match self.world.sonfiles.get(&key) {
                     Some(&o) => o,
@@ -539,6 +547,45 @@ fn internal_view_type(script_kind: i64) -> u64 {
 impl<'v, 'w> Run<'v, 'w> {
     /// The data file engine's object for view `h`, made (by opening the file with Spike2's own
     /// code) the first time it is asked for.
+    /// The application object's stand-in: a zeroed object whose settings reader answers with the
+    /// default it is given, also reachable at the global SONVIEW keeps it in.
+    fn app(&mut self, m: &mut M) -> u64 {
+        if self.world.app == 0 {
+            let (o, vt) = (m.alloc(0x400), m.alloc(0x800));
+            m.st(vt + 0x108, 8, FAKE_CODE + 0x108);
+            m.st(o, 8, vt);
+            m.st(o + 0x88, 8, 0x30100);
+            self.world.app = o;
+            m.st(0x1_403d_ade8 + (7u64 << 32), 8, o);
+        }
+        self.world.app
+    }
+
+    /// The main window's stand-in: zeroed, with the sampling configuration the application builds
+    /// (a `CConfig` over a `CSamModeInfo` inside the window).
+    fn main_window(&mut self, m: &mut M) -> u64 {
+        if let Some(&t) = self.world.wnds.get(&0) {
+            return t;
+        }
+        self.app(m);
+        let t = m.alloc(0x20000);
+        self.world.wnds.insert(0, t);
+        let saved = m.r;
+        m.r[1] = t + 0x1d0;
+        commands::call_export("??0CSamModeInfo@@QEAA@XZ", m, self);
+        m.r = saved;
+        // the application's own start-up of the sampling settings (their defaults)
+        m.r[1] = t;
+        m.push(0);
+        commands::call_at(m, self, 0x1_4008_bc80 + (7u64 << 32));
+        m.r = saved;
+        let cfg = m.alloc(0x10);
+        m.st(cfg, 8, 0x1_402a_7de8 + (7u64 << 32));
+        m.st(cfg + 8, 8, t + 0x1d0);
+        m.st(t + 0xc870, 8, cfg);
+        t
+    }
+
     /// The vtable of SONVIEW's class for a channel of this kind (the number `ChanKind` gives).
     fn view_vtable(kind: i64) -> Option<u64> {
         let va = match kind {
@@ -781,6 +828,8 @@ pub struct World {
     measure_tf: f64,
     /// The buffer the measurement routines read samples into.
     measure_buf: u64,
+    /// The stand-in for the application object (settings are read from it).
+    app: u64,
 }
 
 impl Default for World {
@@ -791,7 +840,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0 }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0 }
     }
 }
 
@@ -825,6 +874,16 @@ impl Vm {
                     let _ = r;
                 }
                 commands::register_all(&mut m, &mut run);
+                // the commands that configure sampling hold the application's configuration object
+                let saved_sp = m.r[4];
+                let r = catch_unwind(AssertUnwindSafe(|| {
+                    let t = run.main_window(&mut m);
+                    let cfg = m.ld(t + 0xc870, 8);
+                    m.st(0x1_8009_ea28, 8, cfg);
+                }));
+                m.r[4] = saved_sp;
+                m.reset_stack();
+                let _ = r;
             }
             let obj = match run.world.objects.get(name) {
                 Some(&o) => o,

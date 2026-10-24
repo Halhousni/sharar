@@ -184,6 +184,19 @@ for a in sys.argv:
                 lf.roots.append(ptr)
             entries_extra.setdefault(mod, set()).add(ptr)
 
+# `--vall=sonview:0x1402a7de8`: every method of a vtable.
+for a in sys.argv:
+    if a.startswith("--vall="):
+        mod, vt = a[len("--vall="):].split(":")
+        lf = lifters[mod]
+        vt = int(vt, 16)
+        lf.data_refs.add(vt)
+        lf.table_bases.add(vt)
+        for ptr in lf.vtable_methods(vt):
+            if ptr not in lf.roots:
+                lf.roots.append(ptr)
+            entries_extra.setdefault(mod, set()).add(ptr)
+
 # Extra routines to translate whatever the commands call: `--root module:regex` (the exports of
 # that module whose names match), entered from the host.
 for a in sys.argv:
