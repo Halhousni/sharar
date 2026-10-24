@@ -355,6 +355,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     0x14a7 => self.sonfile_of(m, view_of(rcx_of(m))),
                     0x15d1 => self.measure(m, view_of(rcx_of(m)), r9),
                     0x15d3 => self.search(m, view_of(rcx_of(m)), r9),
+                    0x15a6 => self.chan_value(m, view_of(rcx_of(m)), r9),
                     _ => match commands::msg_handlers(msg).first().copied() {
                         Some(f) => {
                             // the window's own handler, run with an object standing for the window
@@ -599,6 +600,7 @@ impl<'v, 'w> Run<'v, 'w> {
             m.r[4] = sp;
             m.r = saved;
             if r.is_ok() && m.ld(t + 0xc870, 8) != 0 {
+                self.register_main_window(m, t);
                 return t;
             }
             if std::env::var_os("S2LIFT_SERVICES").is_some() {
@@ -640,7 +642,16 @@ impl<'v, 'w> Run<'v, 'w> {
         m.st(cfg, 8, 0x1_402a_7de8 + (7u64 << 32));
         m.st(cfg + 8, 8, t + 0x1d0);
         m.st(t + 0xc870, 8, cfg);
+        self.register_main_window(m, t);
         t
+    }
+
+    /// Tell the shared library (SpikeUtl) which window is the application's main window.
+    fn register_main_window(&mut self, m: &mut M, t: u64) {
+        let saved = m.r;
+        m.r[1] = t;
+        commands::call_export("?CEDMainWndSet@@YAXPEAVCWnd@@@Z", m, self);
+        m.r = saved;
     }
 
     /// The vtable of SONVIEW's class for a channel of this kind (the number `ChanKind` gives).
@@ -684,7 +695,44 @@ impl<'v, 'w> Run<'v, 'w> {
         m.st(view + 0x140, 8, owner);
         m.st(view + 0x170, 2, chan as u64);
         m.st(view + 0x174, 4, kind as u64);
+        // the draw mode a channel view starts with
+        let dm = match kind {
+            1 | 6 | 7 | 9 => 0xb,
+            _ => 0,
+        };
+        m.st(view + 0x178, 4, dm);
         Some((view, vtable))
+    }
+
+    /// `ChanValue`: the value of a channel at a time, from the channel view's own routine (virtual slot
+    /// 0x4c8), which interpolates according to the channel's draw mode.
+    fn chan_value(&mut self, m: &mut M, h: i64, lp: u64) -> u64 {
+        let chan = m.ld(lp + 8, 4) as u32 as i32 as i64;
+        let t = f64::from_bits(m.ld(lp + 0x10, 8));
+        let desc = m.ld(lp, 8);
+        let Some((view, vtable)) = self.mock_view(m, h, chan) else { return 0 };
+        let tf = self.world.measure_tf;
+        let big = 0x7000_0000_0000_0000i64;
+        let x = t / tf;
+        let ticks = if x > big as f64 { big } else if x >= 0.0 { (x + 0.5) as i64 } else if x >= -(big as f64) { (x - 0.5) as i64 } else { -big };
+        let out = m.alloc(8);
+        let saved = m.r;
+        let target = m.ld(vtable + 0x4c8, 8);
+        m.r[1] = view;
+        m.r[2] = ticks as u64;
+        m.r[8] = 0;
+        m.r[9] = out;
+        m.r[4] -= 0x40;
+        m.st(m.r[4] + 0x20, 8, if desc != 0 && (m.ld(desc, 2) as u16 as i16) != -1 { 0 } else { 0 });
+        m.push(0);
+        commands::call_at(m, self, target);
+        let ok = m.r[0] as u8 != 0;
+        let v = m.ld(out, 8);
+        m.r = saved;
+        if ok {
+            m.st(lp + 0x18, 8, v);
+        }
+        ok as u64
     }
 
     /// `ChanSearch`: the channel view's own search routine (virtual slot 0x398) on a stand-in object that

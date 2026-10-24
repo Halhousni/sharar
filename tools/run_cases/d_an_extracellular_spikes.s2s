@@ -1,0 +1,18 @@
+var res[3000], h%, c%, k%, ok%, mx, t0, t1, m%, r, tt%[6];
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Extracellular Spikes.smr", 0, 0);
+mx := MaxTime();
+t0 := mx * 0.1; t1 := mx * 0.1 + 2;
+k% := 0;
+tt%[0] := 1; tt%[1] := 2; tt%[2] := 4; tt%[3] := 8; tt%[4] := 11; tt%[5] := 12;
+for c% := 1 to 32 do
+  if ChanKind(c%) <> 0 then
+    res[k%] := ChanKind(c%); k% += 1;
+    for m% := 0 to 5 do
+      r := ChanMeasure(c%, tt%[m%], t0, t1, ok%); res[k%] := r; res[k%+1] := ok%; k% += 2;
+    next
+    for m% := 1 to 14 do
+      res[k%] := ChanSearch(c%, m%, t0, t1 + 20, 0.0); k% += 1;
+    next
+    res[k%] := ChanValue(c%, t0); k% += 1;
+  endif
+next

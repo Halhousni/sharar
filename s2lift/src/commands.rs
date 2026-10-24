@@ -3713,6 +3713,8 @@ pub fn call_export(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -
         "??8IIRDefine@@QEBA_NAEBU0@@Z" => crate::rt_spikeutl_gen::enter_38005e820(m, s),
         "??9IIRDefine@@QEBA_NAEBU0@@Z" => crate::rt_spikeutl_gen::enter_38005e930(m, s),
         "?BandPass@IIRDefine@@QEAAH_NNNHHN@Z" => crate::rt_spikeutl_gen::enter_38005ea80(m, s),
+        "?CEDMainWnd@@YAPEAVCWnd@@XZ" => crate::rt_spikeutl_gen::enter_380091ac0(m, s),
+        "?CEDMainWndSet@@YAXPEAVCWnd@@@Z" => crate::rt_spikeutl_gen::enter_380091ad0(m, s),
         "?CreateAndSetName@IIRDefine@@QEAAXXZ" => crate::rt_spikeutl_gen::enter_38005f450(m, s),
         "?CreateName@IIRDefine@@QEBA?AV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@XZ" => crate::rt_spikeutl_gen::enter_38005f1d0(m, s),
         "?Edges@IIRDefine@@QEBAHXZ" => crate::rt_spikeutl_gen::enter_38005ed70(m, s),

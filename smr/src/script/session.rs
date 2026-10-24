@@ -926,71 +926,7 @@ impl Session {
         Ok(Some(Some(V::Int(0))))
     }
 
-    /// `ChanMeasure(chan%, type%, start, end {, &ok%})`: one number describing the waveform samples (or
-    /// the events) from `start` up to `end`. Types without a port yet are left to the caller.
-    fn chan_measure(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
-        let (n, ty, t0, t1) = (int(mem, &args[0])?, int(mem, &args[1])?, flt(mem, &args[2])?, flt(mem, &args[3])?);
-        if !(1..=20).contains(&ty) {
-            return Ok(None);
-        }
-        let Some(idx) = self.chan_pos(n) else { return Ok(None) };
-        let (tf, wave, event) = {
-            let f = &self.view().unwrap().file;
-            let k = f.channels[idx].kind;
-            (f.time_factor, k.is_waveform(), k.is_event())
-        };
-        let set_ok = |mem: &mut dyn Mem, ok: i64| -> Result<(), RunError> {
-            if let Some(Arg::Ref(r)) = args.get(4) {
-                mem.store(*r, V::Int(ok))?;
-            }
-            Ok(())
-        };
-        if !(t0 < t1) {
-            set_ok(mem, 0)?;
-            return Ok(Some(Some(V::Flt(0.0))));
-        }
-        let items = self.items(idx);
-        let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64);
-        let (lo, hi) = (items.first_ge(a), items.first_ge(b));
-        // waveforms are measured by SONVIEW's own routine (the lifted code)
-        let _ = wave;
-        Ok(None)
-    }
 
-    /// `ChanValue(chan%, time)` for a waveform channel: the sample at or just before `time`.
-    fn chan_value(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
-        let (n, t) = (int(mem, &args[0])?, flt(mem, &args[1])?);
-        let Some(idx) = self.chan_pos(n) else { return Ok(None) };
-        let (tf, wave, event) = {
-            let f = &self.view().unwrap().file;
-            let k = f.channels[idx].kind;
-            (f.time_factor, k.is_waveform(), k.is_event() || k.is_wavemark())
-        };
-        let items = self.items(idx);
-        if event {
-            // an event channel answers with the time of the first event at or after `t`
-            let g = items.first_ge((t / tf).round() as i64);
-            let v = if g < items.len() { items.tick(g) as f64 * tf } else { -1.0 };
-            return Ok(Some(Some(V::Flt(v))));
-        }
-        if !wave {
-            return Ok(None);
-        }
-        let Items::Waveform { blocks, dt } = &items else { return Ok(None) };
-        let (dt, first) = (*dt, blocks.first().map(|b| b.0).unwrap_or(0));
-        let total = items.len();
-        // the time is taken to whole ticks; between two samples the value is interpolated in a straight line
-        let tk = (t / tf).round() as i64;
-        let i = ((tk - first).max(0) / dt).min(total - 1);
-        let frac = if tk <= first { 0.0 } else { (tk - items.tick(i)) as f64 / dt as f64 };
-        let vals = self.wave_values(idx, i, (i + 2).min(total));
-        let v = match vals.as_slice() {
-            [a, b] => a + (b - a) * frac,
-            [a] => *a,
-            _ => 0.0,
-        };
-        Ok(Some(Some(V::Flt(v))))
-    }
 
     fn chan_data(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         let some = |v: V| Ok(Some(Some(v)));
@@ -1527,8 +1463,6 @@ impl Host for Session {
                 });
                 some(V::Int(found.map(|v| v.handle).unwrap_or(0)))
             }
-            "ChanMeasure" if (4..=6).contains(&args.len()) && self.view().is_some() => self.chan_measure(args, mem),
-            "ChanValue" if args.len() == 2 && self.view().is_some() => self.chan_value(args, mem),
             "ChanData" if args.len() >= 4 && self.view().is_some() => self.chan_data(args, mem),
             "MemChan" | "MemSetItem" | "MemGetItem" | "MemDeleteItem" | "MemImport" | "ChanDelete"
                 if self.view().is_some() =>

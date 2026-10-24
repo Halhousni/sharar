@@ -1,0 +1,8 @@
+var res[100], h%, k%, a%, b%, i%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+for i% := 1 to 6 do
+  res[k%] := MarkInfo(i%, a%, b%); res[k%+1] := a%; res[k%+2] := b%;
+  res[k%+3] := ChanPort(i%); k% += 4;
+next
+res[k%] := FileInfo(); k% += 1;

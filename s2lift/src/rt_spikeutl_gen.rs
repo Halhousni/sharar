@@ -149329,6 +149329,62 @@ pub(super) fn f_3800705e0(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_380070600(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x380070600);
+    let mut pc: u64 = 0x380070600;
+    loop {
+        match pc {
+            0x380070600 => {
+                m.block(0x380070600);
+                // 180070600 push rbx
+                m.push(m.gr(3, 8, false));
+                // 180070602 sub rsp, 0x20
+                { let v = m.sub(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180070606 mov rbx, rcx
+                { let v = m.gr(1, 8, false); m.sr(3, 8, false, v); }
+                // 180070609 add rcx, 0x110
+                { let v = m.add(m.gr(1, 8, false), 0x110u64, 8); m.sr(1, 8, false, v); }
+                // 180070610 call 0x18000a700
+                m.push(0); f_38000a700(m, s);
+                // 180070615 sub rax, qword ptr [rbx + 0x200]
+                { let v = m.sub(m.gr(0, 8, false), m.ld(m.ea(3, -1, 1, 512), 8), 8); m.sr(0, 8, false, v); }
+                // 18007061c cmp rax, -0x40000000
+                m.sub(m.gr(0, 8, false), 0xffffffffc0000000u64, 8);
+                // 180070622 jge 0x18007062f
+                if m.cc("ge") { pc = 0x38007062f; continue; }
+                pc = 0x380070624; continue;
+            }
+            0x380070624 => {
+                m.block(0x380070624);
+                // 180070624 mov eax, 0xc0000000
+                { let v = 0xc0000000u64; m.sr(0, 4, false, v); }
+                // 180070629 add rsp, 0x20
+                { let v = m.add(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 18007062d pop rbx
+                { let v = m.pop(); m.sr(3, 8, false, v); }
+                // 18007062e ret 
+                m.pop(); return;
+            }
+            0x38007062f => {
+                m.block(0x38007062f);
+                // 18007062f mov ecx, 0x3fffffff
+                { let v = 0x3fffffffu64; m.sr(1, 4, false, v); }
+                // 180070634 cmp rax, rcx
+                m.sub(m.gr(0, 8, false), m.gr(1, 8, false), 8);
+                // 180070637 cmovg eax, ecx
+                { let s = m.gr(1, 4, false); let d = m.gr(0, 4, false); m.sr(0, 4, false, if m.cc("g") { s } else { d }); }
+                // 18007063a add rsp, 0x20
+                { let v = m.add(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 18007063e pop rbx
+                { let v = m.pop(); m.sr(3, 8, false, v); }
+                // 18007063f ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_380072970(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x380072970);
     let mut pc: u64 = 0x380072970;
@@ -233581,6 +233637,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x3800704e0 => f_3800704e0(m, s),
         0x380070580 => f_380070580(m, s),
         0x3800705e0 => f_3800705e0(m, s),
+        0x380070600 => f_380070600(m, s),
         0x380072970 => f_380072970(m, s),
         0x3800774a0 => f_3800774a0(m, s),
         0x3800775c0 => f_3800775c0(m, s),
@@ -235000,6 +235057,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x3800704e0 => f_3800704e0(m, s),
         0x380070580 => f_380070580(m, s),
         0x3800705e0 => f_3800705e0(m, s),
+        0x380070600 => f_380070600(m, s),
         0x380072970 => f_380072970(m, s),
         0x3800774a0 => f_3800774a0(m, s),
         0x3800775c0 => f_3800775c0(m, s),
@@ -237698,6 +237756,13 @@ pub(crate) fn tail_3800705e0(m: &mut M, s: &mut dyn Svc) {
 /// Run the routine at 0x1800705e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800705e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800705e0(m, s); });
+}
+pub(crate) fn tail_380070600(m: &mut M, s: &mut dyn Svc) {
+    f_380070600(m, s)
+}
+/// Run the routine at 0x180070600 with the machine's registers as the caller set them.
+pub(crate) fn enter_380070600(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_380070600(m, s); });
 }
 pub(crate) fn tail_380072970(m: &mut M, s: &mut dyn Svc) {
     f_380072970(m, s)
