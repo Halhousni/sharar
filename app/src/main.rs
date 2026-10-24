@@ -15,6 +15,7 @@ use egui::{Align2, Color32, FontId, Pos2, Rect, Stroke, Vec2};
 use smr::{Kind, SonFile};
 
 mod acq;
+mod script_ui;
 
 /// Spike2's default channel colours, in order.
 pub(crate) const CHANNEL_COLORS: [Color32; 8] = [
@@ -185,6 +186,7 @@ impl CursorLabel {
 }
 
 struct App {
+    script: script_ui::ScriptUi,
     son: Option<SonFile>,
     visible: Vec<bool>,
     /// Vertical gain per channel, multiplied onto the automatic fit.
@@ -282,6 +284,7 @@ struct App {
 impl App {
     fn new(path: Option<PathBuf>) -> Self {
         let mut app = Self {
+            script: script_ui::ScriptUi::default(),
             son: None,
             visible: Vec::new(),
             gain: Vec::new(),
@@ -1087,6 +1090,7 @@ impl eframe::App for App {
         }
 
         self.poll_picker();
+        self.script.ui(ctx);
         self.refresh_readouts();
         self.refresh_stats();
 
@@ -1353,8 +1357,19 @@ impl eframe::App for App {
                     );
                 });
                 ui.menu_button("Script", |ui| {
+                    if ui.add_enabled(!self.script.running(), egui::Button::new("Run Script…")).clicked() {
+                        self.script.pick(ui.ctx());
+                        ui.close();
+                    }
+                    if ui.button("Script Log").clicked() {
+                        self.script.open = true;
+                        ui.close();
+                    }
+                    ui.separator();
                     ui.label(
-                        egui::RichText::new("The .s2s script language is not built.").small().weak(),
+                        egui::RichText::new("Commands that are not ported yet stop the script and say which.")
+                            .small()
+                            .weak(),
                     );
                 });
                 ui.menu_button("Window", |ui| {
@@ -3375,6 +3390,7 @@ fn main() -> eframe::Result {
     let mut two_views = false;
     let mut views_check = false;
     let mut process_chain = false;
+    let mut script_on_start: Option<PathBuf> = None;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             // Start with DC remove applied to the first waveform channel.
@@ -3413,6 +3429,25 @@ fn main() -> eframe::Result {
                         yrange_on_start = Some((a, b));
                     }
                 }
+            }
+            // --run-script=<file.s2s> runs a script without a window, prints its log and
+            // exits with 0 if it finished, 1 if it stopped.
+            other if other.starts_with("--run-script=") => {
+                let path = &other["--run-script=".len()..];
+                let src: String = match std::fs::read(path) {
+                    Ok(b) => b.iter().map(|&c| c as char).collect(),
+                    Err(e) => {
+                        eprintln!("sharar: cannot read {path}: {e}");
+                        std::process::exit(2);
+                    }
+                };
+                let log = script_ui::run_script(&src, &std::sync::atomic::AtomicBool::new(false));
+                print!("{log}");
+                std::process::exit(if log.ends_with("Script finished.\n") { 0 } else { 1 });
+            }
+            // --script=<file.s2s> opens the window and runs a script at startup.
+            other if other.starts_with("--script=") => {
+                script_on_start = Some(PathBuf::from(&other["--script=".len()..]));
             }
             // --lowpass=<hz> applies a FIR low pass to the selected channel at startup.
             other if other.starts_with("--lowpass=") => {
@@ -3459,6 +3494,9 @@ fn main() -> eframe::Result {
             }
             if chan_info_on_start {
                 app.chan_info = true;
+            }
+            if let Some(p) = &script_on_start {
+                app.script.start(p);
             }
             if yaxis_on_start {
                 app.selected = Some(0);

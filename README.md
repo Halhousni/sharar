@@ -22,7 +22,7 @@ a result computed, `--export` writes the visible window to CSV and reports the p
 `--record` opens the live strip chart on its synthetic source. The other flags in
 `app/src/main.rs` (`--chan-info`, `--yaxis`, `--yrange=<lo>,<hi>`, `--showhide`, `--copy-dump`,
 `--bands=notch`, `--bands=kill`, `--bands-apply`, `--process`, `--process-chain`,
-`--two-views`, `--views-check`) are development switches. Each opens one dialog or state at
+`--two-views`, `--views-check`) are development switches. `--run-script=<file.s2s>` runs a script without a window, prints its log and exits (0 if it finished); `--script=<file.s2s>` opens the window and runs one. Each opens one dialog or state at
 startup, and `--copy-dump` prints Edit → Copy's text and exits.
 
 Pass a file on the command line, or use `File → Open…` or the toolbar's Open button. Both show
@@ -65,6 +65,7 @@ pointer, middle-drag pans, dragging near a cursor moves it.
   window, then plots the mean waveform with the trial count.
 - CSV export of the selected channel over the visible window: `File → Export channel…`,
   or `--export` on the command line.
+- Scripts: `Script → Run Script…` compiles and runs a `.s2s` with the port's own interpreter on a worker thread and shows `Print` output in a log window you can cancel. The language is complete and checked against Spike2; commands are ported a family at a time (strings, maths, arrays and formatting, and the file and channel queries are), and a script that reaches one that is not stops there and says which.
 - Live strip chart: `--record` opens a scrolling view of the last five seconds, one trace per
   channel, fed by a synthetic source until the 1401 path is wired.
 - Digital filters: `Analysis → Digital filters…` applies a low pass, high pass, band pass or
@@ -92,7 +93,7 @@ This is an early slice of a large program, not a finished replacement for Spike2
 | Channel processing | DC remove and FIR filters (low pass, high pass, band pass, band stop) in a per-channel process chain under `Analysis → Process…`; no rectification, integration or other processes |
 | Averaging | peri-stimulus average works; no smoothing, confidence bands or baselines |
 | Spike sorting | wavemarks load and plot, but there is no sorting or unit separation |
-| `.s2s` scripting | a parser and a compiler for the language, checked word for word against Spike2's own compiler on 75 scripts — statements, expressions, procedures, arrays and the constant pools — plus a stack machine for the arithmetic, comparison, assignment, jump and loop opcodes. All 503 built-ins are recovered with their numbering, argument lists and return types (`smr::script::commands`), and calls to them compile to Spike2's words (32,065 generated calls checked, none differ). Not done: member calls such as `View(0).MaxTime()`, any built-in's behaviour, and running a compiled program; the Script menu is a placeholder |
+| `.s2s` scripting | the language is ported: a parser, a compiler checked word for word against Spike2's (87 scripts, and 34,259 generated calls to the 503 built-ins, none differ), and an interpreter checked by running programs inside Spike2 and comparing results bit for bit (56 programs agree). Ported commands: strings, maths, arrays, `Str$`/`Print`/`Print$` (with the Microsoft C runtime's `printf`), and on a data view `FileOpen`, `FileClose`, `View`, `MaxTime`, the `Chan*` queries, `NextTime`, `LastTime`, `Count`. Not ported: the other ~400 commands (views and windows, cursors, drawing, dialogs, channel processing, file and serial I/O, sampling), `Cos`/`Cosh`/`Sinh`/`ATan` to the last bit, and error messages with line numbers |
 | Writing `.smr` | read-only; CSV export works |
 | `.smrx` (SON64) | waveform and event channels verified against `sonpy`. Marker, text-mark, wave-mark and `RealWave` channels, recordings with pauses, files with several header blocks and three-level index trees are implemented from the layout but not checked against a real file |
 | Filter design | the Parks-McClellan designer behind `FIRQuick` and `FIRMake`, so low/high pass, band pass and band stop coefficients match Spike2 to 1.8e-14 or better, as do the antisymmetric types 5 and 6 that only `FIRMake` can reach; band tables that stop short of Nyquist take the same warped path and agree to between 2e-12 and 8.6e-8 relative; the dialog offers the four symmetric types, and the differentiator is library-only; the IIR option is not Spike2's |

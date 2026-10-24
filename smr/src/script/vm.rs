@@ -111,6 +111,8 @@ pub enum Stop {
     Unported { op: u16, at: usize },
     /// A command whose behaviour is not ported yet.
     Command(String),
+    /// The caller asked the run to stop.
+    Cancelled,
 }
 
 /// One argument handed to a command: a value, or a place the command may write to.
@@ -793,6 +795,22 @@ impl Vm {
     /// Run until `Halt`, the end of the code, an error, or something not ported.
     pub fn run(&mut self) -> Stop {
         loop {
+            match self.step() {
+                Ok(None) => {}
+                Ok(Some(s)) => return s,
+                Err(RunError(e)) => return Stop::Error(e),
+            }
+        }
+    }
+
+    /// Like [`run`](Vm::run), but stops with [`Stop::Cancelled`] soon after `cancel` is set.
+    pub fn run_cancellable(&mut self, cancel: &std::sync::atomic::AtomicBool) -> Stop {
+        let mut n = 0u32;
+        loop {
+            n = n.wrapping_add(1);
+            if n & 0x3ff == 0 && cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                return Stop::Cancelled;
+            }
             match self.step() {
                 Ok(None) => {}
                 Ok(Some(s)) => return s,
