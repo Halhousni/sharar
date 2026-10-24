@@ -1,0 +1,18 @@
+var res[40];
+func Fib%(n%)
+  if n% < 2 then return n%; endif
+  return Fib%(n% - 1) + Fib%(n% - 2);
+end;
+func Gcd%(a%, b%)
+  if b% = 0 then return a%; endif
+  return Gcd%(b%, a% mod b%);
+end;
+func Rev$(s$)
+  if Len(s$) <= 1 then return s$; endif
+  return Rev$(Mid$(s$, 2)) + Left$(s$, 1);
+end;
+func Pw(x, n%)
+  if n% = 0 then return 1; endif
+  return x * Pw(x, n% - 1);
+end;
+res[0] := Fib%(15); res[1] := Gcd%(84, 36); res[2] := Len(Rev$("abcdef")); res[3] := Asc(Rev$("abcdef")); res[4] := Pw(1.5, 5);

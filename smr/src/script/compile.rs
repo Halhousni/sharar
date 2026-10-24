@@ -95,6 +95,7 @@ const O_BIT_OR: u16 = 0x65;
 const O_BIT_XOR: u16 = 0x66;
 const O_ARR_INDEX: u16 = 0x6b;
 const O_RESIZE_ARRAY: u16 = 0x71;
+const O_RESIZE_LOCAL: u16 = 0x6a;
 const O_GET_SET_VIEW: u16 = 0x73;
 const O_SET_VIEW: u16 = 0x74;
 const O_GET_VIEW: u16 = 0x75;
@@ -248,6 +249,8 @@ pub struct RoutineInfo {
     pub params: Vec<ParamInfo>,
     /// Its local variables, in declaration order.
     pub locals: Vec<(String, Ty)>,
+    /// The sizes of each local, empty for a scalar; a size that is not a constant is `None`.
+    pub shapes: Vec<Vec<Option<i64>>>,
 }
 
 /// What was compiled: the words, and the tables those words index.
@@ -328,6 +331,23 @@ struct Routine {
 struct Frame {
     args: Vec<Param>,
     locals: Vec<(String, Ty)>,
+    /// The sizes each local was declared with, empty for a scalar; a size that does not fold is
+    /// `None` and is set when the declaration runs.
+    shapes: Vec<Vec<Option<i64>>>,
+}
+
+impl Frame {
+    /// The type of a local that is not an array.
+    fn scalar_local(&self, name: &str) -> Option<Ty> {
+        let j = self.locals.iter().position(|(n, _)| n == name)?;
+        self.shapes[j].is_empty().then_some(self.locals[j].1)
+    }
+
+    /// The type of a local array.
+    fn array_local(&self, name: &str) -> Option<(Ty, usize)> {
+        let j = self.locals.iter().position(|(n, _)| n == name)?;
+        (!self.shapes[j].is_empty()).then_some((self.locals[j].1, self.shapes[j].len()))
+    }
 }
 
 /// One enclosing loop, for `break` and `continue`.
@@ -391,7 +411,7 @@ fn compile_impl(src: &str, commands: bool) -> Result<Compiled, CompileError> {
     let n = g.routines.len();
     for i in 0..n {
         let r = g.routines[i].clone();
-        g.frame = Some(Frame { args: r.args.clone(), locals: Vec::new() });
+        g.frame = Some(Frame { args: r.args.clone(), locals: Vec::new(), shapes: Vec::new() });
         g.routine = Some(i);
         let entry = g.code.len();
         g.emit(match r.kind {
@@ -404,7 +424,7 @@ fn compile_impl(src: &str, commands: bool) -> Result<Compiled, CompileError> {
             gen_block(&mut g, body, false)?;
         }
         g.emit(O_END);
-        let locals = g.frame.take().map(|f| f.locals).unwrap_or_default();
+        let (locals, shapes) = g.frame.take().map(|f| (f.locals, f.shapes)).unwrap_or_default();
         let word = g.base() + g.index_of(&r.name).unwrap() as u16;
         g.done_routines.push(RoutineInfo {
             name: r.name.clone(),
@@ -420,6 +440,7 @@ fn compile_impl(src: &str, commands: bool) -> Result<Compiled, CompileError> {
                 .map(|a| ParamInfo { name: a.name.clone(), ty: a.ty, by_ref: a.by_ref, array: a.array })
                 .collect(),
             locals,
+            shapes,
         });
         g.routine = None;
     }
@@ -780,6 +801,9 @@ impl Gen {
                 }
                 return Err(CompileError(format!("{name} is not an array")));
             }
+            if let Some((ty, _)) = f.array_local(name) {
+                return Ok(ty);
+            }
         }
         let s = self.symbol(name)?;
         if !s.is_array() {
@@ -846,9 +870,33 @@ fn gen_stmt(g: &mut Gen, s: &Stmt, top: bool) -> Result<bool, CompileError> {
     match s {
         Stmt::Var(ds) => {
             for d in ds {
+                // Sizes that fold are fixed when the routine is entered; if any does not, the
+                // declaration runs code to size the array: in a routine the sizes, the array and
+                // `ResizeLocArr`, at the top level the array, the sizes and `ResizeArray` with its mask.
+                let sizes = d
+                    .dims
+                    .iter()
+                    .map(|e| g.fold(e).map(|c| c.and_then(|c| c.num()).map(|n| n as i64)))
+                    .collect::<Result<Vec<_>, _>>()?;
                 if !top {
                     if let Some(f) = &mut g.frame {
                         f.locals.push((d.name.clone(), Ty::of(&d.name)));
+                        f.shapes.push(sizes.clone());
+                    }
+                }
+                if sizes.iter().any(|s| s.is_none()) {
+                    if top {
+                        g.emit_ref(&d.name)?;
+                    }
+                    for e in &d.dims {
+                        gen_expr(g, e)?;
+                    }
+                    if !top {
+                        g.emit_ref(&d.name)?;
+                        g.emit(O_RESIZE_LOCAL);
+                    } else {
+                        g.emit(O_RESIZE_ARRAY);
+                        g.emit((0..d.dims.len()).fold(0u16, |m, i| m | 1 << (3 * i)));
                     }
                 }
                 // An initialiser is an assignment unless it folds to a constant,
@@ -1130,8 +1178,7 @@ fn gen_ref(g: &mut Gen, e: &Expr) -> Result<Ty, CompileError> {
                     g.emit_ref(name)?;
                     return Ok(ty);
                 }
-                if let Some((_, ty)) = f.locals.iter().find(|(n, _)| n == name) {
-                    let ty = *ty;
+                if let Some(ty) = f.scalar_local(name) {
                     g.emit_ref(name)?;
                     return Ok(ty);
                 }
@@ -1204,14 +1251,16 @@ fn gen_args(g: &mut Gen, name: &str, args: &[Expr]) -> Result<(), CompileError> 
                 .frame
                 .as_ref()
                 .map(|f| {
-                    f.args.iter().any(|x| &x.name == n) || f.locals.iter().any(|(l, _)| l == n)
+                    f.args.iter().any(|x| &x.name == n) || f.scalar_local(n).is_some()
                 })
                 .unwrap_or(false);
-            let s = g.symbol(n)?.clone();
-            if !in_frame && !s.is_array() && s.value.is_none() {
-                g.emit_ref(n)?;
-                g.emit(s.ty.init_op());
-                continue;
+            if !in_frame {
+                let s = g.symbol(n)?.clone();
+                if !s.is_array() && s.value.is_none() {
+                    g.emit_ref(n)?;
+                    g.emit(s.ty.init_op());
+                    continue;
+                }
             }
         }
         gen_expr(g, a)?;
@@ -1296,8 +1345,7 @@ fn gen_expr(g: &mut Gen, e: &Expr) -> Result<Ty, CompileError> {
                     g.emit_ref(name)?;
                     return Ok(ty);
                 }
-                if let Some((_, ty)) = f.locals.iter().find(|(n, _)| n == name) {
-                    let ty = *ty;
+                if let Some(ty) = f.scalar_local(name) {
                     g.emit_ref(name)?;
                     return Ok(ty);
                 }
@@ -1409,7 +1457,7 @@ fn is_lvalue(g: &Gen, e: &Expr) -> bool {
         Expr::Name(n) => {
             if let Some(f) = &g.frame {
                 if f.args.iter().any(|a| &a.name == n && !a.array)
-                    || f.locals.iter().any(|(l, _)| l == n)
+                    || f.scalar_local(n).is_some()
                 {
                     return true;
                 }

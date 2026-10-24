@@ -1,0 +1,3 @@
+proc P(k%)
+ var a[k%+1];
+end;

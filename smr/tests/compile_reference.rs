@@ -38,10 +38,22 @@ fn parse_words(s: &str) -> Option<Vec<u16>> {
 
 #[test]
 fn the_port_compiles_what_spike2_compiles() {
-    let Some(fixture) = find("testdata/compile_reference.txt") else {
-        println!(
-            "skip: no testdata/compile_reference.txt — run tools/compile_oracle.py --emit testdata/compile_reference.txt"
-        );
+    check("testdata/compile_reference.txt", smr::script::compile);
+}
+
+/// The same scripts with `runtime.s2l`'s commands registered, as Spike2 compiles them: symbols
+/// start after the last command, and a script may call one.
+#[test]
+fn the_port_compiles_what_spike2_compiles_with_the_commands() {
+    check("testdata/compile_reference_cmds.txt", smr::script::compile_with_commands);
+}
+
+fn check(
+    fixture: &str,
+    compile: fn(&str) -> Result<smr::script::Compiled, smr::script::CompileError>,
+) {
+    let Some(fixture) = find(fixture) else {
+        println!("skip: no {fixture} — run tools/compile_oracle.py --emit {fixture}");
         return;
     };
     let text = std::fs::read_to_string(&fixture).unwrap();
@@ -55,7 +67,7 @@ fn the_port_compiles_what_spike2_compiles() {
         let file = parts.next().unwrap();
         let want = parts.next().unwrap();
         let src = std::fs::read_to_string(cases_dir.join(file)).unwrap();
-        let got = smr::script::compile(&src);
+        let got = compile(&src);
         match (parse_words(want), got) {
             (Some(want), Ok(c)) => {
                 checked += 1;

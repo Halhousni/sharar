@@ -1,0 +1,6 @@
+proc P()
+ var a[5];
+ Q(a[]);
+end;
+proc Q(x[])
+end;

@@ -1,0 +1,15 @@
+var res[80], a$, b$, c$, n%;
+a$ := "abc"; b$ := "abd";
+res[0] := a$ < b$; res[1] := a$ = "abc"; res[2] := a$ + b$ = "abcabd";
+c$ := a$; c$ += "z"; c$ += c$; res[3] := Len(c$);
+n% := 0; while n% < 3 do a$ += Chr$(65 + n%); n% += 1 wend; res[4] := Len(a$); res[5] := Asc(Mid$(a$, 6, 1));
+res[6] := "b" > "a" and "B" < "a";
+c$ := ""; for n% := 1 to 5 do c$ += Str$(n%) next
+res[7] := Len(c$); res[8] := Val(c$);
+res[9] := Val(Mid$("x42y", 2, 2)) + 1;
+docase
+case a$ = "abcABC" then res[10] := 1;
+case a$ = "x" then res[10] := 2;
+else res[10] := 3;
+endcase
+b$ := "q"; res[11] := (b$ + "r") = "qr"; res[12] := (b$ <> "q");

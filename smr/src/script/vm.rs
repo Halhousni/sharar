@@ -174,11 +174,13 @@ impl Vm {
                 };
                 cells.push(Cell::Scalar { ty: g.ty, v });
             } else {
+                // A size that does not fold is set by the declaration's own code when it runs.
                 let mut dims = Vec::new();
                 for s in &g.sizes {
                     match s {
                         Some(n) if *n >= 0 => dims.push(*n as usize),
-                        _ => return Err(format!("{}: array size does not fold", g.name)),
+                        Some(_) => return Err(format!("{}: negative array size", g.name)),
+                        None => dims.push(0),
                     }
                 }
                 let n: usize = dims.iter().product();
@@ -367,8 +369,15 @@ impl Vm {
             }
         }
         let mut locals = Vec::new();
-        for (_, ty) in &r.locals {
-            self.cells.push(Cell::Scalar { ty: *ty, v: V::zero(*ty) });
+        for (k, (_, ty)) in r.locals.iter().enumerate() {
+            let shape = &r.shapes[k];
+            if shape.is_empty() {
+                self.cells.push(Cell::Scalar { ty: *ty, v: V::zero(*ty) });
+            } else {
+                let dims: Vec<usize> = shape.iter().map(|s| s.unwrap_or(0).max(0) as usize).collect();
+                let n: usize = dims.iter().product();
+                self.cells.push(Cell::Array { ty: *ty, dims, data: vec![V::zero(*ty); n] });
+            }
             locals.push(self.cells.len() - 1);
         }
         let ret_cell = r.ret.map(|t| {
@@ -738,10 +747,22 @@ impl Vm {
                 let r = self.index((op - 0x6b + 1) as usize)?;
                 self.stack.push(Item::Ref(r));
             }
-            0x71 => {
-                let mask = self.code.words[self.code.ip as usize];
-                self.code.ip += 1;
-                let n = mask.count_ones() as usize;
+            0x6a | 0x71 => {
+                // A local array's sizes sit under it on the stack, a resized array's under
+                // the mask's count; either way they are taken in reverse.
+                let mut target = None;
+                let n = if op == 0x71 {
+                    let mask = self.code.words[self.code.ip as usize];
+                    self.code.ip += 1;
+                    mask.count_ones() as usize
+                } else {
+                    let Ref::Cell(c) = self.reference() else { return Err(RunError(ERR_TYPE)) };
+                    target = Some(Ref::Cell(c));
+                    match &self.cells[c] {
+                        Cell::Array { dims, .. } => dims.len(),
+                        _ => return Err(RunError(ERR_TYPE)),
+                    }
+                };
                 let mut dims = Vec::new();
                 for _ in 0..n {
                     let d = self.int()?;
@@ -751,14 +772,28 @@ impl Vm {
                     dims.push(d as usize);
                 }
                 dims.reverse();
-                let Ref::Cell(c) = self.reference() else { return Err(RunError(ERR_TYPE)) };
+                let Ref::Cell(c) = target.unwrap_or_else(|| self.reference()) else { return Err(RunError(ERR_TYPE)) };
                 if let Cell::Array { ty, dims: old, data } = &mut self.cells[c] {
                     if dims.len() != old.len() {
                         return Err(RunError(ERR_TYPE));
                     }
-                    // Not yet checked against Spike2: whether elements survive a resize.
+                    // Elements keep their indices where both shapes have them.
                     let n: usize = dims.iter().product();
-                    *data = vec![V::zero(*ty); n];
+                    let mut fresh = vec![V::zero(*ty); n];
+                    let rank = dims.len();
+                    for (flat, v) in data.iter().enumerate() {
+                        let mut rest = flat;
+                        let mut idx = vec![0usize; rank];
+                        for k in (0..rank).rev() {
+                            idx[k] = rest % old[k].max(1);
+                            rest /= old[k].max(1);
+                        }
+                        if idx.iter().zip(&dims).all(|(i, d)| i < d) {
+                            let to = idx.iter().zip(&dims).fold(0, |acc, (i, d)| acc * d + i);
+                            fresh[to] = v.clone();
+                        }
+                    }
+                    *data = fresh;
                     *old = dims;
                 }
             }

@@ -18,6 +18,7 @@ One case per line in the fixture, tab-separated:
     <case name> TAB <name of the file> TAB <WORDS n w0 w1 ...>|[<ERR ...>]
 """
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -34,9 +35,25 @@ def cases():
             yield os.path.join(CASES, name)
 
 
-def run(files):
+def command_file(runtime, tmp):
+    """The registration file compile_oracle.exe reads (see compile_oracle.c)."""
+    cmds = json.loads(subprocess.run([sys.executable, os.path.join(ROOT, "tools", "command_table.py"), runtime],
+                                     capture_output=True, text=True, check=True).stdout)
+    path = os.path.join(tmp, "commands.txt")
+    with open(path, "w") as f:
+        for c in cmds:
+            words = [c["ret"]]
+            for k, v in enumerate(c["variants"]):
+                words += v + [7 if k == len(c["variants"]) - 1 else 5]
+            f.write(" ".join(map(str, [c["name"], c["min"], c["max"], len(words)] + words)) + "\n")
+    return path
+
+
+def run(files, cmds=None):
     """One vendor process over every case; the pools do not leak between files."""
     env = dict(os.environ, WINEPREFIX=WINE_PREFIX, WINEDEBUG="-all")
+    if cmds:
+        env["CMDS"] = cmds
     out = subprocess.run(
         ["wine", "compile_oracle.exe"] + files,
         cwd=ORACLE_DIR,
@@ -54,13 +71,16 @@ def run(files):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--emit", help="write the fixture here")
+    ap.add_argument("--runtime", help="register runtime.s2l's commands first, as Spike2 does")
     args = ap.parse_args()
     files = list(cases())
     if not files:
         sys.exit(f"no cases in {CASES}")
     if not os.path.exists(os.path.join(ORACLE_DIR, "compile_oracle.exe")):
         sys.exit(f"no harness at {ORACLE_DIR}/compile_oracle.exe")
-    got = run(files)
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        got = run(files, command_file(args.runtime, tmp) if args.runtime else None)
     rows = []
     ok = 0
     for path, line in zip(files, got):

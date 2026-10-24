@@ -1,0 +1,14 @@
+var res[40];
+func SumSq(n%)
+  var a[5], i%, t;
+  for i% := 0 to 4 do a[i%] := i% * n% next
+  for i% := 0 to 4 do t += a[i%] * a[i%] next
+  return t;
+end;
+func Cnt%(s$)
+  var parts$[3], n%;
+  parts$[0] := s$; parts$[1] := s$ + "x"; parts$[2] := parts$[1] + "y";
+  n% := Len(parts$[2]);
+  return n%;
+end;
+res[0] := SumSq(2); res[1] := SumSq(3); res[2] := Cnt%("ab");

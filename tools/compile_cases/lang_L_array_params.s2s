@@ -1,0 +1,26 @@
+var res[60], m[2][3], v%[4], s$[2];
+proc Fill2(a[][], k)
+  var i%, j%;
+  for i% := 0 to 1 do for j% := 0 to 2 do a[i%][j%] := k + i% * 10 + j% next next
+end;
+func Tot%(a%[])
+  var i%, t%;
+  for i% := 0 to Len(a%[]) - 1 do t% += a%[i%] next
+  return t%;
+end;
+proc Name(a$[], b$)
+  a$[0] := b$ + "!";
+  a$[1] := a$[0] + b$;
+end;
+proc Twice(&x, a[])
+  x *= 2; a[0] += x;
+end;
+Fill2(m[][], 100);
+res[0] := m[0][0]; res[1] := m[0][2]; res[2] := m[1][0]; res[3] := m[1][2];
+v%[0] := 5; v%[1] := 6; v%[2] := 7; v%[3] := 8;
+res[4] := Tot%(v%[]);
+Name(s$[], "hi");
+res[5] := Len(s$[0]); res[6] := Len(s$[1]);
+var q, w[2]; q := 3; w[0] := 1;
+Twice(q, w[]);
+res[7] := q; res[8] := w[0];

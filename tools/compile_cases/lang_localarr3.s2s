@@ -1,0 +1,4 @@
+proc P()
+ var n%;
+ var a[n%];
+end;

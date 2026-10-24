@@ -1,0 +1,19 @@
+var res[60], a[3], b%[2][2], i%;
+a[0] := 1; a[1] := 2; a[2] := 3;
+res[0] := Len(a[]);
+resize a[5];
+res[1] := Len(a[]);
+for i% := 0 to 4 do res[2 + i%] := a[i%] next
+resize a[2];
+res[7] := Len(a[]); res[8] := a[0]; res[9] := a[1];
+resize b%[3][2];
+b%[2][1] := 9;
+res[10] := b%[2][1]; res[11] := b%[0][0];
+resize a[0];
+res[12] := Len(a[]);
+var c%[2][3], j%;
+for i% := 0 to 1 do for j% := 0 to 2 do c%[i%][j%] := 10 * i% + j% + 1 next next
+resize c%[3][2];
+res[13] := c%[0][0]; res[14] := c%[0][1]; res[15] := c%[1][0]; res[16] := c%[1][1]; res[17] := c%[2][0]; res[18] := c%[2][1];
+resize c%[2][4];
+res[19] := c%[0][0]; res[20] := c%[0][1]; res[21] := c%[0][2]; res[22] := c%[1][0]; res[23] := c%[1][1]; res[24] := c%[1][2]; res[25] := c%[1][3];
