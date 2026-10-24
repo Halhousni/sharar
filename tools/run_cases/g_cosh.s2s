@@ -1,0 +1,13 @@
+var res[12];
+res[0] := Cosh(0);
+res[1] := Cosh(0.5);
+res[2] := Cosh(1);
+res[3] := Cosh(2);
+res[4] := Cosh(2.5);
+res[5] := Cosh(-0.5);
+res[6] := Cosh(-1);
+res[7] := Cosh(-2.5);
+res[8] := Cosh(3.75);
+res[9] := Cosh(10);
+res[10] := Cosh(100);
+res[11] := Cosh(1000000.0);

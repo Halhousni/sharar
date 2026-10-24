@@ -1,0 +1,13 @@
+var res[28];
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+Enc(Chr$(65), 0);
+Enc(Chr$(97), 4);
+Enc(Chr$(48), 8);
+Enc(Chr$(32), 12);
+Enc(Chr$(126), 16);
+Enc(Chr$(200), 20);
+Enc(Chr$(255), 24);

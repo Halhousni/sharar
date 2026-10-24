@@ -1,0 +1,17 @@
+var res[16];
+res[0] := Round(0);
+res[1] := Round(0.5);
+res[2] := Round(1);
+res[3] := Round(2);
+res[4] := Round(2.5);
+res[5] := Round(-0.5);
+res[6] := Round(-1);
+res[7] := Round(-2.5);
+res[8] := Round(3.75);
+res[9] := Round(10);
+res[10] := Round(100);
+res[11] := Round(1000000.0);
+res[12] := Round(0.001);
+res[13] := Round(3.14159265358979);
+res[14] := Round(10000000000.0);
+res[15] := Round(-7.5);

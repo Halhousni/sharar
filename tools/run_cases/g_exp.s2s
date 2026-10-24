@@ -1,0 +1,14 @@
+var res[13];
+res[0] := Exp(0);
+res[1] := Exp(0.5);
+res[2] := Exp(1);
+res[3] := Exp(2);
+res[4] := Exp(2.5);
+res[5] := Exp(-0.5);
+res[6] := Exp(-1);
+res[7] := Exp(-2.5);
+res[8] := Exp(3.75);
+res[9] := Exp(10);
+res[10] := Exp(0.001);
+res[11] := Exp(3.14159265358979);
+res[12] := Exp(-7.5);

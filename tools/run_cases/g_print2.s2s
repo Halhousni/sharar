@@ -1,0 +1,12 @@
+var res[192];
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+Enc(Print$("plain"), 0);
+Enc(Print$("two\nlines"), 32);
+Enc(Print$("a%d b%d", 1, 2), 64);
+Enc(Print$("%s=%g", "x", 2.5), 96);
+Enc(Print$("%d %d %d", 1, 2, 3), 128);
+Enc(Print$("%5.1f|%-6d|", 2.25, 17), 160);

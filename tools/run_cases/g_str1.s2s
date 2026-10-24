@@ -1,0 +1,23 @@
+var res[544];
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+Enc(Str$(0), 0);
+Enc(Str$(1), 32);
+Enc(Str$(-1), 64);
+Enc(Str$(0.5), 96);
+Enc(Str$(2.5), 128);
+Enc(Str$(-0.5), 160);
+Enc(Str$(3.75), 192);
+Enc(Str$(10), 224);
+Enc(Str$(100), 256);
+Enc(Str$(1234.5678), 288);
+Enc(Str$(1000000.0), 320);
+Enc(Str$(10000000000.0), 352);
+Enc(Str$(0.001), 384);
+Enc(Str$(1e-06), 416);
+Enc(Str$(123456789), 448);
+Enc(Str$(0.1), 480);
+Enc(Str$(0.3333333333333333), 512);

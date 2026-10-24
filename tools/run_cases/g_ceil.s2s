@@ -1,0 +1,17 @@
+var res[16];
+res[0] := Ceil(0);
+res[1] := Ceil(0.5);
+res[2] := Ceil(1);
+res[3] := Ceil(2);
+res[4] := Ceil(2.5);
+res[5] := Ceil(-0.5);
+res[6] := Ceil(-1);
+res[7] := Ceil(-2.5);
+res[8] := Ceil(3.75);
+res[9] := Ceil(10);
+res[10] := Ceil(100);
+res[11] := Ceil(1000000.0);
+res[12] := Ceil(0.001);
+res[13] := Ceil(3.14159265358979);
+res[14] := Ceil(10000000000.0);
+res[15] := Ceil(-7.5);

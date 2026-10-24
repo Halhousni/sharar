@@ -1,0 +1,13 @@
+var res[12];
+res[0] := Sinh(0);
+res[1] := Sinh(0.5);
+res[2] := Sinh(1);
+res[3] := Sinh(2);
+res[4] := Sinh(2.5);
+res[5] := Sinh(-0.5);
+res[6] := Sinh(-1);
+res[7] := Sinh(-2.5);
+res[8] := Sinh(3.75);
+res[9] := Sinh(10);
+res[10] := Sinh(100);
+res[11] := Sinh(1000000.0);

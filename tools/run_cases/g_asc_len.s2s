@@ -1,0 +1,13 @@
+var res[12];
+res[0] := Asc("");
+res[1] := Asc("a");
+res[2] := Asc("Hello");
+res[3] := Asc("Hello, World");
+res[4] := Asc("  pad  ");
+res[5] := Asc("MiXeD 123");
+res[6] := Len("");
+res[7] := Len("a");
+res[8] := Len("Hello");
+res[9] := Len("Hello, World");
+res[10] := Len("  pad  ");
+res[11] := Len("MiXeD 123");

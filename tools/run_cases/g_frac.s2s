@@ -1,0 +1,17 @@
+var res[16];
+res[0] := Frac(0);
+res[1] := Frac(0.5);
+res[2] := Frac(1);
+res[3] := Frac(2);
+res[4] := Frac(2.5);
+res[5] := Frac(-0.5);
+res[6] := Frac(-1);
+res[7] := Frac(-2.5);
+res[8] := Frac(3.75);
+res[9] := Frac(10);
+res[10] := Frac(100);
+res[11] := Frac(1000000.0);
+res[12] := Frac(0.001);
+res[13] := Frac(3.14159265358979);
+res[14] := Frac(10000000000.0);
+res[15] := Frac(-7.5);

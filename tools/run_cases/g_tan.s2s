@@ -1,0 +1,16 @@
+var res[15];
+res[0] := Tan(0);
+res[1] := Tan(0.5);
+res[2] := Tan(1);
+res[3] := Tan(2);
+res[4] := Tan(2.5);
+res[5] := Tan(-0.5);
+res[6] := Tan(-1);
+res[7] := Tan(-2.5);
+res[8] := Tan(3.75);
+res[9] := Tan(10);
+res[10] := Tan(100);
+res[11] := Tan(1000000.0);
+res[12] := Tan(0.001);
+res[13] := Tan(3.14159265358979);
+res[14] := Tan(-7.5);

@@ -1,0 +1,18 @@
+var res[192];
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+Enc(LCase$(""), 0);
+Enc(LCase$("a"), 16);
+Enc(LCase$("Hello"), 32);
+Enc(LCase$("Hello, World"), 48);
+Enc(LCase$("  pad  "), 64);
+Enc(LCase$("MiXeD 123"), 80);
+Enc(UCase$(""), 96);
+Enc(UCase$("a"), 112);
+Enc(UCase$("Hello"), 128);
+Enc(UCase$("Hello, World"), 144);
+Enc(UCase$("  pad  "), 160);
+Enc(UCase$("MiXeD 123"), 176);

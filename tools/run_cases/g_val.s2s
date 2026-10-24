@@ -1,0 +1,16 @@
+var res[15];
+res[0] := Val("12");
+res[1] := Val("3.5abc");
+res[2] := Val("-2e2x");
+res[3] := Val("abc");
+res[4] := Val("  7");
+res[5] := Val(".5");
+res[6] := Val("1e");
+res[7] := Val("0x10");
+res[8] := Val("+4");
+res[9] := Val("- 3");
+res[10] := Val("1,5");
+res[11] := Val("");
+res[12] := Val("1e5");
+res[13] := Val("1.5E-2");
+res[14] := Val("007");

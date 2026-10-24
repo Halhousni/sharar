@@ -1,0 +1,11 @@
+var res[10];
+var a[4];
+var k%;
+a[0] := 0.5; a[1] := 1; a[2] := 2.5; a[3] := -3;
+Abs(a[]);
+for k% := 0 to 3 do res[k%] := a[k%] next
+Cos(a[]);
+for k% := 0 to 3 do res[4 + k%] := a[k%] next
+a[0] := 0.5; a[1] := 1; a[2] := 2.5; a[3] := -3;
+Max(a[]);
+res[8] := Max(a[]); res[9] := Min(a[]);

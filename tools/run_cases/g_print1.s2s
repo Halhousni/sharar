@@ -1,0 +1,28 @@
+var res[704];
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+Enc(Print$("%d", 5), 0);
+Enc(Print$("%d", -42), 32);
+Enc(Print$("%5d", 42), 64);
+Enc(Print$("%-5d|", 42), 96);
+Enc(Print$("%05d", 42), 128);
+Enc(Print$("%x", 255), 160);
+Enc(Print$("%X", 255), 192);
+Enc(Print$("%o", 8), 224);
+Enc(Print$("%f", 3.14159), 256);
+Enc(Print$("%.2f", 3.14159), 288);
+Enc(Print$("%8.3f", -2.5), 320);
+Enc(Print$("%e", 12345.678), 352);
+Enc(Print$("%g", 10000000000.0), 384);
+Enc(Print$("%g", 0.0001), 416);
+Enc(Print$("%g", 123456789), 448);
+Enc(Print$("%c", 65), 480);
+Enc(Print$("%s", "abc"), 512);
+Enc(Print$("%5s|", "ab"), 544);
+Enc(Print$("%-5s|", "ab"), 576);
+Enc(Print$("%%", 1), 608);
+Enc(Print$("val=%d", 7), 640);
+Enc(Print$("%d%%", 50), 672);

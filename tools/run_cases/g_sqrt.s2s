@@ -1,0 +1,13 @@
+var res[12];
+res[0] := Sqrt(0);
+res[1] := Sqrt(0.5);
+res[2] := Sqrt(1);
+res[3] := Sqrt(2);
+res[4] := Sqrt(2.5);
+res[5] := Sqrt(3.75);
+res[6] := Sqrt(10);
+res[7] := Sqrt(100);
+res[8] := Sqrt(1000000.0);
+res[9] := Sqrt(0.001);
+res[10] := Sqrt(3.14159265358979);
+res[11] := Sqrt(10000000000.0);

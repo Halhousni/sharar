@@ -119,6 +119,9 @@ pub enum Arg {
     Ref(Ref),
 }
 
+mod builtins;
+mod printf;
+
 pub struct Vm {
     code: Code,
     cells: Vec<Cell>,
@@ -770,7 +773,7 @@ impl Vm {
     fn command(
         &mut self,
         cmd: &commands::Command,
-        _variant: usize,
+        variant: usize,
         args: Vec<Arg>,
     ) -> Result<Option<V>, RunError> {
         let val = |vm: &Vm, a: &Arg| -> V {
@@ -779,44 +782,11 @@ impl Vm {
                 Arg::Ref(r) => vm.try_get(*r).unwrap_or(V::Int(0)),
             }
         };
-        match cmd.name {
-            "Print" => {
-                let mut line = String::new();
-                for (k, a) in args.iter().enumerate() {
-                    if k > 0 {
-                        line.push(' ');
-                    }
-                    match val(self, a) {
-                        V::Str(s) => line.push_str(&s),
-                        V::Int(i) => line.push_str(&i.to_string()),
-                        V::Flt(f) => line.push_str(&f.to_string()),
-                    }
-                }
-                self.log.push_str(&line);
-                self.log.push('\n');
-                Ok(Some(V::Int(0)))
-            }
-            "Sqrt" => {
-                let x = flt_to_num(&val(self, &args[0]))?;
-                Ok(Some(V::Flt(x.sqrt())))
-            }
-            "Len" => {
-                if let Arg::Ref(Ref::Cell(c)) = &args[0] {
-                    if let Cell::Array { dims, .. } = &self.cells[*c] {
-                        // Spike2 refuses `Len` of an array with more than one dimension.
-                        if dims.len() != 1 || args.len() != 1 {
-                            return Err(RunError(ERR_TYPE));
-                        }
-                        return Ok(Some(V::Int(dims[0] as i64)));
-                    }
-                }
-                match val(self, &args[0]) {
-                    V::Str(s) => Ok(Some(V::Int(s.chars().count() as i64))),
-                    _ => Err(RunError(ERR_TYPE)),
-                }
-            }
-            other => {
-                self.pending_command = Some(other.to_string());
+        let _ = &val;
+        match self.builtin(cmd.name, variant, &args)? {
+            Some(out) => Ok(out),
+            None => {
+                self.pending_command = Some(cmd.name.to_string());
                 Ok(None)
             }
         }

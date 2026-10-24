@@ -1,0 +1,35 @@
+var res[1160];
+proc Enc(s$, at%)
+  var i%;
+  res[at%] := Len(s$);
+  for i% := 1 to Len(s$) do res[at% + i%] := Asc(Mid$(s$, i%, 1)) next
+end;
+Enc(Print$("a", 1), 0);
+Enc(Print$("a", 1, 2), 40);
+Enc(Print$("a", 1.5), 80);
+Enc(Print$("a", "b"), 120);
+Enc(Print$("%d", 1, 2), 160);
+Enc(Print$("%d %d", 1), 200);
+Enc(Print$("%s", 5), 240);
+Enc(Print$("%d", 3.7), 280);
+Enc(Print$("%f", 3), 320);
+Enc(Print$("%5c|", 66), 360);
+Enc(Print$("%+d", 5), 400);
+Enc(Print$("% d", 5), 440);
+Enc(Print$("%#x", 255), 480);
+Enc(Print$("%.3s", "abcdef"), 520);
+Enc(Print$("%10.4e|", 1234.5678), 560);
+Enc(Print$("%G", 1e-10), 600);
+Enc(Print$("%E", 1.5), 640);
+Enc(Print$("%5.3d|", 7), 680);
+Enc(Print$("%lf", 2.5), 720);
+Enc(Print$("%i", 9), 760);
+Enc(Print$("%u", 12), 800);
+Enc(Print$("%.3g", 1234.5678), 840);
+Enc(Print$("%#g", 1.5), 880);
+Enc(Print$("%08.3f", -3.14159), 920);
+Enc(Print$("%x", -1), 960);
+Enc(Print$("%d", 1e10), 1000);
+Enc(Print$("%s", 2.5), 1040);
+Enc(Print$("%c%c", 72, 105), 1080);
+Enc(Print$("[%*d]", 5, 3), 1120);
