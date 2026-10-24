@@ -66912,6 +66912,13 @@ pub(crate) fn tail_2800061d0(m: &mut M, s: &mut dyn Svc) {
 pub(crate) fn enter_2800061d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_2800061d0(m, s); });
 }
+pub(crate) fn tail_28001f470(m: &mut M, s: &mut dyn Svc) {
+    f_28001f470(m, s)
+}
+/// Run the routine at 0x18001f470 with the machine's registers as the caller set them.
+pub(crate) fn enter_28001f470(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_28001f470(m, s); });
+}
 pub(crate) fn tail_28001f8f0(m: &mut M, s: &mut dyn Svc) {
     f_28001f8f0(m, s)
 }

@@ -1207,6 +1207,13 @@ impl Host for Session {
         Some((v.file.time_factor, kind_code(c.kind)))
     }
 
+    fn view_channels(&self, h: i64) -> Vec<(i64, i64)> {
+        match self.views.iter().find(|v| v.handle == h) {
+            Some(v) => v.file.channels.iter().map(|c| (c.index as i64 + 1, kind_code(c.kind))).collect(),
+            None => Vec::new(),
+        }
+    }
+
     fn view_info(&self, h: i64) -> Option<(i64, Option<std::path::PathBuf>)> {
         if h == self.log {
             Some((1, None))
@@ -1658,6 +1665,9 @@ impl Host for SharedSession {
     }
     fn wave_info(&self, view: i64, chan: i64) -> Option<(f64, i64)> {
         self.0.lock().unwrap().wave_info(view, chan)
+    }
+    fn view_channels(&self, view: i64) -> Vec<(i64, i64)> {
+        self.0.lock().unwrap().view_channels(view)
     }
     fn command(&mut self, name: &str, variant: usize, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         self.0.lock().unwrap().command(name, variant, args, mem)

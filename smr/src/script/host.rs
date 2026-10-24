@@ -52,6 +52,10 @@ pub trait Host {
     fn wave_info(&self, _view: i64, _chan: i64) -> Option<(f64, i64)> {
         None
     }
+    /// The channels of a data view: (channel number, kind number `ChanKind` gives), in order.
+    fn view_channels(&self, _view: i64) -> Vec<(i64, i64)> {
+        Vec::new()
+    }
     /// Run a command, or return `Ok(None)` if it is not this host's.
     fn command(
         &mut self,

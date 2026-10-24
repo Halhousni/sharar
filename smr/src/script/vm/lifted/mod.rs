@@ -149,6 +149,12 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.pop();
                 true
             }
+            // a routine of an object whose constructor was skipped: it succeeds
+            t if (0x3000..0x3200).contains(&t) => {
+                m.r[0] = 1;
+                m.pop();
+                true
+            }
             // CWinApp::GetProfileInt(section, entry, default): nothing is stored, so the default
             0x108 => {
                 m.r[0] = m.r[9] & 0xffff_ffff;
@@ -274,6 +280,24 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 self.set_arg(i + 2, V::Flt(((c >> 16) & 0xff) as f64 / 255.0));
             }
             "?SendMessageToDescendants@CWnd@@SAXPEAUHWND__@@I_K_JHH@Z" => {}
+            // creating a window always succeeds (there is no screen): the objects are only kept
+            "?Create@CWnd@@UEAAHPEB_W0KAEBUtagRECT@@PEAV1@IPEAUCCreateContext@@@Z" | "LoadCursorW" | "LoadIconW" | "GetClientRect" | "GetWindowRect" => {
+                if name == "LoadCursorW" || name == "LoadIconW" {
+                    m.r[0] = 0x1234;
+                } else if name.contains("Rect") {
+                    for k in 0..4 {
+                        m.st(rdx + 4 * k, 4, 0);
+                    }
+                    m.r[0] = 1;
+                } else {
+                    m.r[0] = 1;
+                }
+            }
+            "?AfxRegisterWndClass@@YAPEB_WIPEAUHICON__@@PEAUHBRUSH__@@0@Z" => {
+                let p = m.alloc(16);
+                m.st(p, 2, 'W' as u64);
+                m.r[0] = p;
+            }
             "?SetInt@CRunInfo@@QEBAXH_J@Z" => self.set_arg(int_arg(rdx), V::Int(r8 as i64)),
             "?StoreIntResult@CRunInfo@@QEBAX_J@Z" => self.result = Some(V::Int(rdx as i64)),
             "?StoreFloatResult@CRunInfo@@QEBAXN@Z" => self.result = Some(V::Flt(f64::from_bits(m.xl(1)))),
@@ -363,6 +387,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                             let this = match self.world.wnds.get(&hwnd) {
                                 Some(&t) => t,
                                 None if hwnd == 0 => self.main_window(m),
+                                None if self.vm.host.as_ref().map(|host| !host.view_channels(view_of(hwnd)).is_empty()).unwrap_or(false) => self.time_window(m, view_of(hwnd)),
                                 None => {
                                     let t = m.alloc(0x4000);
                                     m.st(t + 0x40, 8, hwnd);
@@ -524,7 +549,24 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 if std::env::var_os("S2LIFT_SERVICES").is_some() {
                     eprintln!("  (service {other} skipped)");
                 }
-                m.r[0] = 0;
+                // a constructor answers with the object it was given, which gets a vtable whose
+                // routines all succeed
+                if other.starts_with("??0") {
+                    let obj = m.r[1];
+                    if obj != 0 && m.ld(obj, 8) == 0 {
+                        if self.world.stub_vtable == 0 {
+                            let vt = m.alloc(8 * 0x200);
+                            for k in 0..0x200u64 {
+                                m.st(vt + 8 * k, 8, FAKE_CODE + 0x3000 + k);
+                            }
+                            self.world.stub_vtable = vt;
+                        }
+                        m.st(obj, 8, self.world.stub_vtable);
+                    }
+                    m.r[0] = obj;
+                } else {
+                    m.r[0] = 0;
+                }
             }
             other => {
                 self.missing = Some(other.to_string());
@@ -654,6 +696,110 @@ impl<'v, 'w> Run<'v, 'w> {
         m.r = saved;
     }
 
+    /// The stand-in for a data view's window (SONVIEW's `CTimeWindow`): its real vtable, its document
+    /// (holding the data file object), the seconds per tick, and a channel view for every channel in
+    /// the file, made by SONVIEW's own routine and kept in the window's list by channel number.
+    fn time_window(&mut self, m: &mut M, h: i64) -> u64 {
+        if let Some(&w) = self.world.twins.get(&h) {
+            return w;
+        }
+        let file = self.sonfile_of(m, h);
+        let chans = self.vm.host.as_ref().map(|host| host.view_channels(h)).unwrap_or_default();
+        let tf = chans.first().and_then(|(c, _)| self.vm.host.as_ref().and_then(|host| host.wave_info(h, *c))).map(|x| x.0).unwrap_or(1e-5);
+        if self.world.measure_buf == 0 {
+            self.world.measure_buf = m.alloc(4 * 8000 + 64);
+        }
+        m.st(0x1_403d_a7e8 + (7u64 << 32), 8, self.world.measure_buf);
+        self.app(m);
+        let win = m.alloc(0x2000);
+        self.world.twins.insert(h, win);
+        // SONVIEW's own constructor (with the services nothing provides skipped)
+        {
+            self.world.lenient = true;
+            let sp = m.r[4];
+            let saved = m.r;
+            m.r[1] = win;
+            m.push(0);
+            let r = catch_unwind(AssertUnwindSafe(|| commands::call_at(m, self, 0x1_4012_f370 + (7u64 << 32))));
+            self.world.lenient = false;
+            m.r[4] = sp;
+            m.r = saved;
+            if r.is_err() && std::env::var_os("S2LIFT_SERVICES").is_some() {
+                eprintln!("  (the window's constructor did not finish)");
+            }
+        }
+        // the window's vtable, with the end-of-data question (slot 0x468) answered by the data file
+        // itself: the window's own routine scans the channels for it
+        {
+            let real = 0x1_402c_56c8 + (7u64 << 32);
+            let copy = m.alloc(0x800);
+            for k in 0..0xe0u64 {
+                let v = m.ld(real + 8 * k, 8);
+                m.st(copy + 8 * k, 8, v);
+            }
+            m.st(copy + 0x468, 8, FAKE_CODE + 0x468);
+            m.st(win, 8, copy);
+        }
+        m.st(win + 0x40, 8, hwnd_of(h));
+        let doc = m.alloc(0x800);
+        {
+            self.world.lenient = true;
+            let sp = m.r[4];
+            let saved = m.r;
+            m.r[1] = doc;
+            m.push(0);
+            let r = catch_unwind(AssertUnwindSafe(|| commands::call_at(m, self, 0x1_4012_3d60 + (7u64 << 32))));
+            self.world.lenient = false;
+            m.r[4] = sp;
+            m.r = saved;
+            if r.is_err() && std::env::var_os("S2LIFT_SERVICES").is_some() {
+                eprintln!("  (the document's constructor did not finish)");
+            }
+        }
+        m.st(doc + 0x270, 8, file);
+        m.st(win + 0xd8, 8, doc);
+        m.st(win + 0x880, 8, tf.to_bits());
+        self.world.measure_file = file;
+        self.world.measure_tf = tf;
+        let ptrs = m.alloc(8 * 40);
+        let mut count = 0u64;
+        self.world.lenient = true;
+        for (c, kind) in chans {
+            let sp = m.r[4];
+            let saved = m.r;
+            m.r[1] = win;
+            m.r[2] = file;
+            m.r[8] = (c - 1) as u64;
+            m.push(0);
+            let r = catch_unwind(AssertUnwindSafe(|| commands::call_at(m, self, 0x1_4013_0230 + (7u64 << 32))));
+            let view = m.r[0];
+            m.r[4] = sp;
+            m.r = saved;
+            if r.is_ok() && view != 0 {
+                m.st(view + 0x140, 8, win);
+                // a waveform view draws lines unless it is told otherwise
+                if matches!(kind, 1 | 6 | 7 | 9) {
+                    m.st(view + 0x178, 4, 0xb);
+                }
+                m.st(ptrs + 8 * (c - 1) as u64, 8, view);
+                count += 1;
+            } else if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                let why = match &r {
+                    Err(p) => p.downcast_ref::<String>().cloned().or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default(),
+                    Ok(()) => "returned no view".to_string(),
+                };
+                eprintln!("  (no channel view for channel {c}: {why})");
+            }
+        }
+        self.world.lenient = false;
+        // the vector of channel views, indexed by channel (empty places are null)
+        let _ = count;
+        m.st(win + 0x240, 8, ptrs);
+        m.st(win + 0x248, 8, ptrs + 8 * 32);
+        m.st(win + 0x250, 8, ptrs + 8 * 40);
+        win
+    }
+
     /// The vtable of SONVIEW's class for a channel of this kind (the number `ChanKind` gives).
     fn view_vtable(kind: i64) -> Option<u64> {
         let va = match kind {
@@ -669,39 +815,20 @@ impl<'v, 'w> Run<'v, 'w> {
         Some(va + (7u64 << 32))
     }
 
-    /// A stand-in for the channel view of `chan` and for the time window that owns it, built on the
-    /// real vtable of its class.
+    /// The channel view at `chan` (a place in the window's list of channels) in the data view's window stand-in, with its vtable.
     fn mock_view(&mut self, m: &mut M, h: i64, chan: i64) -> Option<(u64, u64)> {
-        let (tf, kind) = self.vm.host.as_ref().and_then(|host| host.wave_info(h, chan + 1))?;
-        let vtable = Self::view_vtable(kind)?;
-        let file = self.sonfile_of(m, h);
-        if file == 0 {
+        let win = self.time_window(m, h);
+        self.world.measure_file = m.ld(m.ld(win + 0xd8, 8) + 0x270, 8);
+        self.world.measure_tf = f64::from_bits(m.ld(win + 0x880, 8));
+        let (begin, end) = (m.ld(win + 0x240, 8), m.ld(win + 0x248, 8));
+        if chan < 0 || begin == 0 || begin + 8 * chan as u64 >= end {
             return None;
         }
-        self.world.measure_file = file;
-        self.world.measure_tf = tf;
-        if self.world.measure_buf == 0 {
-            self.world.measure_buf = m.alloc(4 * 8000 + 64);
+        let view = m.ld(begin + 8 * chan as u64, 8);
+        if view == 0 {
+            return None;
         }
-        // the global that points at the sample buffer
-        m.st(0x1_403d_a7e8 + (7u64 << 32), 8, self.world.measure_buf);
-        let (view, owner, vt) = (m.alloc(0x400), m.alloc(0x40), m.alloc(0x600));
-        m.st(vt + 0x480, 8, FAKE_CODE + 0x480);
-        m.st(vt + 0x510, 8, FAKE_CODE + 0x510);
-        m.st(vt + 0x4f8, 8, FAKE_CODE + 0x4f8);
-        m.st(vt + 0x468, 8, FAKE_CODE + 0x468);
-        m.st(owner, 8, vt);
-        m.st(view, 8, vtable);
-        m.st(view + 0x140, 8, owner);
-        m.st(view + 0x170, 2, chan as u64);
-        m.st(view + 0x174, 4, kind as u64);
-        // the draw mode a channel view starts with
-        let dm = match kind {
-            1 | 6 | 7 | 9 => 0xb,
-            _ => 0,
-        };
-        m.st(view + 0x178, 4, dm);
-        Some((view, vtable))
+        Some((view, m.ld(view, 8)))
     }
 
     /// `ChanValue`: the value of a channel at a time, from the channel view's own routine (virtual slot
@@ -760,7 +887,15 @@ impl<'v, 'w> Run<'v, 'w> {
         let ty = m.ld(lp + 4, 4) as u32 as i32 - 0x13;
         let flag = m.ld(lp + 0x14, 4);
         let (t0, t1) = (f64::from_bits(m.ld(lp + 0x30, 8)), f64::from_bits(m.ld(lp + 0x28, 8)));
-        let Some((view, vtable)) = self.mock_view(m, h, chan) else { return FAIL };
+        let Some((view, vtable)) = self.mock_view(m, h, chan) else {
+            if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                eprintln!("  (measure: no view for channel {chan})");
+            }
+            return FAIL;
+        };
+        if std::env::var_os("S2LIFT_SERVICES").is_some() {
+            eprintln!("  (measure: view {view:#x} vtable {vtable:#x} chan {} kind {} mode {:#x})", m.ld(view + 0x170, 2), m.ld(view + 0x174, 4), m.ld(view + 0x178, 4));
+        }
         let out = m.alloc(8);
         let tf = self.world.measure_tf;
         let (a, b) = ((t0 / tf).round() as i64, (t1 / tf).round() as i64);
@@ -939,6 +1074,10 @@ pub struct World {
     seen: std::collections::HashMap<u64, usize>,
     /// While the main window is being built, services nothing provides answer zero.
     lenient: bool,
+    /// The window stand-ins of the data views, by view handle.
+    twins: std::collections::HashMap<i64, u64>,
+    /// A vtable of do-nothing routines for objects whose constructors were skipped.
+    stub_vtable: u64,
 }
 
 impl Default for World {
@@ -949,7 +1088,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0 }
     }
 }
 
