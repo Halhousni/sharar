@@ -189,6 +189,22 @@ impl Session {
         raw_samples(file, pos, &items, lo, hi).into_iter().map(|r| r as f64 * scale / 6553.6 + offset).collect()
     }
 
+    /// Samples `lo..hi` as the single-precision numbers Spike2's measuring code works on: the raw count
+    /// times the scale over 6553.6 (worked out in single precision), plus the offset.
+    fn wave_f32(&mut self, pos: usize, lo: i64, hi: i64) -> Vec<f32> {
+        let file = &mut self.view_mut().unwrap().file;
+        if file.channels[pos].kind == Kind::RealWave {
+            return file.read_waveform(pos, lo as u64, (hi - lo) as usize).unwrap_or_default();
+        }
+        let items = Items::Waveform {
+            blocks: file.channels[pos].blocks.iter().map(|b| (b.start_tick, b.items.max(0) as i64)).collect(),
+            dt: 0,
+        };
+        let (scale, offset) = (file.channels[pos].scale, file.channels[pos].offset);
+        let k = (scale as f64 / 6553.6) as f32 as f64;
+        raw_samples(file, pos, &items, lo, hi).into_iter().map(|r| (r as f64 * k + offset as f64) as f32).collect()
+    }
+
     /// The index of the memory channel numbered `n`, if there is one.
     fn mem_index(&self, n: i64) -> Option<usize> {
         let v = self.view()?;
@@ -907,7 +923,8 @@ impl Session {
         if hi <= lo {
             return Ok(None);
         }
-        let vals = self.wave_values(idx, lo, hi);
+        // the samples are held as single-precision floats
+        let vals: Vec<f64> = self.wave_f32(idx, lo, hi).into_iter().map(f64::from).collect();
         let (mut imin, mut imax) = (0, 0);
         for (i, &v) in vals.iter().enumerate() {
             if v < vals[imin] {

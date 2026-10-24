@@ -1,4 +1,4 @@
-var res[3000], h%, c%, k%, ok%, mx, t0, t1, m%, r, tt%[6];
+var res[3000], h%, c%, k%, ok%, mx, t0, t1, m%, r, tt%[6], mn, mx2, tn, tx;
 h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Field Potentials.smr", 0, 0);
 mx := MaxTime();
 t0 := mx * 0.1; t1 := mx * 0.1 + 2;
@@ -14,5 +14,8 @@ for c% := 1 to 32 do
       res[k%] := ChanSearch(c%, m%, t0, t1 + 20, 0.0); k% += 1;
     next
     res[k%] := ChanValue(c%, t0); k% += 1;
+    if ChanKind(c%) = 1 or ChanKind(c%) = 9 then
+      res[k%] := MinMax(c%, t0, t1, mn, mx2, tn, tx); res[k%+1] := mn; res[k%+2] := mx2; res[k%+3] := tn; res[k%+4] := tx; k% += 5;
+    endif
   endif
 next
