@@ -958,6 +958,11 @@ impl Vm {
             m.r[1] = obj;
             m.r[2] = info;
             commands::run(name, &mut m, &mut run);
+            // the status Execute returns: zero, or the error code the script stops with
+            let status = m.r[0] as u32 as i32;
+            if status < 0 {
+                panic_any(Thrown(status));
+            }
         }));
         std::panic::set_hook(quiet);
         let result = match outcome {
