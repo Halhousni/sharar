@@ -376,7 +376,7 @@ the same rules on a handful of scripts.
 `compile` is the bare compiler, as the vendor's is before `runtime.s2l` has registered
 anything, and refuses a call to a command by name. `compile_with_commands` registers the
 whole table, as Spike2 does, and compiles calls to commands (next section). Member calls
-(`View(0).MaxTime()`) and commands that take a procedure are not compiled yet.
+(`View(0).MaxTime()`) are not compiled yet.
 
 ## The command table
 
@@ -469,9 +469,12 @@ as follows:
 How a reference parameter is marked afterwards (`vtable + 0x60` on the argument sets a
 byte on its symbol) emits no code.
 
-Types 0xe to 0xf bracket a procedure passed as an argument (`ToolbarSet`, `Draw…`): the
-vendor checks the signature of the procedure named. That is not ported; a call to such
-a command is refused here with a message saying so.
+A group `0xe … 0xf` is a procedure passed as an argument (`ToolbarSet`, `DlgButton`,
+`ZeroFind`, `DlgMouse`). The word after `0xe` is the return type the procedure must have
+(0 for a `proc`, 1, 2 or 3 for a `func` of that type) and the words up to `0xf` its
+parameters, which must be the same in number and each an integer for 1 and a real for 2,
+by value or by reference, never an array. Only four such groups exist in the table. The
+argument is the procedure's name alone, and compiles to its symbol word.
 
 ### How it was checked
 
@@ -480,9 +483,9 @@ that calls it with right arguments, with fewer, with one too many, and with each
 first three arguments replaced by each of 22 shapes (literals, variables, a constant,
 elements, arrays of three ranks, expressions, a parenthesised variable, a call). It runs
 them through the vendor compiler with the table registered and writes the answers;
-`smr/tests/call_reference.rs` replays them through `compile_with_commands`. Of 32,034
-scripts, 14,824 compile to the same words, 17,181 are refused by both, and 29 pass a
-procedure and are refused here by name; none differ. The fixture is gitignored as the
+`smr/tests/call_reference.rs` replays them through `compile_with_commands`. Of 32,065
+scripts (including a matching procedure and several near misses for each group),
+14,861 compile to the same words and 17,204 are refused by both; none differ. The fixture is gitignored as the
 compiler fixture is, so a fresh clone skips that test and runs the unit tests in
 `compile.rs`, which pin the same rules on a few scripts.
 

@@ -208,9 +208,50 @@ impl Const {
     }
 }
 
+/// A global variable or constant, as the engine has to create it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GlobalInfo {
+    pub name: String,
+    pub ty: Ty,
+    /// The size of each dimension, empty for a scalar. `None` where it did not fold.
+    pub sizes: Vec<Option<i64>>,
+    /// A constant's value, or a variable's initial value when it folded.
+    pub init: Option<Const>,
+    pub is_const: bool,
+    /// A routine rather than a variable.
+    pub is_routine: bool,
+}
+
+/// A parameter of a routine.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParamInfo {
+    pub name: String,
+    pub ty: Ty,
+    pub by_ref: bool,
+    pub array: bool,
+}
+
+/// A `proc` or `func`: where it starts and what its frame holds.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoutineInfo {
+    pub name: String,
+    /// The word its callers use.
+    pub word: u16,
+    /// The index of its first word in the code.
+    pub entry: usize,
+    /// What it returns, if it is a `func`.
+    pub ret: Option<Ty>,
+    pub params: Vec<ParamInfo>,
+    /// Its local variables, in declaration order.
+    pub locals: Vec<(String, Ty)>,
+}
+
 /// What was compiled: the words, and the tables those words index.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Compiled {
+    /// One per symbol, in word order.
+    pub globals: Vec<GlobalInfo>,
+    pub routines: Vec<RoutineInfo>,
     pub code: Vec<u16>,
     /// The word the first symbol occupies.
     pub first_word: u16,
@@ -251,6 +292,11 @@ struct Symbol {
     value: Option<Const>,
     /// How many dimensions it was declared with.
     dims: usize,
+    /// The size of each dimension, when it folds to a constant.
+    sizes: Vec<Option<i64>>,
+    /// The initial value of a variable whose initialiser folds, which is why such a
+    /// declaration emits no code.
+    init: Option<Const>,
 }
 
 impl Symbol {
@@ -302,6 +348,7 @@ struct Gen {
     loops: Vec<Loop>,
     /// Whether the command table is registered, as it is when Spike2 compiles.
     commands: bool,
+    done_routines: Vec<RoutineInfo>,
 }
 
 /// Compile with no commands registered: a bare compiler, as the vendor's is when nothing
@@ -328,6 +375,7 @@ fn compile_impl(src: &str, commands: bool) -> Result<Compiled, CompileError> {
         routine: None,
         loops: Vec::new(),
         commands,
+        done_routines: Vec::new(),
     };
     collect(&mut g, &stmts)?;
 
@@ -339,8 +387,9 @@ fn compile_impl(src: &str, commands: bool) -> Result<Compiled, CompileError> {
     let n = g.routines.len();
     for i in 0..n {
         let r = g.routines[i].clone();
-        g.frame = Some(Frame { args: r.args, locals: Vec::new() });
+        g.frame = Some(Frame { args: r.args.clone(), locals: Vec::new() });
         g.routine = Some(i);
+        let entry = g.code.len();
         g.emit(match r.kind {
             Kind::Func(Ty::Int) => O_INT_PROC,
             Kind::Func(Ty::Str) => O_STR_PROC,
@@ -351,7 +400,23 @@ fn compile_impl(src: &str, commands: bool) -> Result<Compiled, CompileError> {
             gen_block(&mut g, body, false)?;
         }
         g.emit(O_END);
-        g.frame = None;
+        let locals = g.frame.take().map(|f| f.locals).unwrap_or_default();
+        let word = g.base() + g.index_of(&r.name).unwrap() as u16;
+        g.done_routines.push(RoutineInfo {
+            name: r.name.clone(),
+            word,
+            entry,
+            ret: match r.kind {
+                Kind::Func(t) => Some(t),
+                _ => None,
+            },
+            params: r
+                .args
+                .iter()
+                .map(|a| ParamInfo { name: a.name.clone(), ty: a.ty, by_ref: a.by_ref, array: a.array })
+                .collect(),
+            locals,
+        });
         g.routine = None;
     }
     if n > 0 {
@@ -391,7 +456,21 @@ fn finish(mut g: Gen) -> Compiled {
             }
         };
     }
+    let globals = g
+        .symbols
+        .iter()
+        .map(|s| GlobalInfo {
+            name: s.name.clone(),
+            ty: s.ty,
+            sizes: s.sizes.clone(),
+            init: if s.value.is_some() { s.value.clone() } else { s.init.clone() },
+            is_const: s.value.is_some(),
+            is_routine: matches!(s.kind, Kind::Proc | Kind::Func(_)),
+        })
+        .collect();
     Compiled {
+        globals,
+        routines: g.done_routines,
         code: g.code,
         first_word,
         symbols: g.symbols.iter().map(|s| s.name.clone()).collect(),
@@ -416,12 +495,27 @@ fn collect(g: &mut Gen, stmts: &[Stmt]) -> Result<(), CompileError> {
                 } else {
                     None
                 };
+                let (sizes, init) = {
+                    let lookup = const_lookup(&g.symbols);
+                    let sizes = d
+                        .dims
+                        .iter()
+                        .map(|e| fold(e, &lookup).map(|c| c.and_then(|c| c.num()).map(|n| n as i64)))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let init = match (&d.init, is_const) {
+                        (Some(e), false) => fold(e, &lookup)?,
+                        _ => None,
+                    };
+                    (sizes, init)
+                };
                 g.symbols.push(Symbol {
                     name: d.name.clone(),
                     ty: Ty::of(&d.name),
                     kind: Kind::Var,
                     value,
                     dims: d.dims.len(),
+                    sizes,
+                    init,
                 });
             }
         }
@@ -452,7 +546,7 @@ fn collect(g: &mut Gen, stmts: &[Stmt]) -> Result<(), CompileError> {
             Kind::Func(t) => t,
             _ => Ty::Float,
         };
-        g.symbols.push(Symbol { name: name.clone(), ty, kind, value: None, dims: 0 });
+        g.symbols.push(Symbol { name: name.clone(), ty, kind, value: None, dims: 0, sizes: Vec::new(), init: None });
         g.routines.push(Routine { name: name.clone(), kind, args });
     }
     Ok(())
@@ -1192,6 +1286,14 @@ struct ArgInfo {
     lvalue: bool,
 }
 
+/// A procedure or function named as an argument: what it returns (0 nothing, 1 integer,
+/// 2 real, 3 string) and the type of each parameter, or 0 for an array.
+#[derive(Debug, Clone)]
+struct ProcInfo {
+    ret: u8,
+    params: Vec<u8>,
+}
+
 fn ty_code(t: Ty) -> u8 {
     match t {
         Ty::Int => 1,
@@ -1237,6 +1339,19 @@ fn is_lvalue(g: &Gen, e: &Expr) -> bool {
         }
         _ => false,
     }
+}
+
+/// The routine an argument names, if it names one.
+fn proc_arg(g: &Gen, e: &Expr) -> Option<ProcInfo> {
+    let Expr::Name(n) = e else { return None };
+    let r = g.routines.iter().find(|r| &r.name == n)?;
+    Some(ProcInfo {
+        ret: match r.kind {
+            Kind::Func(t) => ty_code(t),
+            _ => 0,
+        },
+        params: r.args.iter().map(|p| if p.array { 0 } else { ty_code(p.ty) }).collect(),
+    })
 }
 
 /// Compile the argument to learn what it is, then take the code back out.
@@ -1303,22 +1418,44 @@ fn arg_fits(word: u16, a: ArgInfo) -> bool {
     }
 }
 
+/// Does the group of words starting at `v[at]` (which is `0xe`) describe this routine?
+/// The word after `0xe` is the return type, the words up to `0xf` the parameters; each
+/// must be the routine's own, an integer for 1 and a real for 2, by value or by reference
+/// (compiler.dll 0x180016dc0). Returns where the group ends.
+fn group_fits(v: &[u16], at: usize, p: &ProcInfo) -> Option<usize> {
+    let end = at + v[at..].iter().position(|&w| w == super::commands::GROUP_CLOSE)?;
+    let (ret, params) = (v[at + 1], &v[at + 2..end]);
+    (ret as u8 == p.ret && params.len() == p.params.len()
+        && params.iter().zip(&p.params).all(|(&w, &t)| w as u8 == t))
+    .then_some(end)
+}
+
 /// The first variant of `cmd` whose argument list the arguments fit, counted from one.
-/// An argument list may be shorter than the variant, never longer.
-fn match_variant(cmd: &super::commands::Command, args: &[ArgInfo]) -> Result<usize, CompileError> {
+/// An argument list may be longer than the arguments, never shorter.
+fn match_variant(
+    cmd: &super::commands::Command,
+    args: &[ArgInfo],
+    procs: &[Option<ProcInfo>],
+) -> Result<usize, CompileError> {
     if args.len() < cmd.min_args as usize || args.len() > cmd.max_args as usize {
         return Err(CompileError(format!("{}: wrong number of arguments", cmd.name)));
     }
-    for (i, v) in cmd.variants.iter().enumerate() {
-        if v.contains(&super::commands::GROUP_OPEN) {
-            return Err(CompileError(format!(
-                "{} takes a procedure as an argument, which is not compiled yet",
-                cmd.name
-            )));
+    'variants: for (i, v) in cmd.variants.iter().enumerate() {
+        let mut at = 0;
+        for (a, p) in args.iter().zip(procs) {
+            let Some(&w) = v.get(at) else { continue 'variants };
+            if w == super::commands::GROUP_OPEN {
+                match p.as_ref().and_then(|p| group_fits(v, at, p)) {
+                    Some(end) => at = end + 1,
+                    None => continue 'variants,
+                }
+            } else if p.is_some() || !arg_fits(w, *a) {
+                continue 'variants;
+            } else {
+                at += 1;
+            }
         }
-        if args.len() <= v.len() && args.iter().zip(v.iter()).all(|(a, &w)| arg_fits(w, *a)) {
-            return Ok(i + 1);
-        }
+        return Ok(i + 1);
     }
     Err(CompileError(format!("{}: wrong number of arguments or argument type mismatch", cmd.name)))
 }
@@ -1335,12 +1472,27 @@ fn gen_command(
     as_statement: bool,
 ) -> Result<Option<Ty>, CompileError> {
     let mut infos = Vec::with_capacity(args.len());
+    let mut procs = Vec::with_capacity(args.len());
     for a in args {
-        infos.push(arg_info(g, a)?);
+        let p = proc_arg(g, a);
+        infos.push(if p.is_some() {
+            ArgInfo { rank: 0, ty: 0, lvalue: false }
+        } else {
+            arg_info(g, a)?
+        });
+        procs.push(p);
     }
-    let variant = match_variant(cmd, &infos)?;
-    for a in args {
-        gen_expr(g, a)?;
+    let variant = match_variant(cmd, &infos, &procs)?;
+    for (a, p) in args.iter().zip(&procs) {
+        match (a, p) {
+            (Expr::Name(n), Some(_)) => {
+                let w = g.base() + g.index_of(n).unwrap() as u16;
+                g.emit(w);
+            }
+            _ => {
+                gen_expr(g, a)?;
+            }
+        }
     }
     g.emit_const(&Const::Int(args.len() as i64));
     if cmd.variants.len() > 1 {

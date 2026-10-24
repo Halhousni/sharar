@@ -187,7 +187,7 @@ impl ForLoop {
     }
 }
 
-fn as_int(v: Value) -> i64 {
+pub(crate) fn as_int(v: Value) -> i64 {
     match v {
         Value::Int(i) => i,
         Value::Flt(f) => f as i64,
@@ -259,17 +259,17 @@ pub struct Machine {
     pub symbols: Vec<Item>,
 }
 
-fn int_result(b: bool) -> Value {
+pub(crate) fn int_result(b: bool) -> Value {
     Value::Int(b as i64)
 }
 
 /// `ucomisd x, 0` then `jne`: NaN compares equal to zero, so it reads as false.
-fn flt_truthy(x: f64) -> bool {
+pub(crate) fn flt_truthy(x: f64) -> bool {
     !(x == 0.0 || x.is_nan())
 }
 
 /// 0xb080: wrapping multiply, then divide back to detect overflow.
-fn int_mul(l: i64, r: i64) -> Result<i64, RunError> {
+pub(crate) fn int_mul(l: i64, r: i64) -> Result<i64, RunError> {
     let p = l.wrapping_mul(r);
     if r != 0 {
         let q = p.checked_div(r).ok_or(RunError(FAULT_IDIV))?;
@@ -280,14 +280,14 @@ fn int_mul(l: i64, r: i64) -> Result<i64, RunError> {
     Ok(p)
 }
 
-fn int_div(l: i64, r: i64) -> Result<i64, RunError> {
+pub(crate) fn int_div(l: i64, r: i64) -> Result<i64, RunError> {
     if r == 0 {
         return Err(RunError(ERR_DIV_ZERO));
     }
     l.checked_div(r).ok_or(RunError(FAULT_IDIV))
 }
 
-fn int_mod(l: i64, r: i64) -> Result<i64, RunError> {
+pub(crate) fn int_mod(l: i64, r: i64) -> Result<i64, RunError> {
     if r == 0 {
         return Err(RunError(ERR_DIV_ZERO));
     }
@@ -298,7 +298,7 @@ fn int_mod(l: i64, r: i64) -> Result<i64, RunError> {
 
 /// Float divide and modulus test the divisor with `ucomisd`/`je`, so a NaN
 /// divisor raises the same error as zero.
-fn flt_div_check(r: f64) -> Result<(), RunError> {
+pub(crate) fn flt_div_check(r: f64) -> Result<(), RunError> {
     if r == 0.0 || r.is_nan() {
         Err(RunError(ERR_DIV_ZERO))
     } else {

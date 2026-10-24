@@ -81,6 +81,31 @@ def good_arg(word):
     return "1"
 
 
+def routine(name, ret, params):
+    """A proc (ret 0) or func of the given return type and parameter list, as source."""
+    suffix = {0: "", 1: "%", 2: "", 3: "$"}[ret]
+    head = "proc" if ret == 0 else "func"
+    body = "" if ret == 0 else "return " + {1: "1", 2: "1.5", 3: '"x"'}[ret] + ";\n"
+    return f"{head} {name}{suffix}({','.join(params)})\n{body}end;\n", name + suffix
+
+
+PARAM = {1: "a%", 2: "a", 3: "a$"}
+
+
+def procs_for(ret, types):
+    """Routines that fit a group of ret/types, and routines that nearly do."""
+    ok = [PARAM[t].replace("a", f"p{k}") for k, t in enumerate(types)]
+    out = [("fit", ret, ok), ("byref", ret, ["&" + p for p in ok])]
+    out.append(("ret", (ret + 1) % 3, ok))
+    out.append(("more", ret, ok + ["x%"]))
+    if ok:
+        out.append(("fewer", ret, ok[:-1]))
+        flip = [("p0" if k == 0 else f"p{k}") + ("" if types[k] == 1 else "%") if k == 0 else ok[k] for k in range(len(ok))]
+        out.append(("flip", ret, [(PARAM[3 - types[0]]).replace("a", "p0")] + ok[1:]))
+        out.append(("array", ret, ["p0[]"] + ok[1:]))
+    return out
+
+
 def call(cmd, args):
     c = f"{cmd['name']}({','.join(args)})"
     return {0: c + ";", 1: "i% := " + c + ";", 2: "r := " + c + ";", 3: "s$ := " + c + ";"}[cmd["ret"]]
@@ -99,8 +124,25 @@ def cases(cmds):
         for v in cmd["variants"][:4]:
             words = [w for w in v if w not in (0xe, 0xf)]
             if len(words) != len(v):
-                # a procedure is passed: only the plain call
-                yield from add(f"{cmd['name']}();")
+                # a procedure is passed: the group is 0xe, return type, parameter types, 0xf
+                at, args, pending = 0, [], None
+                while at < len(v):
+                    if v[at] == 0xe:
+                        end = v.index(0xf, at)
+                        args.append(("proc", v[at + 1], v[at + 2:end]))
+                        at = end + 1
+                    else:
+                        args.append(good_arg(v[at]))
+                        at += 1
+                if any(a is None for a in args):
+                    continue
+                first = next(k for k, a in enumerate(args) if isinstance(a, tuple))
+                _, gret, gtypes = args[first]
+                for tag, ret, params in procs_for(gret, gtypes):
+                    defs, nm = routine("Fx", ret, params)
+                    use = [nm if isinstance(a, tuple) and k == first else
+                           (nm if isinstance(a, tuple) else a) for k, a in enumerate(args)]
+                    yield from add(defs + call(cmd, use))
                 continue
             base = [good_arg(w) for w in words]
             if any(b is None for b in base):
