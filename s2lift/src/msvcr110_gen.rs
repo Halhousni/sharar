@@ -9415,16 +9415,17 @@ pub(super) fn f_18008c3e0(m: &mut M) {
 static BLOB: &[u8] = include_bytes!("msvcr110.dat");
 /// (address in the DLL, offset in the blob, length)
 const RANGES: &[(u64, u32, u32)] = &[
-    (0x180000000, 0, 0),
-    (0x18009b8c0, 0, 50096),
-    (0x1800a7eb8, 50096, 16),
-    (0x1800a7ee0, 50112, 32),
-    (0x1800a7f10, 50144, 16),
-    (0x1800c25a0, 50160, 16),
-    (0x1800c3258, 50176, 80),
-    (0x1800c3550, 50256, 8192),
+    (0x180001000, 0, 4096),
+    (0x18009b8c0, 4096, 50096),
+    (0x1800a7eb8, 54192, 16),
+    (0x1800a7ee0, 54208, 32),
+    (0x1800a7f10, 54240, 16),
+    (0x1800c25a0, 54256, 16),
+    (0x1800c3258, 54272, 80),
+    (0x1800c3550, 54352, 8192),
 ];
-pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES };
+static TLS: &[u8] = &[];
+pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES, tls: TLS, tls_zero: 0, tls_slot: 0 };
 pub(super) static IMGS: &[&Img] = &[&IMG];
 /// Call a routine through a pointer (a function pointer or a virtual call).
 fn call_ptr(m: &mut M, t: u64) {

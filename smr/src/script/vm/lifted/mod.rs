@@ -8,6 +8,7 @@
 
 use super::{Arg, Cell, Ref, RunError, Vm, V};
 mod cstring;
+mod win;
 use crate::script::compile::Ty;
 use s2lift::{commands, mach::M, Svc};
 use std::panic::{catch_unwind, panic_any, AssertUnwindSafe};
@@ -48,6 +49,7 @@ struct Run<'v> {
     /// The last service the translated code asked for that the host does not have.
     missing: Option<String>,
     strs: cstring::State,
+    win: win::Win,
     /// String arguments the code was given to change: argument number and the holder it edits.
     holders: Vec<(i32, u64)>,
 }
@@ -259,6 +261,7 @@ impl<'v> Svc for Run<'v> {
                 self.result = Some(V::Str(String::from_utf16_lossy(&units)));
             }
             other if cstring::call(&mut self.strs, m, other) => {}
+            other if self.win.call(m, other) => {}
             // The C++ runtime and the C library: memory is the machine's heap, which is never
             // freed during a command.
             "??2@YAPEAX_K@Z" | "??_U@YAPEAX_K@Z" => m.r[0] = m.alloc(m.r[1] as usize),
@@ -440,7 +443,7 @@ impl Vm {
         // The command object: its members start as zeros (strings in it are written before read).
         m.r[1] = m.alloc(0x400);
         m.r[2] = info;
-        let mut run = Run { vm: self, args, result: None, bound: Vec::new(), missing: None, strs: Default::default(), holders: Vec::new() };
+        let mut run = Run { vm: self, args, result: None, bound: Vec::new(), missing: None, strs: Default::default(), win: Default::default(), holders: Vec::new() };
         let quiet = std::panic::take_hook();
         if std::env::var_os("S2LIFT_TRACE").is_none() {
             std::panic::set_hook(Box::new(|_| {}));
@@ -582,4 +585,34 @@ fn civil_from_days(z: i64) -> (i64, i64, i64) {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+/// A host with only the operating system and the C++ runtime behind it: enough to run the data
+/// file engine (`CSonFile`) without a script around it.
+#[derive(Default)]
+pub struct Bare {
+    strs: cstring::State,
+    win: win::Win,
+}
+
+impl Svc for Bare {
+    fn import(&mut self, m: &mut M, id: u32) {
+        let name = commands::IMPORT_NAMES[id as usize];
+        match name {
+            "??2@YAPEAX_K@Z" | "??_U@YAPEAX_K@Z" => m.r[0] = m.alloc(m.r[1] as usize),
+            "??3@YAXPEAX@Z" | "??_V@YAXPEAX@Z" | "free" | "?_Orphan_all@_Container_base0@std@@QEAAXXZ" => {}
+            other if cstring::call(&mut self.strs, m, other) => {}
+            other if self.win.call(m, other) => {}
+            other => panic!("the service {other} is not provided"),
+        }
+    }
+}
+
+impl Bare {
+    /// Call an exported routine of the data file engine by its decorated name.
+    pub fn call(&mut self, m: &mut M, name: &str) {
+        if !commands::call_export(name, m, self) {
+            panic!("{name} was not translated");
+        }
+    }
 }

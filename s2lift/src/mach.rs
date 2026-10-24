@@ -11,6 +11,10 @@
 pub struct Img {
     pub blob: &'static [u8],
     pub ranges: &'static [(u64, u32, u32)],
+    /// Thread-local data: the template, the zeroes after it and the slot the module uses.
+    pub tls: &'static [u8],
+    pub tls_zero: u32,
+    pub tls_slot: u32,
 }
 
 pub const RAX: usize = 0;
@@ -18,7 +22,8 @@ pub const RCX: usize = 1;
 pub const RDX: usize = 2;
 pub const RSP: usize = 4;
 
-const STACK: usize = 16384;
+const STACK_SMALL: usize = 32 * 1024;
+const STACK_BIG: usize = 4 * 1024 * 1024;
 const STACK_BASE: u64 = 0x7fff_0000_0000;
 const HEAP_BASE: u64 = 0x6000_0000_0000;
 
@@ -30,7 +35,9 @@ pub struct M {
     pub cf: bool,
     pub of: bool,
     pub pf: bool,
-    stack: [u8; STACK],
+    stack: Vec<u8>,
+    /// The address of the thread information block, which `gs:` addresses.
+    pub teb: u64,
     imgs: &'static [&'static Img],
     /// Memory handed to the code: arrays it reads and writes. Addresses start at HEAP_BASE.
     heap: Vec<u8>,
@@ -59,8 +66,35 @@ fn sext(v: u64, size: u32) -> i64 {
 
 impl M {
     pub fn new(imgs: &'static [&'static Img]) -> M {
-        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: [0; STACK], imgs, heap: Vec::new(), over: imgs.iter().map(|i| vec![None; i.ranges.len()]).collect(), recent: [0; 8] };
-        m.r[RSP] = STACK_BASE + STACK as u64 - 0x100;
+        Self::with_stack(imgs, STACK_SMALL)
+    }
+
+    /// A machine with room for the large stack frames the data file engine uses.
+    pub fn big(imgs: &'static [&'static Img]) -> M {
+        Self::with_stack(imgs, STACK_BIG)
+    }
+
+    pub fn with_stack(imgs: &'static [&'static Img], stack: usize) -> M {
+        let mut m = M { r: [0; 16], x: [0; 16], zf: false, sf: false, cf: false, of: false, pf: false, stack: vec![0; stack], teb: 0, imgs, heap: Vec::new(), over: imgs.iter().map(|i| vec![None; i.ranges.len()]).collect(), recent: [0; 8] };
+        m.r[RSP] = STACK_BASE + stack as u64 - 0x100;
+        // The thread information block: self pointer, stack limits, the table of thread-local
+        // blocks (one slot per module, which `Img::tls_slot` names).
+        let teb = m.alloc(0x1000);
+        m.teb = teb;
+        m.st(teb + 0x30, 8, teb);
+        m.st(teb + 0x08, 8, STACK_BASE + stack as u64);
+        m.st(teb + 0x10, 8, STACK_BASE);
+        let table = m.alloc(8 * 64);
+        m.st(teb + 0x58, 8, table);
+        for img in imgs {
+            if !img.tls.is_empty() || img.tls_zero != 0 {
+                let block = m.alloc(img.tls.len() + img.tls_zero as usize + 16);
+                for (i, b) in img.tls.iter().enumerate() {
+                    m.st(block + i as u64, 1, *b as u64);
+                }
+                m.st(table + 8 * img.tls_slot as u64, 8, block);
+            }
+        }
         m
     }
 
@@ -73,7 +107,7 @@ impl M {
     // ---- memory ------------------------------------------------------------------------
 
     fn bytes(&self, a: u64, n: usize) -> &[u8] {
-        if a >= STACK_BASE && a + n as u64 <= STACK_BASE + STACK as u64 {
+        if a >= STACK_BASE && a + n as u64 <= STACK_BASE + self.stack.len() as u64 {
             let o = (a - STACK_BASE) as usize;
             return &self.stack[o..o + n];
         }
@@ -93,7 +127,7 @@ impl M {
                 }
             }
         }
-        panic!("msvcrt: read of unmapped address {a:#x}");
+        panic!("translated code read unmapped address {a:#x} (blocks {:x?}, registers {:x?})", self.recent, self.r);
     }
 
     pub fn ld(&self, a: u64, n: u32) -> u64 {
@@ -138,7 +172,7 @@ impl M {
             }
         }
         assert!(
-            a >= STACK_BASE && a + n as u64 <= STACK_BASE + STACK as u64,
+            a >= STACK_BASE && a + n as u64 <= STACK_BASE + self.stack.len() as u64,
             "translated code wrote outside its memory at {a:#x} (blocks {:x?}, registers {:x?})",
             self.recent,
             self.r
@@ -556,6 +590,60 @@ impl M {
             self.r[RAX] = (n / d) as u64;
             self.r[RDX] = (n % d) as u64;
         }
+    }
+
+    pub fn imul1_64(&mut self, src: u64) {
+        let full = self.r[RAX] as i64 as i128 * src as i64 as i128;
+        self.r[RAX] = full as u64;
+        self.r[RDX] = (full >> 64) as u64;
+        let over = full != full as i64 as i128;
+        self.cf = over;
+        self.of = over;
+    }
+
+    pub fn mul32(&mut self, src: u64) {
+        let full = (self.r[RAX] as u32 as u64) * (src as u32 as u64);
+        self.r[RAX] = full & 0xffff_ffff;
+        self.r[RDX] = full >> 32;
+        self.cf = self.r[RDX] != 0;
+        self.of = self.cf;
+    }
+
+    fn f(v: u64) -> f32 {
+        f32::from_bits(v as u32)
+    }
+
+    fn set_ss(&mut self, i: usize, v: f32) {
+        self.x[i] = self.x[i] & !0xffff_ffffu128 | v.to_bits() as u128;
+    }
+
+    pub fn addss(&mut self, i: usize, s: u64) {
+        let v = Self::f(self.xl(i)) + Self::f(s);
+        self.set_ss(i, v);
+    }
+    pub fn subss(&mut self, i: usize, s: u64) {
+        let v = Self::f(self.xl(i)) - Self::f(s);
+        self.set_ss(i, v);
+    }
+    pub fn mulss(&mut self, i: usize, s: u64) {
+        let v = Self::f(self.xl(i)) * Self::f(s);
+        self.set_ss(i, v);
+    }
+    pub fn divss(&mut self, i: usize, s: u64) {
+        let v = Self::f(self.xl(i)) / Self::f(s);
+        self.set_ss(i, v);
+    }
+    pub fn sqrtss(&mut self, i: usize, s: u64) {
+        self.set_ss(i, Self::f(s).sqrt());
+    }
+
+    pub fn comiss(&mut self, a: u64, b: u64) {
+        self.comisd((Self::f(a) as f64).to_bits(), (Self::f(b) as f64).to_bits());
+    }
+
+    pub fn cvtsi2ss(&mut self, i: usize, v: u64, size: u32) {
+        let f = if size == 8 { v as i64 as f32 } else { v as u32 as i32 as f32 };
+        self.set_ss(i, f);
     }
 
     /// `movmskpd`: the sign bits of the two doubles.

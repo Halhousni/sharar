@@ -38,7 +38,8 @@ def exports(path):
 
 
 # The DLLs whose code is translated, and what they export.
-MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll"}
+MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll",
+           "sonlayer": "sonlayer.dll", "son64": "son64.dll"}
 def find(f):
     for d in (vmbin, os.environ.get("ORACLE_DIR", "")):
         if d and os.path.exists(os.path.join(d, f)):
@@ -71,8 +72,9 @@ NATIVE["?BinomialC@@YANHH@Z"] = "m.set_xl(0, crate::special::binomial_c(m.r[1] a
 
 import_names = []
 lifters = {}
+entries_extra = {}
 # Each module's addresses are moved apart, so that a pointer says which module's code it is.
-BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32}
+BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32}
 
 
 def service(lifter, name):
@@ -101,8 +103,18 @@ for mod, f in MODULES.items():
     lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross, bias=BIAS[mod])
     lifters[mod].import_names = import_names
 
+# Extra routines to translate whatever the commands call: `--root module:regex` (the exports of
+# that module whose names match), entered from the host.
+for a in sys.argv:
+    if a.startswith("--root="):
+        mod, pat = a[len("--root="):].split(":", 1)
+        for n, addr in EXPORTS[mod].items():
+            if re.search(pat, n) and addr not in lifters[mod].roots:
+                lifters[mod].roots.append(addr)
+                entries_extra.setdefault(mod, set()).add(addr)
+
 # Follow the imports: a routine another module supplies becomes a root there, until nothing is new.
-entries = {m: set() for m in MODULES}
+entries = {m: set(entries_extra.get(m, ())) for m in MODULES}
 entries["runtime"] = {execs[n] for n in wanted}
 changed = True
 while changed:
@@ -179,14 +191,16 @@ lines += ["];", "",
           "static IMAGES: &[&crate::mach::Img] = &[",
           "    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,",
           "    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,",
+          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG,",
           "];", "",
           "pub fn machine() -> crate::mach::M {",
-          "    crate::mach::M::new(IMAGES)",
+          "    crate::mach::M::big(IMAGES)",
           "}", "",
           "/// A call through a pointer that is not in the module making it: whichever module has it.",
           "pub(crate) fn call_other(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64) {",
           "    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)",
-          "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t);",
+          "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)",
+          "        || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t);",
           "    if !done {",
           "        m.fail(&format!(\"a call through a pointer to {t:#x}\"));",
           "    }",
@@ -195,6 +209,14 @@ lines += ["];", "",
           "pub fn run(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -> bool {",
           "    match name {"]
 lines += [f"        {json.dumps(n)} => crate::rt_runtime_gen::enter_{execs[n]:x}(m, s)," for n in wanted]
+lines += ["        _ => return false,", "    }", "    true", "}", "",
+          "/// Call an exported routine that was asked for with `--root` by its decorated name.",
+          "pub fn call_export(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -> bool {",
+          "    match name {"]
+for mod_, addrs in sorted(entries_extra.items()):
+    for n, a in sorted(EXPORTS[mod_].items()):
+        if a in addrs:
+            lines.append(f"        {json.dumps(n)} => crate::rt_{mod_}_gen::enter_{a + BIAS[mod_]:x}(m, s),")
 lines += ["        _ => return false,", "    }", "    true", "}"]
 from lift import write_if_changed
 write_if_changed(os.path.join(out_dir, "commands.rs"), ("\n".join(lines) + "\n").encode())

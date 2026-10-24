@@ -139,6 +139,17 @@ class Lifter:
                             break
             self.iat[slot] = cache[dll].get(int(ordinal), name)
 
+    def tls_info(self):
+        """(template bytes, zero fill, address of the slot index) of the module's thread-local data."""
+        im = self.im
+        rva, size = struct.unpack_from("<II", im.b, im.dd + 9 * 8)
+        if not rva:
+            return b"", 0, 0
+        o = im.rva_off(rva)
+        start, end, index, _, zero = struct.unpack_from("<QQQQI", im.b, o)
+        so = im.off(start)
+        return im.b[so:so + (end - start)], zero, index
+
     def dir64_relocs(self):
         """Addresses (in the image) of the 64-bit absolute pointers the loader would relocate."""
         im = self.im
@@ -323,7 +334,10 @@ class Lifter:
 
     def ea(self, ins, op):
         m = op.mem
-        if m.segment != 0:
+        gs = ""
+        if m.segment == X.X86_REG_GS:
+            gs = ".wrapping_add(m.teb)"
+        elif m.segment != 0:
             raise Unsupported(f"segment override at {ins.address:x}")
         if m.base == X.X86_REG_RIP:
             addr = (ins.address + ins.size + m.disp) & 0xffffffffffffffff
@@ -333,7 +347,7 @@ class Lifter:
             return f"{self.A(addr):#x}u64"
         base = -1 if m.base == 0 else GPR[ins.reg_name(m.base)][0]
         index = -1 if m.index == 0 else GPR[ins.reg_name(m.index)][0]
-        return f"m.ea({base}, {index}, {m.scale}, {m.disp})"
+        return f"m.ea({base}, {index}, {m.scale}, {m.disp}){gs}"
 
     def val(self, ins, op, size=None):
         size = size or op.size
@@ -440,9 +454,11 @@ class Lifter:
             return put(ins, ops[0], f"m.{mn}({val(ins, ops[0])}, {cnt}, {sz})"), False
         if mn == "imul":
             if len(ops) == 1:
-                if ops[0].size != 4:
-                    raise Unsupported("imul r/m64 at %x" % ins.address)
-                return f"m.imul1_32({val(ins, ops[0])});", False
+                if ops[0].size == 4:
+                    return f"m.imul1_32({val(ins, ops[0])});", False
+                if ops[0].size == 8:
+                    return f"m.imul1_64({val(ins, ops[0])});", False
+                raise Unsupported("imul r/m%d at %x" % (8 * ops[0].size, ins.address))
             sz = ops[0].size
             if len(ops) == 2:
                 return put(ins, ops[0], f"m.imul({val(ins, ops[0])}, {val(ins, ops[1], sz)}, {sz})"), False
@@ -451,8 +467,10 @@ class Lifter:
             sz = ops[0].size
             return f"m.{mn}({val(ins, ops[0])}, {sz});", False
         if mn == "mul":
+            if ops[0].size == 4:
+                return f"m.mul32({val(ins, ops[0])});", False
             if ops[0].size != 8:
-                raise Unsupported("mul r/m32 at %x" % ins.address)
+                raise Unsupported("mul r/m%d at %x" % (8 * ops[0].size, ins.address))
             return f"m.mul64({val(ins, ops[0])});", False
         if mn in ("bt", "bts", "btr", "btc"):
             sz = ops[0].size
@@ -471,6 +489,21 @@ class Lifter:
                    ("let v = m.ld(m.r[6], %d); m.st(m.r[7], %d, v); m.r[6] = m.r[6].wrapping_add(%d);" % (n, n, n))
             return (f"{{ let count: u64 = {loop}; for _ in 0..count {{ {body} m.r[7] = m.r[7].wrapping_add({n}); }} "
                     f"{'m.r[1] = 0;' if rep else ''} }}"), False
+        if mn == "cwde":
+            return "m.r[0] = crate::mach::sx(m.r[0] & 0xffff, 2) & 0xffff_ffff;", False
+        if mn == "cbw":
+            return "m.r[0] = m.r[0] & !0xffff | crate::mach::sx(m.r[0] & 0xff, 1) & 0xffff;", False
+        if mn == "cwd":
+            return "m.r[2] = m.r[2] & !0xffff | if m.r[0] & 0x8000 != 0 { 0xffff } else { 0 };", False
+        if mn == "xchg":
+            a, b = ops
+            sz = a.size
+            return (f"{{ let x = {val(ins, a)}; let y = {val(ins, b)}; {put(ins, a, 'y')} {put(ins, b, 'x')} }}"), False
+        if mn == "cmpxchg":
+            a, b = ops
+            sz = a.size
+            return (f"{{ let d = {val(ins, a)}; let acc = m.gr(0, {sz}, false); m.sub(acc, d, {sz}); "
+                    f"if d == acc {{ {put(ins, a, val(ins, b))} }} else {{ m.sr(0, {sz}, false, d); }} }}"), False
         if mn == "cdq":
             return "m.r[2] = if m.r[0] & 0x8000_0000 != 0 { 0xffff_ffff } else { 0 };", False
         if mn == "cqo":
@@ -516,6 +549,53 @@ class Lifter:
             di = xmm_index(ins.reg_name(ops[0].reg))
             return (f"{{ let s = {self.x128(ins, ops[1])}; m.x[{di}] = (f64::from_bits(s as u64).sqrt().to_bits() as u128) | "
                     f"((f64::from_bits((s >> 64) as u64).sqrt().to_bits() as u128) << 64); }}"), False
+        if mn in ("movss",):
+            d, sop = ops
+            if d.type == X.X86_OP_REG and xmm_index(ins.reg_name(d.reg)) is not None:
+                di = xmm_index(ins.reg_name(d.reg))
+                if sop.type == X.X86_OP_REG:
+                    si = xmm_index(ins.reg_name(sop.reg))
+                    return f"m.x[{di}] = (m.x[{di}] & !0xffff_ffffu128) | (m.x[{si}] & 0xffff_ffffu128);", False
+                return f"m.set_xl_zero({di}, m.ld({ea(ins, sop)}, 4));", False
+            si = xmm_index(ins.reg_name(sop.reg))
+            return f"{{ let v = m.xl({si}) & 0xffff_ffff; let a = {ea(ins, d)}; m.st(a, 4, v); }}", False
+        if mn in ("addss", "subss", "mulss", "divss", "sqrtss"):
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            src = f"m.xl({xmm_index(ins.reg_name(ops[1].reg))})" if ops[1].type == X.X86_OP_REG else f"m.ld({ea(ins, ops[1])}, 4)"
+            return f"m.{mn}({di}, {src});", False
+        if mn in ("comiss", "ucomiss"):
+            a_ = f"m.xl({xmm_index(ins.reg_name(ops[0].reg))})"
+            b_ = f"m.xl({xmm_index(ins.reg_name(ops[1].reg))})" if ops[1].type == X.X86_OP_REG else f"m.ld({ea(ins, ops[1])}, 4)"
+            return f"m.comiss({a_}, {b_});", False
+        if mn == "cvtss2sd":
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            src = f"m.xl({xmm_index(ins.reg_name(ops[1].reg))})" if ops[1].type == X.X86_OP_REG else f"m.ld({ea(ins, ops[1])}, 4)"
+            return f"m.set_xl({di}, (f32::from_bits({src} as u32) as f64).to_bits());", False
+        if mn == "cvtsd2ss":
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            return f"{{ let v = (f64::from_bits({self.x64(ins, ops[1])}) as f32).to_bits() as u128; m.x[{di}] = (m.x[{di}] & !0xffff_ffffu128) | v; }}", False
+        if mn == "cvtps2pd":
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            src = self.x64(ins, ops[1])
+            return (f"{{ let s = {src}; let lo = f32::from_bits(s as u32) as f64; let hi = f32::from_bits((s >> 32) as u32) as f64; "
+                    f"m.x[{di}] = lo.to_bits() as u128 | (hi.to_bits() as u128) << 64; }}"), False
+        if mn == "cvtpd2ps":
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            return (f"{{ let s = {self.x128(ins, ops[1])}; let lo = (f64::from_bits(s as u64) as f32).to_bits() as u128; "
+                    f"let hi = (f64::from_bits((s >> 64) as u64) as f32).to_bits() as u128; m.x[{di}] = lo | hi << 32; }}"), False
+        if mn in ("cvtsi2ss",):
+            sz = ops[1].size
+            return f"m.cvtsi2ss({xmm_index(ins.reg_name(ops[0].reg))}, {val(ins, ops[1], sz)}, {sz});", False
+        if mn in ("cvttss2si", "cvtss2si"):
+            src = f"m.xl({xmm_index(ins.reg_name(ops[1].reg))})" if ops[1].type == X.X86_OP_REG else f"m.ld({ea(ins, ops[1])}, 4)"
+            return put(ins, ops[0], f"m.cvttsd2si((f32::from_bits({src} as u32) as f64).to_bits(), {ops[0].size})"), False
+        if mn in ("addpd", "subpd", "mulpd", "divpd"):
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            op = {"addpd": "+", "subpd": "-", "mulpd": "*", "divpd": "/"}[mn]
+            return (f"{{ let d = m.x[{di}]; let s = {self.x128(ins, ops[1])}; "
+                    f"let lo = (f64::from_bits(d as u64) {op} f64::from_bits(s as u64)).to_bits() as u128; "
+                    f"let hi = (f64::from_bits((d >> 64) as u64) {op} f64::from_bits((s >> 64) as u64)).to_bits() as u128; "
+                    f"m.x[{di}] = lo | hi << 64; }}"), False
         if mn in ("comisd", "ucomisd"):
             return f"m.comisd({self.x64(ins, ops[0])}, {self.x64(ins, ops[1])});", False
         if mn in ("xorpd", "xorps", "pxor", "andpd", "andps", "pand", "orpd", "orps", "por"):
@@ -610,6 +690,9 @@ class Lifter:
                 reg = GPR[ins.reg_name(ops[0].reg)][0]
                 arms = " ".join(f"{t:#x} => {t:#x}," for t in targets)
                 return f"pc = m.r[{reg}]; continue;", True
+            if ops[0].type == X.X86_OP_MEM:
+                ptr = val(ins, ops[0], 8)
+                return f"{{ let t = {ptr}; call_ptr({self.args}, t); m.pop(); return; }}", True
             raise Unsupported("indirect jump at %x" % ins.address)
         if mn.startswith("j"):
             t = ops[0].imm
@@ -694,8 +777,9 @@ class Lifter:
                 continue
             try:
                 text, term = self.lift_ins(i, rng, ins_list, k)
-            except Unsupported as why:
+            except (Unsupported, KeyError) as why:
                 # Reached only on paths a test would show: running it stops with this message.
+                why = Unsupported(f"{why} at {i.address:x} {i.mnemonic} {i.op_str}") if isinstance(why, KeyError) else why
                 self.warnings.append(str(why))
                 text, term = f'm.fail("{str(why)}");', False
             body.append(f"// {i.address:x} {i.mnemonic} {i.op_str}")
@@ -725,7 +809,10 @@ class Lifter:
                 parts.append(self.lift_function(s))
             except Unsupported as why:
                 raise Unsupported(f"in the routine at {s:#x}: {why}")
+        tls_slot_addr = self.tls_info()[2]
         spans = [(a, a + 16) for a in self.data_refs] + [(a, a + 8192) for a in self.table_bases]
+        if tls_slot_addr:
+            spans.append((tls_slot_addr, tls_slot_addr + 16))
         spans.sort()
         merged = []
         for a, b in spans:
@@ -735,14 +822,20 @@ class Lifter:
                 merged.append([a, b])
         blob, ranges = bytearray(), []
         for a, b in merged:
-            chunk = bytearray()
+            # a run of the image, cut where a window runs off the end of a section
+            start, chunk = a, bytearray()
             for va in range(a, b, 16):
                 got = self.read16(va)
                 if got is None:
-                    break
+                    if chunk:
+                        ranges.append((start, len(blob), len(chunk)))
+                        blob += chunk
+                    start, chunk = va + 16, bytearray()
+                    continue
                 chunk += got
-            ranges.append((a, len(blob), len(chunk)))
-            blob += chunk
+            if chunk:
+                ranges.append((start, len(blob), len(chunk)))
+                blob += chunk
         # Data imported from another DLL (_Nan, _Inf): the import slot holds a pointer to the value.
         data_imports = {"_Nan": 0x7ff8000000000000, "_LNan": 0x7ff8000000000000,
                         "_Inf": 0x7ff0000000000000, "_LInf": 0x7ff0000000000000}
@@ -784,7 +877,14 @@ class Lifter:
         for a, o, n in ranges:
             parts.append(f"    ({self.A(a):#x}, {o}, {n}),")
         parts.append("];")
-        parts.append("pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES };")
+        tls_bytes, tls_zero, tls_index_addr = self.tls_info()
+        if tls_index_addr:
+            at = next((i for i, (a, o, n) in enumerate(ranges) if a <= tls_index_addr < a + n), None)
+            if at is not None:
+                a, o, n = ranges[at]
+                struct.pack_into("<I", blob, o + tls_index_addr - a, self.bias >> 32)
+        parts.append(f"static TLS: &[u8] = &{list(tls_bytes)!r};")
+        parts.append(f"pub(super) static IMG: Img = Img {{ blob: BLOB, ranges: RANGES, tls: TLS, tls_zero: {tls_zero}, tls_slot: {self.bias >> 32} }};")
         parts.append("pub(super) static IMGS: &[&Img] = &[&IMG];")
         sig = "m: &mut M, s: &mut dyn Svc, t: u64" if self.svc else "m: &mut M, t: u64"
         arms = "\n".join(f"        {self.A(f):#x} => f_{self.A(f):x}({self.args})," for f in sorted(self.known))
