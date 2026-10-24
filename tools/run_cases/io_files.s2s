@@ -1,0 +1,17 @@
+var res[40], f%, r%;
+f% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__a.txt", 8, 1); Print("hello\n"); FileClose();
+res[0] := FileCopy("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__a.txt", "C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__b.txt");
+res[1] := FileCopy("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__a.txt", "C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__b.txt");
+res[2] := FileCopy("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__a.txt", "C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__b.txt", 1);
+res[3] := FileCopy("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__missing.txt", "C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__c.txt");
+res[4] := FileCopy("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__a.txt", "C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__d.txt");
+res[5] := FileCopy("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__a.txt", "C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__e.txt");
+res[6] := FileDelete("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__b.txt");
+res[7] := FileDelete("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__b.txt");
+res[8] := FileDelete("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__nothing*.txt");
+res[9] := FileDelete("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__?.txt");
+res[10] := FileDelete("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__a.txt");
+res[11] := FileDelete("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__e*.txt");
+res[12] := FileDelete("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__e.txt");
+res[13] := FileDelete("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__d.txt", 0);
+f% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\out\\io_files__z.txt", 8, 1); Print("kept\n"); FileClose();

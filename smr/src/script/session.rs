@@ -1262,6 +1262,23 @@ impl Host for Session {
                 self.display_command(name, args, mem)
             }
             "Yield" => some(V::Int(1)),
+            "FileCopy" => {
+                let (a, b) = (mem.value(&args[0])?, mem.value(&args[1])?);
+                let (V::Str(a), V::Str(b)) = (a, b) else { return Err(RunError(super::vm::ERR_TYPE)) };
+                let overwrite = args.len() > 2 && int(mem, &args[2])? != 0;
+                let (src, dst) = (self.resolve(&a), self.resolve(&b));
+                if dst.exists() && !overwrite {
+                    return some(V::Int(0));
+                }
+                some(V::Int(std::fs::copy(src, dst).is_ok() as i64))
+            }
+            "FileDelete" => {
+                // Answers with 1 when the file went, or -1518 when it was not there. A name is
+                // taken as written: no wildcard is expanded.
+                let V::Str(name) = mem.value(&args[0])? else { return Ok(None) };
+                let p = self.resolve(&name);
+                some(V::Int(if std::fs::remove_file(p).is_ok() { 1 } else { -1518 }))
+            }
             "ChanList" | "Chan$" if self.view().is_some() => self.chan_list(name, args, mem),
             "Cursor" | "CursorNew" | "CursorExists" | "CursorDelete" | "CursorValid" | "CursorSet"
                 if self.view().is_some() =>
@@ -1405,3 +1422,4 @@ impl Host for SharedSession {
         self.0.lock().unwrap().command(name, variant, args, mem)
     }
 }
+
