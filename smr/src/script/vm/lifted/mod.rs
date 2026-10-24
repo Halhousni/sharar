@@ -302,12 +302,34 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 let msg = rdx as u32;
                 m.r[0] = match msg {
                     0x14a7 => self.sonfile_of(m, view_of(rcx_of(m))),
-                    _ => {
-                        if std::env::var_os("S2LIFT_SERVICES").is_some() {
-                            eprintln!("  (message {msg:#x} to {:#x} not handled)", rcx_of(m));
+                    _ => match commands::msg_handlers(msg).first().copied() {
+                        Some(f) => {
+                            // the window's own handler, run with an object standing for the window
+                            let hwnd = rcx_of(m);
+                            let this = match self.world.wnds.get(&hwnd) {
+                                Some(&t) => t,
+                                None => {
+                                    let t = m.alloc(0x4000);
+                                    m.st(t + 0x40, 8, hwnd);
+                                    self.world.wnds.insert(hwnd, t);
+                                    t
+                                }
+                            };
+                            let (wp, lp) = (r8, r9);
+                            m.r[1] = this;
+                            m.r[2] = wp;
+                            m.r[8] = lp;
+                            m.push(0);
+                            commands::call_at(m, self, f);
+                            m.r[0]
                         }
-                        0
-                    }
+                        None => {
+                            if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                                eprintln!("  (message {msg:#x} to {:#x} not handled)", rcx_of(m));
+                            }
+                            0
+                        }
+                    },
                 };
             }
             "?DoInit@@YAFPEAVCBaseCmd@@@Z" => {
@@ -373,6 +395,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.st(obj + 0x18, 4, m.r[1] & 0xffff_ffff);
                 std::panic::resume_unwind(Box::new(s2lift::mach::CxxThrow { obj, info: 0 }))
             }
+            "?CurrentScriptId@CRunInfo@@QEBAPEAUHWND__@@XZ" => m.r[0] = 0x30100,
             "?GError@@YAXF@Z" => panic_any(Thrown(m.r[1] as u16 as i16 as i32)),
             "ldexp" => {
                 let x = f64::from_bits(m.xl(0));
@@ -618,6 +641,8 @@ pub struct World {
     registered: bool,
     thread: u64,
     main_wnd: u64,
+    /// The window object handed to message handlers, by window handle.
+    wnds: std::collections::HashMap<u64, u64>,
 }
 
 impl Default for World {
@@ -628,7 +653,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0 }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default() }
     }
 }
 

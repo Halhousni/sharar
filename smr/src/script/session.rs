@@ -61,11 +61,14 @@ struct DataView {
     /// Cursors 1 to 9, at a time in seconds.
     cursors: [Option<f64>; 9],
     cursor_visible: [bool; 9],
+    /// How each cursor's label is drawn (`CursorLabel`), and where along the cursor (`CursorLabelPos`).
+    label_mode: [i64; 9],
+    label_pos: f64,
 }
 
 impl DataView {
     fn new(handle: i64, file: SonFile) -> DataView {
-        DataView { mem: Vec::new(), shown: Vec::new(), x_range: (0.0, 1.0), y_range: Default::default(), title: None, visible: false, script_name: String::new(), over: Default::default(), handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9] }
+        DataView { mem: Vec::new(), shown: Vec::new(), x_range: (0.0, 1.0), y_range: Default::default(), title: None, visible: false, script_name: String::new(), over: Default::default(), handle, file, hidden: Vec::new(), selected: Vec::new(), cursors: [None; 9], cursor_visible: [true; 9], label_mode: [2; 9], label_pos: 20.0 }
     }
 }
 
@@ -1044,6 +1047,66 @@ impl Session {
                 // It answers with the number it removed, or 0.
                 some(V::Int(if had { n } else { 0 }))
             }
+            "CursorX" => {
+                let n = int(mem, &args[0])?;
+                let v = self.view().unwrap();
+                some(V::Flt(slot(n).and_then(|i| v.cursors[i]).unwrap_or(-1.0)))
+            }
+            "CursorVisible" => {
+                let n = int(mem, &args[0])?;
+                let new = if args.len() > 1 { Some(int(mem, &args[1])? != 0) } else { None };
+                let v = self.view_mut().unwrap();
+                let Some(i) = slot(n).filter(|&i| v.cursors[i].is_some()) else { return some(V::Int(0)) };
+                let prev = v.cursor_visible[i];
+                if let Some(b) = new {
+                    v.cursor_visible[i] = b;
+                }
+                some(V::Int(prev as i64))
+            }
+            "CursorLabelPos" => {
+                let new = if args.len() > 1 { Some(flt(mem, &args[1])?) } else { None };
+                let v = self.view_mut().unwrap();
+                let prev = v.label_pos;
+                if let Some(p) = new {
+                    v.label_pos = p;
+                }
+                some(V::Flt(prev))
+            }
+            "CursorRenumber" => {
+                // The cursors are renumbered in time order.
+                let v = self.view_mut().unwrap();
+                let mut set: Vec<(f64, bool, i64)> =
+                    (0..9).filter_map(|i| v.cursors[i].map(|t| (t, v.cursor_visible[i], v.label_mode[i]))).collect();
+                set.sort_by(|a, b| a.0.total_cmp(&b.0));
+                v.cursors = [None; 9];
+                // The label modes stay with the numbers; the visibility goes with the cursor.
+                for (i, (t, vis, _)) in set.iter().enumerate() {
+                    v.cursors[i] = Some(*t);
+                    v.cursor_visible[i] = *vis;
+                }
+                some(V::Int(set.len() as i64))
+            }
+            "CursorLabel" if args.len() <= 2 && !matches!(args.first(), Some(Arg::Ref(_))) => {
+                // CursorLabel({mode% {, n%}}): how the label is drawn; answers the old mode.
+                let mode = if args.is_empty() { None } else { Some(int(mem, &args[0])?) };
+                let n = if args.len() > 1 { Some(int(mem, &args[1])?) } else { None };
+                let v = self.view_mut().unwrap();
+                let first = match n {
+                    Some(n) => match slot(n).filter(|&i| v.cursors[i].is_some()) {
+                        Some(i) => i,
+                        None => return Ok(None),
+                    },
+                    None => 0,
+                };
+                let prev = v.label_mode[first];
+                if let Some(mode) = mode {
+                    match n {
+                        Some(_) => v.label_mode[first] = mode,
+                        None => v.label_mode = [mode; 9],
+                    }
+                }
+                some(V::Int(prev))
+            }
             "CursorSet" => {
                 // CursorSet(n, pos1, pos2 …): n cursors at the given times; any others go.
                 let n = int(mem, &args[0])?;
@@ -1339,6 +1402,27 @@ impl Host for Session {
                 some(V::Int(was as i64))
             }
             "MinMax" if (5..=7).contains(&args.len()) && self.view().is_some() => self.min_max(args, mem),
+            "ViewFind" => {
+                // The view whose window title is the text, ignoring case; "" is the log window.
+                let want = match mem.value(&args[0])? {
+                    V::Str(s) => s.to_lowercase(),
+                    _ => return Ok(None),
+                };
+                if want.is_empty() {
+                    // what Spike2 answers for the empty title: a view that is neither the log nor a file
+                    return some(V::Int(10));
+                }
+                let found = self.views.iter().find(|v| {
+                    let title = v.title.clone().unwrap_or_else(|| {
+                        let file = v.script_name.replace('/', "\\");
+                        let file = file.rsplit('\\').next().unwrap_or("").to_string();
+                        let stem = file.rsplit_once('.').map(|(a, _)| a).unwrap_or(&file).to_string();
+                        format!("{}[Read only, {}-bit]", stem, if v.file.son64 { 64 } else { 32 })
+                    });
+                    title.to_lowercase() == want
+                });
+                some(V::Int(found.map(|v| v.handle).unwrap_or(0)))
+            }
             "ChanValue" if args.len() == 2 && self.view().is_some() => self.chan_value(args, mem),
             "ChanData" if args.len() >= 4 && self.view().is_some() => self.chan_data(args, mem),
             "MemChan" | "MemSetItem" | "MemGetItem" | "MemDeleteItem" | "MemImport" | "ChanDelete"
@@ -1372,7 +1456,8 @@ impl Host for Session {
                 some(V::Int(if std::fs::remove_file(p).is_ok() { 1 } else { -1518 }))
             }
             "ChanList" | "Chan$" if self.view().is_some() => self.chan_list(name, args, mem),
-            "Cursor" | "CursorNew" | "CursorExists" | "CursorDelete" | "CursorValid" | "CursorSet"
+            "Cursor" | "CursorNew" | "CursorExists" | "CursorDelete" | "CursorValid" | "CursorSet" | "CursorX"
+            | "CursorVisible" | "CursorLabelPos" | "CursorRenumber" | "CursorLabel"
                 if self.view().is_some() =>
             {
                 self.cursor_command(name, args, mem)

@@ -1,0 +1,14 @@
+var res[200], k%, i%, t$, lst$[20];
+var h%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+res[k%] := ViewFind("nothing"); k% += 1;
+res[k%] := ViewFind(""); k% += 1;
+res[k%] := ViewFind("Demo[Read only, 32-bit]") = h%; k% += 1;
+res[k%] := ViewFind("demo[read only, 32-bit]") = h%; k% += 1;
+t$ := WindowTitle$("Mine");
+res[k%] := ViewFind("Mine") = h%; k% += 1;
+res[k%] := ViewFind("mine") = h%; k% += 1;
+res[k%] := ViewFind("Min"); k% += 1;
+res[k%] := ViewFind("Demo[Read only, 32-bit]") = h%; k% += 1;
+res[k%] := Seconds() >= 0; k% += 1;

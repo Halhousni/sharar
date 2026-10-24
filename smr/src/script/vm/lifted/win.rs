@@ -829,10 +829,14 @@ impl Win {
             "GetCurrentDirectoryW" => {
                 let d = std::env::current_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
                 let d = d.replace('/', "\\");
-                if rcx as u32 as usize > d.encode_utf16().count() {
+                let n = d.encode_utf16().count();
+                if rcx as u32 as usize > n {
                     put_wide(m, rdx, &d);
+                    m.r[0] = n as u64;
+                } else {
+                    // too small: the size needed, with the terminator
+                    m.r[0] = n as u64 + 1;
                 }
-                m.r[0] = d.encode_utf16().count() as u64;
             }
             _ => return false,
         }

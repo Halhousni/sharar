@@ -8,7 +8,7 @@ the order of its arithmetic are Spike2's. The routines it calls are translated t
 are Spike2's own code (compiler.dll's arrays, SpikeUtl.dll's maths); what is left is asked of the
 host through `Svc::import` and answered by `smr/src/script/lifted.rs`: the script's arguments and
 result (CRunInfo), the windows and the data file, the C++ runtime. Needs `capstone`."""
-import json, os, re, subprocess, sys
+import json, os, re, struct, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lift import Lifter
 from command_table import Image, MD
@@ -39,7 +39,7 @@ def exports(path):
 
 # The DLLs whose code is translated, and what they export.
 MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll",
-           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe"}
+           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe", "use1432": "USE1432_vm.dll"}
 def find(f):
     for d in (vmbin, os.environ.get("ORACLE_DIR", "")):
         if d and os.path.exists(os.path.join(d, f)):
@@ -74,7 +74,7 @@ import_names = []
 lifters = {}
 entries_extra = {}
 # Each module's addresses are moved apart, so that a pointer says which module's code it is.
-BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32}
+BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32, "use1432": 8 << 32}
 
 
 def service(lifter, name):
@@ -179,6 +179,32 @@ for a in sys.argv:
                 lifters[mod].roots.append(addr)
                 entries_extra.setdefault(mod, set()).add(addr)
 
+# `--msg=0x244e,0x2261`: the SONVIEW handlers of window messages, found in the message maps
+# (AFX_MSGMAP_ENTRY: message, code, id, last id, signature, function), so SendMessage can reach them.
+MSG_HANDLERS = {}
+for a in sys.argv:
+    if a.startswith("--msg="):
+        im_sv = lifters["sonview"].im
+        want = {int(x, 16) for x in a[len("--msg="):].split(",")}
+        text_lo, text_hi = im_sv.tva, im_sv.tva + im_sv.text[2]
+        for i in range(0, len(im_sv.b) - 32, 8):
+            msg, code, i1, i2 = struct.unpack_from("<IIII", im_sv.b, i)
+            if msg in want and (code, i1, i2) == (0, 0, 0):
+                pfn = struct.unpack_from("<Q", im_sv.b, i + 24)[0]
+                if text_lo <= pfn < text_hi:
+                    MSG_HANDLERS.setdefault(msg, []).append(pfn)
+for msg, fs in MSG_HANDLERS.items():
+    for f in fs:
+        if f not in lifters["sonview"].roots:
+            lifters["sonview"].roots.append(f)
+        entries_extra.setdefault("sonview", set()).add(f)
+
+# The 1401 library's error text (Error$ asks for it); its other routines drive hardware.
+for n in ("U14GetErrorString",):
+    a = EXPORTS["use1432"][n]
+    lifters["use1432"].roots.append(a)
+    entries_extra.setdefault("use1432", set()).add(a)
+
 # Follow the imports: a routine another module supplies becomes a root there, until nothing is new.
 entries = {m: set(entries_extra.get(m, ())) for m in MODULES}
 entries["runtime"] |= {execs[n] for n in wanted}
@@ -257,7 +283,7 @@ lines += ["];", "",
           "static IMAGES: &[&crate::mach::Img] = &[",
           "    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,",
           "    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,",
-          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG,",
+          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG, &crate::rt_use1432_gen::IMG,",
           "];", "",
           "pub fn machine() -> crate::mach::M {",
           "    crate::mach::M::big(IMAGES)",
@@ -267,7 +293,7 @@ lines += ["];", "",
           "    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)",
           "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)",
           "        || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)",
-          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t);",
+          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t) || crate::rt_use1432_gen::try_call(m, s, t);",
           "    if !done && !s.call(m, t) {",
           "        m.fail(&format!(\"a call through a pointer to {t:#x}\"));",
           "    }",
@@ -304,7 +330,14 @@ for mod_, addrs in sorted(entries_extra.items()):
     for n, a in sorted(EXPORTS[mod_].items()):
         if a in addrs:
             lines.append(f"        {json.dumps(n)} => crate::rt_{mod_}_gen::enter_{a + BIAS[mod_]:x}(m, s),")
-lines += ["        _ => return false,", "    }", "    true", "}"]
+lines += ["        _ => return false,", "    }", "    true", "}", "",
+          "/// The message-map functions of window message `msg` (several classes may handle it).",
+          "pub fn msg_handlers(msg: u32) -> &'static [u64] {", "    match msg {"]
+for msg, fs in sorted(MSG_HANDLERS.items()):
+    lines.append(f"        {msg:#x} => &[{', '.join(hex(f + BIAS['sonview']) for f in fs)}],")
+lines += ["        _ => &[],", "    }", "}", "",
+          "/// Run the translated routine at the biased address `t`.",
+          "pub fn call_at(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64) {", "    call_other(m, s, t)", "}"]
 from lift import write_if_changed
 write_if_changed(os.path.join(out_dir, "commands.rs"), ("\n".join(lines) + "\n").encode())
 print({m: len(lf.known) for m, lf in lifters.items()}, "routines;", len(import_names), "services")

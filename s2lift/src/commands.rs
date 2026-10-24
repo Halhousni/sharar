@@ -236,7 +236,12 @@ pub const IMPORT_NAMES: &[&str] = &[
     "?_Xout_of_range@std@@YAXPEBD@Z",
     "_CxxThrowException",
     "??1exception@std@@UEAA@XZ",
+    "??0CImageList@@QEAA@XZ",
+    "??1CImageList@@UEAA@XZ",
     "?DeleteObject@CGdiObject@@QEAAHXZ",
+    "??0CClientDC@@QEAA@PEAVCWnd@@@Z",
+    "IntersectRect",
+    "??1CClientDC@@UEAA@XZ",
     "??0?$CStringT@DV?$StrTraitMFC_DLL@DV?$ChTraitsCRT@D@ATL@@@@@ATL@@QEAA@PEBD@Z",
     "??A?$CSimpleStringT@D$00@ATL@@QEBADH@Z",
     "?Delete@?$CStringT@DV?$StrTraitMFC_DLL@DV?$ChTraitsCRT@D@ATL@@@@@ATL@@QEAAHHH@Z",
@@ -246,6 +251,33 @@ pub const IMPORT_NAMES: &[&str] = &[
     "?GetManager@?$CStringT@DV?$StrTraitMFC_DLL@DV?$ChTraitsCRT@D@ATL@@@@@ATL@@QEBAPEAUIAtlStringMgr@2@XZ",
     "??0?$CStringT@DV?$StrTraitMFC_DLL@DV?$ChTraitsCRT@D@ATL@@@@@ATL@@QEAA@PEAUIAtlStringMgr@1@@Z",
     "?Concatenate@?$CSimpleStringT@D$00@ATL@@KAXAEAV12@PEBDH1H@Z",
+    "GetObjectW",
+    "CreateCompatibleBitmap",
+    "?Attach@CGdiObject@@QEAAHPEAX@Z",
+    "??0CDC@@QEAA@XZ",
+    "CreateCompatibleDC",
+    "?Attach@CDC@@QEAAHPEAUHDC__@@@Z",
+    "?SelectGdiObject@CDC@@KAPEAVCGdiObject@@PEAUHDC__@@PEAX@Z",
+    "?SetStretchBltMode@CDC@@QEAAHH@Z",
+    "StretchBlt",
+    "?Detach@CGdiObject@@QEAAPEAXXZ",
+    "??1CDC@@UEAA@XZ",
+    "?DeleteImageList@CImageList@@QEAAHXZ",
+    "?Create@CImageList@@QEAAHHHIHH@Z",
+    "ImageList_AddMasked",
+    "ImageList_GetImageCount",
+    "ImageList_GetImageInfo",
+    "CopyRect",
+    "OffsetRect",
+    "ImageList_SetBkColor",
+    "??0CBrush@@QEAA@K@Z",
+    "FillRect",
+    "ImageList_Draw",
+    "GetPixel",
+    "SetPixel",
+    "GetDeviceCaps",
+    "?AfxFindResourceHandle@@YAPEAUHINSTANCE__@@PEB_W0@Z",
+    "LoadBitmapW",
     "abort",
     "strcpy_s",
     "strncpy_s",
@@ -255,6 +287,7 @@ pub const IMPORT_NAMES: &[&str] = &[
     "strchr",
     "??0bad_cast@std@@QEAA@PEBD@Z",
     "realloc",
+    "SHGetFolderPathW",
     "GlobalAlloc",
     "GlobalLock",
     "GlobalUnlock",
@@ -273,6 +306,9 @@ pub const IMPORT_NAMES: &[&str] = &[
     "atoi",
     "vsprintf_s",
     "?GetRuntimeClass@CGdiObject@@UEBAPEAUCRuntimeClass@@XZ",
+    "?GetRuntimeClass@CImageList@@UEBAPEAUCRuntimeClass@@XZ",
+    "?GetThisMessageMap@CWnd@@KAPEBUAFX_MSGMAP@@XZ",
+    "?GetRuntimeClass@CBrush@@UEBAPEAUCRuntimeClass@@XZ",
     "?GetRuntimeClass@CBitmap@@UEBAPEAUCRuntimeClass@@XZ",
     "?GetThisMessageMap@CControlBar@@KAPEBUAFX_MSGMAP@@XZ",
     "?GetThisMessageMap@CDialogEx@@KAPEBUAFX_MSGMAP@@XZ",
@@ -305,28 +341,18 @@ pub const IMPORT_NAMES: &[&str] = &[
     "__crtTerminateProcess",
     "__crtCapturePreviousContext",
     "IsProcessorFeaturePresent",
-    "U14Close1401",
-    "U14MonitorRev",
-    "U14SendString",
-    "U14LongsFrom1401",
-    "U14Open1401",
-    "U14TypeOf1401",
-    "U14NameOf1401",
-    "U14FirmwareCode",
-    "U14Stat1401",
-    "U14GetString",
-    "U14Ld",
-    "U14ToHost",
-    "U14To1401",
     "?Format@?$CStringT@DV?$StrTraitMFC_DLL@DV?$ChTraitsCRT@D@ATL@@@@@ATL@@QEAAXPEBDZZ",
-    "U14SetTransArea",
-    "U14UnSetTransfer",
     "?AfxMessageBox@@YAHIII@Z",
     "_wcsicmp",
     "GetLocalTime",
     "MoveFileW",
     "_finite",
     "_fpclass",
+    "atan2f",
+    "atanf",
+    "cosf",
+    "sinf",
+    "tanf",
     "SetFilePointerEx",
     "SetEndOfFile",
     "ReadFile",
@@ -350,15 +376,39 @@ pub const IMPORT_NAMES: &[&str] = &[
     "memcmp",
     "?GetCurrentViewAndType@CRunInfo@@QEBAPEAUHWND__@@AEAVCObjType@@@Z",
     "?FromHandlePermanent@CWnd@@SAPEAV1@PEAUHWND__@@@Z",
-    "?MoveWindow@CWnd@@QEAAXHHHHH@Z",
+    "GetClientRect",
+    "IsRectEmpty",
+    "?ExcludeClipRect@CDC@@QEAAHPEBUtagRECT@@@Z",
+    "?ClientToScreen@CWnd@@QEBAXPEAUtagRECT@@@Z",
+    "?ScreenToClient@CWnd@@QEBAXPEAUtagRECT@@@Z",
     "InvalidateRect",
+    "?GetParentFrame@CWnd@@QEBAPEAVCFrameWnd@@XZ",
+    "SHGetFolderPathAndSubDirW",
+    "?IsKindOf@CObject@@QEBAHPEBUCRuntimeClass@@@Z",
+    "?MoveWindow@CWnd@@QEAAXHHHHH@Z",
     "?ShowWindow@CWnd@@QEAAHH@Z",
     "IsWindowVisible",
     "?IsFloating@CControlBar@@QEBAHXZ",
     "?ShowControlBar@CFrameWnd@@QEAAXPEAVCControlBar@@HH@Z",
     "?SetWindowTextW@CWnd@@QEAAXPEB_W@Z",
     "toupper",
-    "?GetThisMessageMap@CWnd@@KAPEBUAFX_MSGMAP@@XZ",
+    "_vswprintf_c_l",
+    "DeviceIoControl",
+    "strstr",
+    "VirtualUnlock",
+    "VirtualLock",
+    "CreateEventW",
+    "sprintf",
+    "WaitForSingleObject",
+    "_waccess",
+    "wcsrchr",
+    "GetModuleFileNameW",
+    "_wgetenv",
+    "_wopen",
+    "_read",
+    "_lseek",
+    "_close",
+    "strncat",
 ];
 
 /// The translated commands.
@@ -872,7 +922,7 @@ pub const COMMANDS: &[&str] = &[
 static IMAGES: &[&crate::mach::Img] = &[
     &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,
     &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,
-    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG,
+    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG, &crate::rt_use1432_gen::IMG,
 ];
 
 pub fn machine() -> crate::mach::M {
@@ -884,7 +934,7 @@ pub(crate) fn call_other(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64)
     let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)
         || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)
         || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)
-        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t);
+        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t) || crate::rt_use1432_gen::try_call(m, s, t);
     if !done && !s.call(m, t) {
         m.fail(&format!("a call through a pointer to {t:#x}"));
     }
@@ -2199,7 +2249,33 @@ pub fn call_export(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -
         "?isFile32@CSonFile@@QEBA_NXZ" => crate::rt_sonlayer_gen::enter_5800032f0(m, s),
         "?isFile64@CSonFile@@QEBA_NXZ" => crate::rt_sonlayer_gen::enter_5800032e0(m, s),
         "?size@?$list@VCSegSet@@V?$allocator@VCSegSet@@@std@@@std@@QEBA_KXZ" => crate::rt_sonlayer_gen::enter_580021600(m, s),
+        "?MsgGetSelection@CTextView@@IEAA_J_K_J@Z" => crate::rt_sonview_gen::enter_840144900(m, s),
+        "?MsgPrintPreviewChange@CTextView@@IEAA_J_K_J@Z" => crate::rt_sonview_gen::enter_840146950(m, s),
+        "?MsgTabSettings@CTextView@@IEAA_J_K_J@Z" => crate::rt_sonview_gen::enter_840145150(m, s),
+        "?MsgUpdateEditorStyle@CTextView@@IEAA_J_K_J@Z" => crate::rt_sonview_gen::enter_8401468d0(m, s),
+        "U14GetErrorString" => crate::rt_use1432_gen::enter_9800036e0(m, s),
         _ => return false,
     }
     true
+}
+
+/// The message-map functions of window message `msg` (several classes may handle it).
+pub fn msg_handlers(msg: u32) -> &'static [u64] {
+    match msg {
+        0x15a6 => &[0x8400f1d20],
+        0x15a7 => &[0x840135b90],
+        0x15a8 => &[0x840145150],
+        0x15a9 => &[0x8400f8e40, 0x840146950],
+        0x15aa => &[0x840083330, 0x8401468d0],
+        0x163d => &[0x840089110],
+        0x1679 => &[0x840144900],
+        0x2261 => &[0x840089db0],
+        0x244e => &[0x84008c0e0],
+        _ => &[],
+    }
+}
+
+/// Run the translated routine at the biased address `t`.
+pub fn call_at(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64) {
+    call_other(m, s, t)
 }

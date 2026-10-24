@@ -221,6 +221,17 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
             let v: Vec<u32> = (0..len).map(|i| m.ld(p + i as u64 * w, w as u32) as u32).collect();
             st.write(m, rcx, &v, wide);
         }
+        ("?LoadStringW@", _) => {
+            // a message from the application's string table (SONVIEW.exe's resources)
+            match s2lift::strings_gen::STRINGS.binary_search_by_key(&(rdx as u32), |e| e.0) {
+                Ok(i) => {
+                    let v: Vec<u32> = s2lift::strings_gen::STRINGS[i].1.encode_utf16().map(|u| u as u32).collect();
+                    st.write(m, rcx, &v, wide);
+                    m.r[0] = 1;
+                }
+                Err(_) => m.r[0] = 0,
+            }
+        }
         ("?Format@", _) | ("?AppendFormat@", _) => {
             let fmt = cstr(m, rdx, true);
             let mut next = 0u64;

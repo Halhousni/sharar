@@ -1,0 +1,3 @@
+var res[400], k%, i%;
+k% := 0;
+for i% := 0 to 399 do res[k%] := Len(Error$(-i%)); k% += 1; next
