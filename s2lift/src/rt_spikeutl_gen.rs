@@ -76608,7 +76608,7 @@ pub(super) fn f_3800672a0(m: &mut M, s: &mut dyn Svc) {
                 // 1800672d0 pop rdi
                 { let v = m.pop(); m.sr(7, 8, false, v); }
                 // 1800672d1 jmp qword ptr [rip + 0x581e0]
-                crate::rt_msvcp110_gen::enter_480008ecc(m, s); m.pop(); return;
+                crate::rt_msvcp110_gen::tail_480008ecc(m, s); return;
             }
             0x3800672d8 => {
                 m.block(0x3800672d8);
@@ -124952,7 +124952,7 @@ pub(super) fn f_3800b4130(m: &mut M, s: &mut dyn Svc) {
             0x3800b4130 => {
                 m.block(0x3800b4130);
                 // 1800b4130 jmp qword ptr [rip + 0xb35a]
-                crate::rt_msvcp110_gen::enter_480008c38(m, s); m.pop(); return;
+                crate::rt_msvcp110_gen::tail_480008c38(m, s); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -124967,7 +124967,7 @@ pub(super) fn f_3800b4136(m: &mut M, s: &mut dyn Svc) {
             0x3800b4136 => {
                 m.block(0x3800b4136);
                 // 1800b4136 jmp qword ptr [rip + 0xb35c]
-                crate::rt_msvcp110_gen::enter_480008c40(m, s); m.pop(); return;
+                crate::rt_msvcp110_gen::tail_480008c40(m, s); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -130368,921 +130368,1611 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
     true
 }
 
+pub(crate) fn tail_380001000(m: &mut M, s: &mut dyn Svc) {
+    f_380001000(m, s)
+}
 /// Run the routine at 0x180001000 with the machine's registers as the caller set them.
 pub(crate) fn enter_380001000(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380001000(m, s); });
+}
+pub(crate) fn tail_3800018f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800018f0(m, s)
 }
 /// Run the routine at 0x1800018f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800018f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800018f0(m, s); });
 }
+pub(crate) fn tail_380001910(m: &mut M, s: &mut dyn Svc) {
+    f_380001910(m, s)
+}
 /// Run the routine at 0x180001910 with the machine's registers as the caller set them.
 pub(crate) fn enter_380001910(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380001910(m, s); });
+}
+pub(crate) fn tail_380001930(m: &mut M, s: &mut dyn Svc) {
+    f_380001930(m, s)
 }
 /// Run the routine at 0x180001930 with the machine's registers as the caller set them.
 pub(crate) fn enter_380001930(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380001930(m, s); });
 }
+pub(crate) fn tail_380001970(m: &mut M, s: &mut dyn Svc) {
+    f_380001970(m, s)
+}
 /// Run the routine at 0x180001970 with the machine's registers as the caller set them.
 pub(crate) fn enter_380001970(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380001970(m, s); });
+}
+pub(crate) fn tail_380001980(m: &mut M, s: &mut dyn Svc) {
+    f_380001980(m, s)
 }
 /// Run the routine at 0x180001980 with the machine's registers as the caller set them.
 pub(crate) fn enter_380001980(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380001980(m, s); });
 }
+pub(crate) fn tail_380001d00(m: &mut M, s: &mut dyn Svc) {
+    f_380001d00(m, s)
+}
 /// Run the routine at 0x180001d00 with the machine's registers as the caller set them.
 pub(crate) fn enter_380001d00(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380001d00(m, s); });
+}
+pub(crate) fn tail_380001d10(m: &mut M, s: &mut dyn Svc) {
+    f_380001d10(m, s)
 }
 /// Run the routine at 0x180001d10 with the machine's registers as the caller set them.
 pub(crate) fn enter_380001d10(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380001d10(m, s); });
 }
+pub(crate) fn tail_38001ce80(m: &mut M, s: &mut dyn Svc) {
+    f_38001ce80(m, s)
+}
 /// Run the routine at 0x18001ce80 with the machine's registers as the caller set them.
 pub(crate) fn enter_38001ce80(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38001ce80(m, s); });
+}
+pub(crate) fn tail_38001cee0(m: &mut M, s: &mut dyn Svc) {
+    f_38001cee0(m, s)
 }
 /// Run the routine at 0x18001cee0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38001cee0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38001cee0(m, s); });
 }
+pub(crate) fn tail_380020450(m: &mut M, s: &mut dyn Svc) {
+    f_380020450(m, s)
+}
 /// Run the routine at 0x180020450 with the machine's registers as the caller set them.
 pub(crate) fn enter_380020450(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380020450(m, s); });
+}
+pub(crate) fn tail_380022510(m: &mut M, s: &mut dyn Svc) {
+    f_380022510(m, s)
 }
 /// Run the routine at 0x180022510 with the machine's registers as the caller set them.
 pub(crate) fn enter_380022510(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380022510(m, s); });
 }
+pub(crate) fn tail_380025130(m: &mut M, s: &mut dyn Svc) {
+    f_380025130(m, s)
+}
 /// Run the routine at 0x180025130 with the machine's registers as the caller set them.
 pub(crate) fn enter_380025130(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380025130(m, s); });
+}
+pub(crate) fn tail_3800254e0(m: &mut M, s: &mut dyn Svc) {
+    f_3800254e0(m, s)
 }
 /// Run the routine at 0x1800254e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800254e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800254e0(m, s); });
 }
+pub(crate) fn tail_380025ed0(m: &mut M, s: &mut dyn Svc) {
+    f_380025ed0(m, s)
+}
 /// Run the routine at 0x180025ed0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380025ed0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380025ed0(m, s); });
+}
+pub(crate) fn tail_380025fe0(m: &mut M, s: &mut dyn Svc) {
+    f_380025fe0(m, s)
 }
 /// Run the routine at 0x180025fe0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380025fe0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380025fe0(m, s); });
 }
+pub(crate) fn tail_380026210(m: &mut M, s: &mut dyn Svc) {
+    f_380026210(m, s)
+}
 /// Run the routine at 0x180026210 with the machine's registers as the caller set them.
 pub(crate) fn enter_380026210(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380026210(m, s); });
+}
+pub(crate) fn tail_3800262c0(m: &mut M, s: &mut dyn Svc) {
+    f_3800262c0(m, s)
 }
 /// Run the routine at 0x1800262c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800262c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800262c0(m, s); });
 }
+pub(crate) fn tail_3800264a0(m: &mut M, s: &mut dyn Svc) {
+    f_3800264a0(m, s)
+}
 /// Run the routine at 0x1800264a0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800264a0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800264a0(m, s); });
+}
+pub(crate) fn tail_380026540(m: &mut M, s: &mut dyn Svc) {
+    f_380026540(m, s)
 }
 /// Run the routine at 0x180026540 with the machine's registers as the caller set them.
 pub(crate) fn enter_380026540(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380026540(m, s); });
 }
+pub(crate) fn tail_38002b4d0(m: &mut M, s: &mut dyn Svc) {
+    f_38002b4d0(m, s)
+}
 /// Run the routine at 0x18002b4d0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002b4d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002b4d0(m, s); });
+}
+pub(crate) fn tail_38002b6d0(m: &mut M, s: &mut dyn Svc) {
+    f_38002b6d0(m, s)
 }
 /// Run the routine at 0x18002b6d0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002b6d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002b6d0(m, s); });
 }
+pub(crate) fn tail_38002b6e0(m: &mut M, s: &mut dyn Svc) {
+    f_38002b6e0(m, s)
+}
 /// Run the routine at 0x18002b6e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002b6e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002b6e0(m, s); });
+}
+pub(crate) fn tail_38002b6f0(m: &mut M, s: &mut dyn Svc) {
+    f_38002b6f0(m, s)
 }
 /// Run the routine at 0x18002b6f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002b6f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002b6f0(m, s); });
 }
+pub(crate) fn tail_38002b770(m: &mut M, s: &mut dyn Svc) {
+    f_38002b770(m, s)
+}
 /// Run the routine at 0x18002b770 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002b770(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002b770(m, s); });
+}
+pub(crate) fn tail_38002c220(m: &mut M, s: &mut dyn Svc) {
+    f_38002c220(m, s)
 }
 /// Run the routine at 0x18002c220 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002c220(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002c220(m, s); });
 }
+pub(crate) fn tail_38002cd30(m: &mut M, s: &mut dyn Svc) {
+    f_38002cd30(m, s)
+}
 /// Run the routine at 0x18002cd30 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002cd30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002cd30(m, s); });
+}
+pub(crate) fn tail_38002e480(m: &mut M, s: &mut dyn Svc) {
+    f_38002e480(m, s)
 }
 /// Run the routine at 0x18002e480 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002e480(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002e480(m, s); });
 }
+pub(crate) fn tail_38002e4e0(m: &mut M, s: &mut dyn Svc) {
+    f_38002e4e0(m, s)
+}
 /// Run the routine at 0x18002e4e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38002e4e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38002e4e0(m, s); });
+}
+pub(crate) fn tail_3800301f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800301f0(m, s)
 }
 /// Run the routine at 0x1800301f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800301f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800301f0(m, s); });
 }
+pub(crate) fn tail_380030260(m: &mut M, s: &mut dyn Svc) {
+    f_380030260(m, s)
+}
 /// Run the routine at 0x180030260 with the machine's registers as the caller set them.
 pub(crate) fn enter_380030260(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380030260(m, s); });
+}
+pub(crate) fn tail_380030270(m: &mut M, s: &mut dyn Svc) {
+    f_380030270(m, s)
 }
 /// Run the routine at 0x180030270 with the machine's registers as the caller set them.
 pub(crate) fn enter_380030270(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380030270(m, s); });
 }
+pub(crate) fn tail_380030390(m: &mut M, s: &mut dyn Svc) {
+    f_380030390(m, s)
+}
 /// Run the routine at 0x180030390 with the machine's registers as the caller set them.
 pub(crate) fn enter_380030390(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380030390(m, s); });
+}
+pub(crate) fn tail_3800303c0(m: &mut M, s: &mut dyn Svc) {
+    f_3800303c0(m, s)
 }
 /// Run the routine at 0x1800303c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800303c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800303c0(m, s); });
 }
+pub(crate) fn tail_380032580(m: &mut M, s: &mut dyn Svc) {
+    f_380032580(m, s)
+}
 /// Run the routine at 0x180032580 with the machine's registers as the caller set them.
 pub(crate) fn enter_380032580(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380032580(m, s); });
+}
+pub(crate) fn tail_380033dd0(m: &mut M, s: &mut dyn Svc) {
+    f_380033dd0(m, s)
 }
 /// Run the routine at 0x180033dd0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380033dd0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380033dd0(m, s); });
 }
+pub(crate) fn tail_380033f40(m: &mut M, s: &mut dyn Svc) {
+    f_380033f40(m, s)
+}
 /// Run the routine at 0x180033f40 with the machine's registers as the caller set them.
 pub(crate) fn enter_380033f40(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380033f40(m, s); });
+}
+pub(crate) fn tail_380033fd0(m: &mut M, s: &mut dyn Svc) {
+    f_380033fd0(m, s)
 }
 /// Run the routine at 0x180033fd0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380033fd0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380033fd0(m, s); });
 }
+pub(crate) fn tail_380034040(m: &mut M, s: &mut dyn Svc) {
+    f_380034040(m, s)
+}
 /// Run the routine at 0x180034040 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034040(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034040(m, s); });
+}
+pub(crate) fn tail_380034060(m: &mut M, s: &mut dyn Svc) {
+    f_380034060(m, s)
 }
 /// Run the routine at 0x180034060 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034060(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034060(m, s); });
 }
+pub(crate) fn tail_3800340b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800340b0(m, s)
+}
 /// Run the routine at 0x1800340b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800340b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800340b0(m, s); });
+}
+pub(crate) fn tail_380034100(m: &mut M, s: &mut dyn Svc) {
+    f_380034100(m, s)
 }
 /// Run the routine at 0x180034100 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034100(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034100(m, s); });
 }
+pub(crate) fn tail_380034130(m: &mut M, s: &mut dyn Svc) {
+    f_380034130(m, s)
+}
 /// Run the routine at 0x180034130 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034130(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034130(m, s); });
+}
+pub(crate) fn tail_380034140(m: &mut M, s: &mut dyn Svc) {
+    f_380034140(m, s)
 }
 /// Run the routine at 0x180034140 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034140(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034140(m, s); });
 }
+pub(crate) fn tail_380034150(m: &mut M, s: &mut dyn Svc) {
+    f_380034150(m, s)
+}
 /// Run the routine at 0x180034150 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034150(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034150(m, s); });
+}
+pub(crate) fn tail_380034190(m: &mut M, s: &mut dyn Svc) {
+    f_380034190(m, s)
 }
 /// Run the routine at 0x180034190 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034190(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034190(m, s); });
 }
+pub(crate) fn tail_3800341b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800341b0(m, s)
+}
 /// Run the routine at 0x1800341b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800341b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800341b0(m, s); });
+}
+pub(crate) fn tail_3800341f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800341f0(m, s)
 }
 /// Run the routine at 0x1800341f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800341f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800341f0(m, s); });
 }
+pub(crate) fn tail_3800344d0(m: &mut M, s: &mut dyn Svc) {
+    f_3800344d0(m, s)
+}
 /// Run the routine at 0x1800344d0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800344d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800344d0(m, s); });
+}
+pub(crate) fn tail_380034530(m: &mut M, s: &mut dyn Svc) {
+    f_380034530(m, s)
 }
 /// Run the routine at 0x180034530 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034530(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034530(m, s); });
 }
+pub(crate) fn tail_3800345a0(m: &mut M, s: &mut dyn Svc) {
+    f_3800345a0(m, s)
+}
 /// Run the routine at 0x1800345a0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800345a0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800345a0(m, s); });
+}
+pub(crate) fn tail_3800345c0(m: &mut M, s: &mut dyn Svc) {
+    f_3800345c0(m, s)
 }
 /// Run the routine at 0x1800345c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800345c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800345c0(m, s); });
 }
+pub(crate) fn tail_380034770(m: &mut M, s: &mut dyn Svc) {
+    f_380034770(m, s)
+}
 /// Run the routine at 0x180034770 with the machine's registers as the caller set them.
 pub(crate) fn enter_380034770(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380034770(m, s); });
+}
+pub(crate) fn tail_3800347f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800347f0(m, s)
 }
 /// Run the routine at 0x1800347f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800347f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800347f0(m, s); });
 }
+pub(crate) fn tail_3800392f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800392f0(m, s)
+}
 /// Run the routine at 0x1800392f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800392f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800392f0(m, s); });
+}
+pub(crate) fn tail_380039510(m: &mut M, s: &mut dyn Svc) {
+    f_380039510(m, s)
 }
 /// Run the routine at 0x180039510 with the machine's registers as the caller set them.
 pub(crate) fn enter_380039510(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380039510(m, s); });
 }
+pub(crate) fn tail_3800396b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800396b0(m, s)
+}
 /// Run the routine at 0x1800396b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800396b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800396b0(m, s); });
+}
+pub(crate) fn tail_3800398f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800398f0(m, s)
 }
 /// Run the routine at 0x1800398f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800398f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800398f0(m, s); });
 }
+pub(crate) fn tail_38003add0(m: &mut M, s: &mut dyn Svc) {
+    f_38003add0(m, s)
+}
 /// Run the routine at 0x18003add0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003add0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003add0(m, s); });
+}
+pub(crate) fn tail_38003b310(m: &mut M, s: &mut dyn Svc) {
+    f_38003b310(m, s)
 }
 /// Run the routine at 0x18003b310 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003b310(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003b310(m, s); });
 }
+pub(crate) fn tail_38003b4f0(m: &mut M, s: &mut dyn Svc) {
+    f_38003b4f0(m, s)
+}
 /// Run the routine at 0x18003b4f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003b4f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003b4f0(m, s); });
+}
+pub(crate) fn tail_38003b730(m: &mut M, s: &mut dyn Svc) {
+    f_38003b730(m, s)
 }
 /// Run the routine at 0x18003b730 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003b730(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003b730(m, s); });
 }
+pub(crate) fn tail_38003b840(m: &mut M, s: &mut dyn Svc) {
+    f_38003b840(m, s)
+}
 /// Run the routine at 0x18003b840 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003b840(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003b840(m, s); });
+}
+pub(crate) fn tail_38003bc20(m: &mut M, s: &mut dyn Svc) {
+    f_38003bc20(m, s)
 }
 /// Run the routine at 0x18003bc20 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003bc20(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003bc20(m, s); });
 }
+pub(crate) fn tail_38003bca0(m: &mut M, s: &mut dyn Svc) {
+    f_38003bca0(m, s)
+}
 /// Run the routine at 0x18003bca0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003bca0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003bca0(m, s); });
+}
+pub(crate) fn tail_38003bd40(m: &mut M, s: &mut dyn Svc) {
+    f_38003bd40(m, s)
 }
 /// Run the routine at 0x18003bd40 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003bd40(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003bd40(m, s); });
 }
+pub(crate) fn tail_38003be50(m: &mut M, s: &mut dyn Svc) {
+    f_38003be50(m, s)
+}
 /// Run the routine at 0x18003be50 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003be50(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003be50(m, s); });
+}
+pub(crate) fn tail_38003c240(m: &mut M, s: &mut dyn Svc) {
+    f_38003c240(m, s)
 }
 /// Run the routine at 0x18003c240 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003c240(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003c240(m, s); });
 }
+pub(crate) fn tail_38003c600(m: &mut M, s: &mut dyn Svc) {
+    f_38003c600(m, s)
+}
 /// Run the routine at 0x18003c600 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003c600(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003c600(m, s); });
+}
+pub(crate) fn tail_38003c9e0(m: &mut M, s: &mut dyn Svc) {
+    f_38003c9e0(m, s)
 }
 /// Run the routine at 0x18003c9e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003c9e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003c9e0(m, s); });
 }
+pub(crate) fn tail_38003c9f0(m: &mut M, s: &mut dyn Svc) {
+    f_38003c9f0(m, s)
+}
 /// Run the routine at 0x18003c9f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003c9f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003c9f0(m, s); });
+}
+pub(crate) fn tail_38003ca10(m: &mut M, s: &mut dyn Svc) {
+    f_38003ca10(m, s)
 }
 /// Run the routine at 0x18003ca10 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003ca10(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003ca10(m, s); });
 }
+pub(crate) fn tail_38003ca90(m: &mut M, s: &mut dyn Svc) {
+    f_38003ca90(m, s)
+}
 /// Run the routine at 0x18003ca90 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003ca90(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003ca90(m, s); });
+}
+pub(crate) fn tail_38003cac0(m: &mut M, s: &mut dyn Svc) {
+    f_38003cac0(m, s)
 }
 /// Run the routine at 0x18003cac0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003cac0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003cac0(m, s); });
 }
+pub(crate) fn tail_38003ce90(m: &mut M, s: &mut dyn Svc) {
+    f_38003ce90(m, s)
+}
 /// Run the routine at 0x18003ce90 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003ce90(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003ce90(m, s); });
+}
+pub(crate) fn tail_38003cfd0(m: &mut M, s: &mut dyn Svc) {
+    f_38003cfd0(m, s)
 }
 /// Run the routine at 0x18003cfd0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003cfd0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003cfd0(m, s); });
 }
+pub(crate) fn tail_38003d080(m: &mut M, s: &mut dyn Svc) {
+    f_38003d080(m, s)
+}
 /// Run the routine at 0x18003d080 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003d080(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003d080(m, s); });
+}
+pub(crate) fn tail_38003d1b0(m: &mut M, s: &mut dyn Svc) {
+    f_38003d1b0(m, s)
 }
 /// Run the routine at 0x18003d1b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003d1b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003d1b0(m, s); });
 }
+pub(crate) fn tail_38003d210(m: &mut M, s: &mut dyn Svc) {
+    f_38003d210(m, s)
+}
 /// Run the routine at 0x18003d210 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003d210(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003d210(m, s); });
+}
+pub(crate) fn tail_38003d530(m: &mut M, s: &mut dyn Svc) {
+    f_38003d530(m, s)
 }
 /// Run the routine at 0x18003d530 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003d530(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003d530(m, s); });
 }
+pub(crate) fn tail_38003db40(m: &mut M, s: &mut dyn Svc) {
+    f_38003db40(m, s)
+}
 /// Run the routine at 0x18003db40 with the machine's registers as the caller set them.
 pub(crate) fn enter_38003db40(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38003db40(m, s); });
+}
+pub(crate) fn tail_380043840(m: &mut M, s: &mut dyn Svc) {
+    f_380043840(m, s)
 }
 /// Run the routine at 0x180043840 with the machine's registers as the caller set them.
 pub(crate) fn enter_380043840(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380043840(m, s); });
 }
+pub(crate) fn tail_380043b70(m: &mut M, s: &mut dyn Svc) {
+    f_380043b70(m, s)
+}
 /// Run the routine at 0x180043b70 with the machine's registers as the caller set them.
 pub(crate) fn enter_380043b70(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380043b70(m, s); });
+}
+pub(crate) fn tail_380043d10(m: &mut M, s: &mut dyn Svc) {
+    f_380043d10(m, s)
 }
 /// Run the routine at 0x180043d10 with the machine's registers as the caller set them.
 pub(crate) fn enter_380043d10(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380043d10(m, s); });
 }
+pub(crate) fn tail_380043e10(m: &mut M, s: &mut dyn Svc) {
+    f_380043e10(m, s)
+}
 /// Run the routine at 0x180043e10 with the machine's registers as the caller set them.
 pub(crate) fn enter_380043e10(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380043e10(m, s); });
+}
+pub(crate) fn tail_380045240(m: &mut M, s: &mut dyn Svc) {
+    f_380045240(m, s)
 }
 /// Run the routine at 0x180045240 with the machine's registers as the caller set them.
 pub(crate) fn enter_380045240(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380045240(m, s); });
 }
+pub(crate) fn tail_380045960(m: &mut M, s: &mut dyn Svc) {
+    f_380045960(m, s)
+}
 /// Run the routine at 0x180045960 with the machine's registers as the caller set them.
 pub(crate) fn enter_380045960(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380045960(m, s); });
+}
+pub(crate) fn tail_3800459e0(m: &mut M, s: &mut dyn Svc) {
+    f_3800459e0(m, s)
 }
 /// Run the routine at 0x1800459e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800459e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800459e0(m, s); });
 }
+pub(crate) fn tail_380045d00(m: &mut M, s: &mut dyn Svc) {
+    f_380045d00(m, s)
+}
 /// Run the routine at 0x180045d00 with the machine's registers as the caller set them.
 pub(crate) fn enter_380045d00(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380045d00(m, s); });
+}
+pub(crate) fn tail_380049ba0(m: &mut M, s: &mut dyn Svc) {
+    f_380049ba0(m, s)
 }
 /// Run the routine at 0x180049ba0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380049ba0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380049ba0(m, s); });
 }
+pub(crate) fn tail_38005b2f0(m: &mut M, s: &mut dyn Svc) {
+    f_38005b2f0(m, s)
+}
 /// Run the routine at 0x18005b2f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005b2f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005b2f0(m, s); });
+}
+pub(crate) fn tail_38005b750(m: &mut M, s: &mut dyn Svc) {
+    f_38005b750(m, s)
 }
 /// Run the routine at 0x18005b750 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005b750(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005b750(m, s); });
 }
+pub(crate) fn tail_38005b860(m: &mut M, s: &mut dyn Svc) {
+    f_38005b860(m, s)
+}
 /// Run the routine at 0x18005b860 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005b860(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005b860(m, s); });
+}
+pub(crate) fn tail_38005b930(m: &mut M, s: &mut dyn Svc) {
+    f_38005b930(m, s)
 }
 /// Run the routine at 0x18005b930 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005b930(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005b930(m, s); });
 }
+pub(crate) fn tail_38005bc60(m: &mut M, s: &mut dyn Svc) {
+    f_38005bc60(m, s)
+}
 /// Run the routine at 0x18005bc60 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005bc60(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005bc60(m, s); });
+}
+pub(crate) fn tail_38005bc70(m: &mut M, s: &mut dyn Svc) {
+    f_38005bc70(m, s)
 }
 /// Run the routine at 0x18005bc70 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005bc70(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005bc70(m, s); });
 }
+pub(crate) fn tail_38005bf30(m: &mut M, s: &mut dyn Svc) {
+    f_38005bf30(m, s)
+}
 /// Run the routine at 0x18005bf30 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005bf30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005bf30(m, s); });
+}
+pub(crate) fn tail_38005d8a0(m: &mut M, s: &mut dyn Svc) {
+    f_38005d8a0(m, s)
 }
 /// Run the routine at 0x18005d8a0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005d8a0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005d8a0(m, s); });
 }
+pub(crate) fn tail_38005d8c0(m: &mut M, s: &mut dyn Svc) {
+    f_38005d8c0(m, s)
+}
 /// Run the routine at 0x18005d8c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005d8c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005d8c0(m, s); });
+}
+pub(crate) fn tail_38005d8e0(m: &mut M, s: &mut dyn Svc) {
+    f_38005d8e0(m, s)
 }
 /// Run the routine at 0x18005d8e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005d8e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005d8e0(m, s); });
 }
+pub(crate) fn tail_38005da70(m: &mut M, s: &mut dyn Svc) {
+    f_38005da70(m, s)
+}
 /// Run the routine at 0x18005da70 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005da70(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005da70(m, s); });
+}
+pub(crate) fn tail_38005e2d0(m: &mut M, s: &mut dyn Svc) {
+    f_38005e2d0(m, s)
 }
 /// Run the routine at 0x18005e2d0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005e2d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005e2d0(m, s); });
 }
+pub(crate) fn tail_38005e7f0(m: &mut M, s: &mut dyn Svc) {
+    f_38005e7f0(m, s)
+}
 /// Run the routine at 0x18005e7f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005e7f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005e7f0(m, s); });
+}
+pub(crate) fn tail_38005ea00(m: &mut M, s: &mut dyn Svc) {
+    f_38005ea00(m, s)
 }
 /// Run the routine at 0x18005ea00 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005ea00(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005ea00(m, s); });
 }
+pub(crate) fn tail_38005ea80(m: &mut M, s: &mut dyn Svc) {
+    f_38005ea80(m, s)
+}
 /// Run the routine at 0x18005ea80 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005ea80(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005ea80(m, s); });
+}
+pub(crate) fn tail_38005eb30(m: &mut M, s: &mut dyn Svc) {
+    f_38005eb30(m, s)
 }
 /// Run the routine at 0x18005eb30 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005eb30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005eb30(m, s); });
 }
+pub(crate) fn tail_38005ed70(m: &mut M, s: &mut dyn Svc) {
+    f_38005ed70(m, s)
+}
 /// Run the routine at 0x18005ed70 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005ed70(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005ed70(m, s); });
+}
+pub(crate) fn tail_38005f450(m: &mut M, s: &mut dyn Svc) {
+    f_38005f450(m, s)
 }
 /// Run the routine at 0x18005f450 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005f450(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005f450(m, s); });
 }
+pub(crate) fn tail_38005f4b0(m: &mut M, s: &mut dyn Svc) {
+    f_38005f4b0(m, s)
+}
 /// Run the routine at 0x18005f4b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005f4b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005f4b0(m, s); });
+}
+pub(crate) fn tail_38005fae0(m: &mut M, s: &mut dyn Svc) {
+    f_38005fae0(m, s)
 }
 /// Run the routine at 0x18005fae0 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005fae0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005fae0(m, s); });
 }
+pub(crate) fn tail_38005fb10(m: &mut M, s: &mut dyn Svc) {
+    f_38005fb10(m, s)
+}
 /// Run the routine at 0x18005fb10 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005fb10(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005fb10(m, s); });
+}
+pub(crate) fn tail_38005fb30(m: &mut M, s: &mut dyn Svc) {
+    f_38005fb30(m, s)
 }
 /// Run the routine at 0x18005fb30 with the machine's registers as the caller set them.
 pub(crate) fn enter_38005fb30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38005fb30(m, s); });
 }
+pub(crate) fn tail_380062620(m: &mut M, s: &mut dyn Svc) {
+    f_380062620(m, s)
+}
 /// Run the routine at 0x180062620 with the machine's registers as the caller set them.
 pub(crate) fn enter_380062620(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380062620(m, s); });
+}
+pub(crate) fn tail_380062850(m: &mut M, s: &mut dyn Svc) {
+    f_380062850(m, s)
 }
 /// Run the routine at 0x180062850 with the machine's registers as the caller set them.
 pub(crate) fn enter_380062850(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380062850(m, s); });
 }
+pub(crate) fn tail_380062990(m: &mut M, s: &mut dyn Svc) {
+    f_380062990(m, s)
+}
 /// Run the routine at 0x180062990 with the machine's registers as the caller set them.
 pub(crate) fn enter_380062990(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380062990(m, s); });
+}
+pub(crate) fn tail_380062ad0(m: &mut M, s: &mut dyn Svc) {
+    f_380062ad0(m, s)
 }
 /// Run the routine at 0x180062ad0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380062ad0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380062ad0(m, s); });
 }
+pub(crate) fn tail_380062e50(m: &mut M, s: &mut dyn Svc) {
+    f_380062e50(m, s)
+}
 /// Run the routine at 0x180062e50 with the machine's registers as the caller set them.
 pub(crate) fn enter_380062e50(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380062e50(m, s); });
+}
+pub(crate) fn tail_380063440(m: &mut M, s: &mut dyn Svc) {
+    f_380063440(m, s)
 }
 /// Run the routine at 0x180063440 with the machine's registers as the caller set them.
 pub(crate) fn enter_380063440(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380063440(m, s); });
 }
+pub(crate) fn tail_3800634d0(m: &mut M, s: &mut dyn Svc) {
+    f_3800634d0(m, s)
+}
 /// Run the routine at 0x1800634d0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800634d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800634d0(m, s); });
+}
+pub(crate) fn tail_380063560(m: &mut M, s: &mut dyn Svc) {
+    f_380063560(m, s)
 }
 /// Run the routine at 0x180063560 with the machine's registers as the caller set them.
 pub(crate) fn enter_380063560(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380063560(m, s); });
 }
+pub(crate) fn tail_380063760(m: &mut M, s: &mut dyn Svc) {
+    f_380063760(m, s)
+}
 /// Run the routine at 0x180063760 with the machine's registers as the caller set them.
 pub(crate) fn enter_380063760(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380063760(m, s); });
+}
+pub(crate) fn tail_380063f20(m: &mut M, s: &mut dyn Svc) {
+    f_380063f20(m, s)
 }
 /// Run the routine at 0x180063f20 with the machine's registers as the caller set them.
 pub(crate) fn enter_380063f20(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380063f20(m, s); });
 }
+pub(crate) fn tail_380064290(m: &mut M, s: &mut dyn Svc) {
+    f_380064290(m, s)
+}
 /// Run the routine at 0x180064290 with the machine's registers as the caller set them.
 pub(crate) fn enter_380064290(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380064290(m, s); });
+}
+pub(crate) fn tail_380064320(m: &mut M, s: &mut dyn Svc) {
+    f_380064320(m, s)
 }
 /// Run the routine at 0x180064320 with the machine's registers as the caller set them.
 pub(crate) fn enter_380064320(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380064320(m, s); });
 }
+pub(crate) fn tail_3800643b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800643b0(m, s)
+}
 /// Run the routine at 0x1800643b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800643b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800643b0(m, s); });
+}
+pub(crate) fn tail_380064bd0(m: &mut M, s: &mut dyn Svc) {
+    f_380064bd0(m, s)
 }
 /// Run the routine at 0x180064bd0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380064bd0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380064bd0(m, s); });
 }
+pub(crate) fn tail_380064c90(m: &mut M, s: &mut dyn Svc) {
+    f_380064c90(m, s)
+}
 /// Run the routine at 0x180064c90 with the machine's registers as the caller set them.
 pub(crate) fn enter_380064c90(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380064c90(m, s); });
+}
+pub(crate) fn tail_380064f30(m: &mut M, s: &mut dyn Svc) {
+    f_380064f30(m, s)
 }
 /// Run the routine at 0x180064f30 with the machine's registers as the caller set them.
 pub(crate) fn enter_380064f30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380064f30(m, s); });
 }
+pub(crate) fn tail_380064fa0(m: &mut M, s: &mut dyn Svc) {
+    f_380064fa0(m, s)
+}
 /// Run the routine at 0x180064fa0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380064fa0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380064fa0(m, s); });
+}
+pub(crate) fn tail_3800651a0(m: &mut M, s: &mut dyn Svc) {
+    f_3800651a0(m, s)
 }
 /// Run the routine at 0x1800651a0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800651a0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800651a0(m, s); });
 }
+pub(crate) fn tail_3800652f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800652f0(m, s)
+}
 /// Run the routine at 0x1800652f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800652f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800652f0(m, s); });
+}
+pub(crate) fn tail_380077640(m: &mut M, s: &mut dyn Svc) {
+    f_380077640(m, s)
 }
 /// Run the routine at 0x180077640 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077640(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077640(m, s); });
 }
+pub(crate) fn tail_380077660(m: &mut M, s: &mut dyn Svc) {
+    f_380077660(m, s)
+}
 /// Run the routine at 0x180077660 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077660(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077660(m, s); });
+}
+pub(crate) fn tail_380077670(m: &mut M, s: &mut dyn Svc) {
+    f_380077670(m, s)
 }
 /// Run the routine at 0x180077670 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077670(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077670(m, s); });
 }
+pub(crate) fn tail_380077690(m: &mut M, s: &mut dyn Svc) {
+    f_380077690(m, s)
+}
 /// Run the routine at 0x180077690 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077690(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077690(m, s); });
+}
+pub(crate) fn tail_3800777f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800777f0(m, s)
 }
 /// Run the routine at 0x1800777f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800777f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800777f0(m, s); });
 }
+pub(crate) fn tail_380077860(m: &mut M, s: &mut dyn Svc) {
+    f_380077860(m, s)
+}
 /// Run the routine at 0x180077860 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077860(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077860(m, s); });
+}
+pub(crate) fn tail_3800778b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800778b0(m, s)
 }
 /// Run the routine at 0x1800778b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800778b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800778b0(m, s); });
 }
+pub(crate) fn tail_3800779c0(m: &mut M, s: &mut dyn Svc) {
+    f_3800779c0(m, s)
+}
 /// Run the routine at 0x1800779c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800779c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800779c0(m, s); });
+}
+pub(crate) fn tail_380077b10(m: &mut M, s: &mut dyn Svc) {
+    f_380077b10(m, s)
 }
 /// Run the routine at 0x180077b10 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077b10(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077b10(m, s); });
 }
+pub(crate) fn tail_380077c20(m: &mut M, s: &mut dyn Svc) {
+    f_380077c20(m, s)
+}
 /// Run the routine at 0x180077c20 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077c20(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077c20(m, s); });
+}
+pub(crate) fn tail_380077d30(m: &mut M, s: &mut dyn Svc) {
+    f_380077d30(m, s)
 }
 /// Run the routine at 0x180077d30 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077d30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077d30(m, s); });
 }
+pub(crate) fn tail_380077d50(m: &mut M, s: &mut dyn Svc) {
+    f_380077d50(m, s)
+}
 /// Run the routine at 0x180077d50 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077d50(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077d50(m, s); });
+}
+pub(crate) fn tail_380077e00(m: &mut M, s: &mut dyn Svc) {
+    f_380077e00(m, s)
 }
 /// Run the routine at 0x180077e00 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077e00(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077e00(m, s); });
 }
+pub(crate) fn tail_380077e80(m: &mut M, s: &mut dyn Svc) {
+    f_380077e80(m, s)
+}
 /// Run the routine at 0x180077e80 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077e80(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077e80(m, s); });
+}
+pub(crate) fn tail_380077ea0(m: &mut M, s: &mut dyn Svc) {
+    f_380077ea0(m, s)
 }
 /// Run the routine at 0x180077ea0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077ea0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077ea0(m, s); });
 }
+pub(crate) fn tail_380077ed0(m: &mut M, s: &mut dyn Svc) {
+    f_380077ed0(m, s)
+}
 /// Run the routine at 0x180077ed0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077ed0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077ed0(m, s); });
+}
+pub(crate) fn tail_380077f60(m: &mut M, s: &mut dyn Svc) {
+    f_380077f60(m, s)
 }
 /// Run the routine at 0x180077f60 with the machine's registers as the caller set them.
 pub(crate) fn enter_380077f60(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380077f60(m, s); });
 }
+pub(crate) fn tail_380078050(m: &mut M, s: &mut dyn Svc) {
+    f_380078050(m, s)
+}
 /// Run the routine at 0x180078050 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078050(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078050(m, s); });
+}
+pub(crate) fn tail_380078130(m: &mut M, s: &mut dyn Svc) {
+    f_380078130(m, s)
 }
 /// Run the routine at 0x180078130 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078130(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078130(m, s); });
 }
+pub(crate) fn tail_3800781c0(m: &mut M, s: &mut dyn Svc) {
+    f_3800781c0(m, s)
+}
 /// Run the routine at 0x1800781c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800781c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800781c0(m, s); });
+}
+pub(crate) fn tail_380078250(m: &mut M, s: &mut dyn Svc) {
+    f_380078250(m, s)
 }
 /// Run the routine at 0x180078250 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078250(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078250(m, s); });
 }
+pub(crate) fn tail_3800782e0(m: &mut M, s: &mut dyn Svc) {
+    f_3800782e0(m, s)
+}
 /// Run the routine at 0x1800782e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800782e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800782e0(m, s); });
+}
+pub(crate) fn tail_3800783b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800783b0(m, s)
 }
 /// Run the routine at 0x1800783b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800783b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800783b0(m, s); });
 }
+pub(crate) fn tail_3800784b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800784b0(m, s)
+}
 /// Run the routine at 0x1800784b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800784b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800784b0(m, s); });
+}
+pub(crate) fn tail_380078580(m: &mut M, s: &mut dyn Svc) {
+    f_380078580(m, s)
 }
 /// Run the routine at 0x180078580 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078580(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078580(m, s); });
 }
+pub(crate) fn tail_380078610(m: &mut M, s: &mut dyn Svc) {
+    f_380078610(m, s)
+}
 /// Run the routine at 0x180078610 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078610(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078610(m, s); });
+}
+pub(crate) fn tail_380078670(m: &mut M, s: &mut dyn Svc) {
+    f_380078670(m, s)
 }
 /// Run the routine at 0x180078670 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078670(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078670(m, s); });
 }
+pub(crate) fn tail_380078770(m: &mut M, s: &mut dyn Svc) {
+    f_380078770(m, s)
+}
 /// Run the routine at 0x180078770 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078770(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078770(m, s); });
+}
+pub(crate) fn tail_380078800(m: &mut M, s: &mut dyn Svc) {
+    f_380078800(m, s)
 }
 /// Run the routine at 0x180078800 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078800(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078800(m, s); });
 }
+pub(crate) fn tail_3800788a0(m: &mut M, s: &mut dyn Svc) {
+    f_3800788a0(m, s)
+}
 /// Run the routine at 0x1800788a0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800788a0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800788a0(m, s); });
+}
+pub(crate) fn tail_3800788d0(m: &mut M, s: &mut dyn Svc) {
+    f_3800788d0(m, s)
 }
 /// Run the routine at 0x1800788d0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800788d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800788d0(m, s); });
 }
+pub(crate) fn tail_380078900(m: &mut M, s: &mut dyn Svc) {
+    f_380078900(m, s)
+}
 /// Run the routine at 0x180078900 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078900(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078900(m, s); });
+}
+pub(crate) fn tail_3800789c0(m: &mut M, s: &mut dyn Svc) {
+    f_3800789c0(m, s)
 }
 /// Run the routine at 0x1800789c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800789c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800789c0(m, s); });
 }
+pub(crate) fn tail_3800789e0(m: &mut M, s: &mut dyn Svc) {
+    f_3800789e0(m, s)
+}
 /// Run the routine at 0x1800789e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800789e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800789e0(m, s); });
+}
+pub(crate) fn tail_380078ad0(m: &mut M, s: &mut dyn Svc) {
+    f_380078ad0(m, s)
 }
 /// Run the routine at 0x180078ad0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078ad0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078ad0(m, s); });
 }
+pub(crate) fn tail_380078b00(m: &mut M, s: &mut dyn Svc) {
+    f_380078b00(m, s)
+}
 /// Run the routine at 0x180078b00 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078b00(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078b00(m, s); });
+}
+pub(crate) fn tail_380078b30(m: &mut M, s: &mut dyn Svc) {
+    f_380078b30(m, s)
 }
 /// Run the routine at 0x180078b30 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078b30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078b30(m, s); });
 }
+pub(crate) fn tail_380078b90(m: &mut M, s: &mut dyn Svc) {
+    f_380078b90(m, s)
+}
 /// Run the routine at 0x180078b90 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078b90(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078b90(m, s); });
+}
+pub(crate) fn tail_380078bb0(m: &mut M, s: &mut dyn Svc) {
+    f_380078bb0(m, s)
 }
 /// Run the routine at 0x180078bb0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078bb0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078bb0(m, s); });
 }
+pub(crate) fn tail_380078be0(m: &mut M, s: &mut dyn Svc) {
+    f_380078be0(m, s)
+}
 /// Run the routine at 0x180078be0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078be0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078be0(m, s); });
+}
+pub(crate) fn tail_380078c30(m: &mut M, s: &mut dyn Svc) {
+    f_380078c30(m, s)
 }
 /// Run the routine at 0x180078c30 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078c30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078c30(m, s); });
 }
+pub(crate) fn tail_380078ca0(m: &mut M, s: &mut dyn Svc) {
+    f_380078ca0(m, s)
+}
 /// Run the routine at 0x180078ca0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078ca0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078ca0(m, s); });
+}
+pub(crate) fn tail_380078cf0(m: &mut M, s: &mut dyn Svc) {
+    f_380078cf0(m, s)
 }
 /// Run the routine at 0x180078cf0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078cf0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078cf0(m, s); });
 }
+pub(crate) fn tail_380078d60(m: &mut M, s: &mut dyn Svc) {
+    f_380078d60(m, s)
+}
 /// Run the routine at 0x180078d60 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078d60(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078d60(m, s); });
+}
+pub(crate) fn tail_380078db0(m: &mut M, s: &mut dyn Svc) {
+    f_380078db0(m, s)
 }
 /// Run the routine at 0x180078db0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078db0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078db0(m, s); });
 }
+pub(crate) fn tail_380078e30(m: &mut M, s: &mut dyn Svc) {
+    f_380078e30(m, s)
+}
 /// Run the routine at 0x180078e30 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078e30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078e30(m, s); });
+}
+pub(crate) fn tail_380078ed0(m: &mut M, s: &mut dyn Svc) {
+    f_380078ed0(m, s)
 }
 /// Run the routine at 0x180078ed0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078ed0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078ed0(m, s); });
 }
+pub(crate) fn tail_380078ef0(m: &mut M, s: &mut dyn Svc) {
+    f_380078ef0(m, s)
+}
 /// Run the routine at 0x180078ef0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078ef0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078ef0(m, s); });
+}
+pub(crate) fn tail_380078f10(m: &mut M, s: &mut dyn Svc) {
+    f_380078f10(m, s)
 }
 /// Run the routine at 0x180078f10 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078f10(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078f10(m, s); });
 }
+pub(crate) fn tail_380078f70(m: &mut M, s: &mut dyn Svc) {
+    f_380078f70(m, s)
+}
 /// Run the routine at 0x180078f70 with the machine's registers as the caller set them.
 pub(crate) fn enter_380078f70(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380078f70(m, s); });
+}
+pub(crate) fn tail_380079010(m: &mut M, s: &mut dyn Svc) {
+    f_380079010(m, s)
 }
 /// Run the routine at 0x180079010 with the machine's registers as the caller set them.
 pub(crate) fn enter_380079010(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380079010(m, s); });
 }
+pub(crate) fn tail_380079050(m: &mut M, s: &mut dyn Svc) {
+    f_380079050(m, s)
+}
 /// Run the routine at 0x180079050 with the machine's registers as the caller set them.
 pub(crate) fn enter_380079050(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380079050(m, s); });
+}
+pub(crate) fn tail_380079080(m: &mut M, s: &mut dyn Svc) {
+    f_380079080(m, s)
 }
 /// Run the routine at 0x180079080 with the machine's registers as the caller set them.
 pub(crate) fn enter_380079080(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380079080(m, s); });
 }
+pub(crate) fn tail_3800799f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800799f0(m, s)
+}
 /// Run the routine at 0x1800799f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800799f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800799f0(m, s); });
+}
+pub(crate) fn tail_380089aa0(m: &mut M, s: &mut dyn Svc) {
+    f_380089aa0(m, s)
 }
 /// Run the routine at 0x180089aa0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380089aa0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380089aa0(m, s); });
 }
+pub(crate) fn tail_380089b50(m: &mut M, s: &mut dyn Svc) {
+    f_380089b50(m, s)
+}
 /// Run the routine at 0x180089b50 with the machine's registers as the caller set them.
 pub(crate) fn enter_380089b50(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380089b50(m, s); });
+}
+pub(crate) fn tail_380089e20(m: &mut M, s: &mut dyn Svc) {
+    f_380089e20(m, s)
 }
 /// Run the routine at 0x180089e20 with the machine's registers as the caller set them.
 pub(crate) fn enter_380089e20(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380089e20(m, s); });
 }
+pub(crate) fn tail_380089e80(m: &mut M, s: &mut dyn Svc) {
+    f_380089e80(m, s)
+}
 /// Run the routine at 0x180089e80 with the machine's registers as the caller set them.
 pub(crate) fn enter_380089e80(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380089e80(m, s); });
+}
+pub(crate) fn tail_380089f10(m: &mut M, s: &mut dyn Svc) {
+    f_380089f10(m, s)
 }
 /// Run the routine at 0x180089f10 with the machine's registers as the caller set them.
 pub(crate) fn enter_380089f10(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380089f10(m, s); });
 }
+pub(crate) fn tail_380089f50(m: &mut M, s: &mut dyn Svc) {
+    f_380089f50(m, s)
+}
 /// Run the routine at 0x180089f50 with the machine's registers as the caller set them.
 pub(crate) fn enter_380089f50(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380089f50(m, s); });
+}
+pub(crate) fn tail_38008a000(m: &mut M, s: &mut dyn Svc) {
+    f_38008a000(m, s)
 }
 /// Run the routine at 0x18008a000 with the machine's registers as the caller set them.
 pub(crate) fn enter_38008a000(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_38008a000(m, s); });
 }
+pub(crate) fn tail_380091ac0(m: &mut M, s: &mut dyn Svc) {
+    f_380091ac0(m, s)
+}
 /// Run the routine at 0x180091ac0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380091ac0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380091ac0(m, s); });
+}
+pub(crate) fn tail_380092290(m: &mut M, s: &mut dyn Svc) {
+    f_380092290(m, s)
 }
 /// Run the routine at 0x180092290 with the machine's registers as the caller set them.
 pub(crate) fn enter_380092290(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380092290(m, s); });
 }
+pub(crate) fn tail_380092360(m: &mut M, s: &mut dyn Svc) {
+    f_380092360(m, s)
+}
 /// Run the routine at 0x180092360 with the machine's registers as the caller set them.
 pub(crate) fn enter_380092360(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380092360(m, s); });
+}
+pub(crate) fn tail_380093040(m: &mut M, s: &mut dyn Svc) {
+    f_380093040(m, s)
 }
 /// Run the routine at 0x180093040 with the machine's registers as the caller set them.
 pub(crate) fn enter_380093040(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380093040(m, s); });
 }
+pub(crate) fn tail_3800930c0(m: &mut M, s: &mut dyn Svc) {
+    f_3800930c0(m, s)
+}
 /// Run the routine at 0x1800930c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800930c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800930c0(m, s); });
+}
+pub(crate) fn tail_380093390(m: &mut M, s: &mut dyn Svc) {
+    f_380093390(m, s)
 }
 /// Run the routine at 0x180093390 with the machine's registers as the caller set them.
 pub(crate) fn enter_380093390(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380093390(m, s); });
 }
+pub(crate) fn tail_380093440(m: &mut M, s: &mut dyn Svc) {
+    f_380093440(m, s)
+}
 /// Run the routine at 0x180093440 with the machine's registers as the caller set them.
 pub(crate) fn enter_380093440(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380093440(m, s); });
+}
+pub(crate) fn tail_380093560(m: &mut M, s: &mut dyn Svc) {
+    f_380093560(m, s)
 }
 /// Run the routine at 0x180093560 with the machine's registers as the caller set them.
 pub(crate) fn enter_380093560(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380093560(m, s); });
 }
+pub(crate) fn tail_3800937b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800937b0(m, s)
+}
 /// Run the routine at 0x1800937b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800937b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800937b0(m, s); });
+}
+pub(crate) fn tail_380094e80(m: &mut M, s: &mut dyn Svc) {
+    f_380094e80(m, s)
 }
 /// Run the routine at 0x180094e80 with the machine's registers as the caller set them.
 pub(crate) fn enter_380094e80(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380094e80(m, s); });
 }
+pub(crate) fn tail_380095100(m: &mut M, s: &mut dyn Svc) {
+    f_380095100(m, s)
+}
 /// Run the routine at 0x180095100 with the machine's registers as the caller set them.
 pub(crate) fn enter_380095100(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380095100(m, s); });
+}
+pub(crate) fn tail_3800953b0(m: &mut M, s: &mut dyn Svc) {
+    f_3800953b0(m, s)
 }
 /// Run the routine at 0x1800953b0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800953b0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800953b0(m, s); });
 }
+pub(crate) fn tail_3800956f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800956f0(m, s)
+}
 /// Run the routine at 0x1800956f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800956f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800956f0(m, s); });
+}
+pub(crate) fn tail_380095ad0(m: &mut M, s: &mut dyn Svc) {
+    f_380095ad0(m, s)
 }
 /// Run the routine at 0x180095ad0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380095ad0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380095ad0(m, s); });
 }
+pub(crate) fn tail_380095b30(m: &mut M, s: &mut dyn Svc) {
+    f_380095b30(m, s)
+}
 /// Run the routine at 0x180095b30 with the machine's registers as the caller set them.
 pub(crate) fn enter_380095b30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380095b30(m, s); });
+}
+pub(crate) fn tail_380095d30(m: &mut M, s: &mut dyn Svc) {
+    f_380095d30(m, s)
 }
 /// Run the routine at 0x180095d30 with the machine's registers as the caller set them.
 pub(crate) fn enter_380095d30(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380095d30(m, s); });
 }
+pub(crate) fn tail_380095eb0(m: &mut M, s: &mut dyn Svc) {
+    f_380095eb0(m, s)
+}
 /// Run the routine at 0x180095eb0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380095eb0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380095eb0(m, s); });
+}
+pub(crate) fn tail_380097ba0(m: &mut M, s: &mut dyn Svc) {
+    f_380097ba0(m, s)
 }
 /// Run the routine at 0x180097ba0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380097ba0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380097ba0(m, s); });
 }
+pub(crate) fn tail_380097dc0(m: &mut M, s: &mut dyn Svc) {
+    f_380097dc0(m, s)
+}
 /// Run the routine at 0x180097dc0 with the machine's registers as the caller set them.
 pub(crate) fn enter_380097dc0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380097dc0(m, s); });
+}
+pub(crate) fn tail_380097e60(m: &mut M, s: &mut dyn Svc) {
+    f_380097e60(m, s)
 }
 /// Run the routine at 0x180097e60 with the machine's registers as the caller set them.
 pub(crate) fn enter_380097e60(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380097e60(m, s); });
 }
+pub(crate) fn tail_380097f50(m: &mut M, s: &mut dyn Svc) {
+    f_380097f50(m, s)
+}
 /// Run the routine at 0x180097f50 with the machine's registers as the caller set them.
 pub(crate) fn enter_380097f50(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380097f50(m, s); });
+}
+pub(crate) fn tail_380098000(m: &mut M, s: &mut dyn Svc) {
+    f_380098000(m, s)
 }
 /// Run the routine at 0x180098000 with the machine's registers as the caller set them.
 pub(crate) fn enter_380098000(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380098000(m, s); });
 }
+pub(crate) fn tail_3800980d0(m: &mut M, s: &mut dyn Svc) {
+    f_3800980d0(m, s)
+}
 /// Run the routine at 0x1800980d0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800980d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800980d0(m, s); });
+}
+pub(crate) fn tail_380098240(m: &mut M, s: &mut dyn Svc) {
+    f_380098240(m, s)
 }
 /// Run the routine at 0x180098240 with the machine's registers as the caller set them.
 pub(crate) fn enter_380098240(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_380098240(m, s); });
 }
+pub(crate) fn tail_3800a23f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800a23f0(m, s)
+}
 /// Run the routine at 0x1800a23f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800a23f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800a23f0(m, s); });
+}
+pub(crate) fn tail_3800a2480(m: &mut M, s: &mut dyn Svc) {
+    f_3800a2480(m, s)
 }
 /// Run the routine at 0x1800a2480 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800a2480(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800a2480(m, s); });
 }
+pub(crate) fn tail_3800a25c0(m: &mut M, s: &mut dyn Svc) {
+    f_3800a25c0(m, s)
+}
 /// Run the routine at 0x1800a25c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800a25c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800a25c0(m, s); });
+}
+pub(crate) fn tail_3800a25d0(m: &mut M, s: &mut dyn Svc) {
+    f_3800a25d0(m, s)
 }
 /// Run the routine at 0x1800a25d0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800a25d0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800a25d0(m, s); });
 }
+pub(crate) fn tail_3800a2610(m: &mut M, s: &mut dyn Svc) {
+    f_3800a2610(m, s)
+}
 /// Run the routine at 0x1800a2610 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800a2610(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800a2610(m, s); });
+}
+pub(crate) fn tail_3800a2630(m: &mut M, s: &mut dyn Svc) {
+    f_3800a2630(m, s)
 }
 /// Run the routine at 0x1800a2630 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800a2630(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800a2630(m, s); });
 }
+pub(crate) fn tail_3800a2790(m: &mut M, s: &mut dyn Svc) {
+    f_3800a2790(m, s)
+}
 /// Run the routine at 0x1800a2790 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800a2790(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800a2790(m, s); });
+}
+pub(crate) fn tail_3800be240(m: &mut M, s: &mut dyn Svc) {
+    f_3800be240(m, s)
 }
 /// Run the routine at 0x1800be240 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800be240(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800be240(m, s); });
 }
+pub(crate) fn tail_3800be350(m: &mut M, s: &mut dyn Svc) {
+    f_3800be350(m, s)
+}
 /// Run the routine at 0x1800be350 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800be350(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800be350(m, s); });
+}
+pub(crate) fn tail_3800be4f0(m: &mut M, s: &mut dyn Svc) {
+    f_3800be4f0(m, s)
 }
 /// Run the routine at 0x1800be4f0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800be4f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800be4f0(m, s); });
 }
+pub(crate) fn tail_3800be5e0(m: &mut M, s: &mut dyn Svc) {
+    f_3800be5e0(m, s)
+}
 /// Run the routine at 0x1800be5e0 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800be5e0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800be5e0(m, s); });
+}
+pub(crate) fn tail_3800be920(m: &mut M, s: &mut dyn Svc) {
+    f_3800be920(m, s)
 }
 /// Run the routine at 0x1800be920 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800be920(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800be920(m, s); });
 }
+pub(crate) fn tail_3800be940(m: &mut M, s: &mut dyn Svc) {
+    f_3800be940(m, s)
+}
 /// Run the routine at 0x1800be940 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800be940(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_3800be940(m, s); });
+}
+pub(crate) fn tail_3800beb60(m: &mut M, s: &mut dyn Svc) {
+    f_3800beb60(m, s)
 }
 /// Run the routine at 0x1800beb60 with the machine's registers as the caller set them.
 pub(crate) fn enter_3800beb60(m: &mut M, s: &mut dyn Svc) {

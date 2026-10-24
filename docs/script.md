@@ -570,6 +570,25 @@ jump tables and calls through the import table, and cuts the C++ error-reporting
 arguments each, with no difference; `m_special` compares with Spike2 itself. Out-of-range
 arguments raise the codes `GetI32Err` (-1000) and `GetFloatErr` (-1001) raise.
 
+### Spike2's own command code (`s2lift`)
+
+Beyond the hand-written commands, the crate `s2lift` holds each command's `Execute` and the routines it
+calls, translated from the DLLs' machine code by `tools/lift_runtime.py` (the shared translator is
+`tools/lift.py`): `runtime.s2l`, `compiler.dll` (arrays, `CArrObj`), `SpikeUtl.dll` (maths, splines, FFT),
+`spikecmd.dll` (the view-command base classes) and the data file engine itself (`sonlayer.dll`,
+`son64.dll`). Each instruction becomes one call on the machine model in `s2lift/src/mach.rs`, which is
+checked against the processor by `s2lift/tests/machine.rs`. The host answers what the code imports:
+`smr/src/script/vm/lifted/` (`mod.rs`: the script's arguments and result, `CRunInfo`, view messages;
+`cstring.rs`: MFC strings; `win.rs`: files, time, memory and the C library).
+
+Order of dispatch: a hand-written command first, then Spike2's own code. `S2LIFT_FORCE=Name,Name` (or `all`)
+runs Spike2's code instead, and `S2LIFT_SKIP=` takes names out of that; `S2LIFT_SERVICES=1`,
+`S2LIFT_CALLS=1` and `S2LIFT_BLOCKS=1` trace what the code asks for. Commands run this way and checked
+against Spike2: `ArrConv`, `ArrFFT`, `ArrFilt`, `ArrDiff`, `ArrIntgl`, `ArrStats`, `ArrHist`, `ArrSpline`,
+`Date$`, `Time$`. Forcing everything through it (`all`, with `FileOpen` and the view commands skipped)
+agrees with Spike2 on 91 of the 120 reference programs; the rest wait for the window/view services of
+SONVIEW (`CWnd::FromHandlePermanent`, the channel-list messages, the dialogs).
+
 ## What is not known yet
 
 - what the `MakeNDArr` operand counts. `ResizeArray`'s operand is settled in the

@@ -25,4 +25,9 @@ pub mod special;
 /// `id` indexes `IMPORT_NAMES`.
 pub trait Svc {
     fn import(&mut self, m: &mut mach::M, id: u32);
+    /// A call through a pointer that is in none of the translated modules (a method of an
+    /// object the host built). Returns false if the host does not know it either.
+    fn call(&mut self, _m: &mut mach::M, _target: u64) -> bool {
+        false
+    }
 }

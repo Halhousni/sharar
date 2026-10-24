@@ -702,6 +702,12 @@ class Lifter:
                 raise Unsupported(f"jump out of the function to {t:#x} at {ins.address:x}")
             a, name = self.import_of(ins)
             if name is not None:
+                if self.cross and name not in self.imports:
+                    c = self.cross(name)
+                    if c:
+                        # a tail jump into another module: no new return address, the callee's
+                        # `ret` goes straight back to our caller
+                        return f"crate::{c[0]}::tail_{c[1]:x}({self.args}); return;", True
                 code = self.import_stmt(name, True)
                 if code is None:
                     return f"m.fail(\"the import {name}\");", True
@@ -924,6 +930,8 @@ class Lifter:
                      f"pub(crate) fn try_call({sig}) -> bool {{\n    match t {{\n{arms_try}\n        _ => return false,\n    }}\n    true\n}}\n")
 
         for e in entries:
+            if self.svc:
+                parts.append(f"pub(crate) fn tail_{self.A(e):x}(m: &mut M, s: &mut dyn Svc) {{\n    f_{self.A(e):x}(m, s)\n}}")
             if self.svc:
                 parts.append(f"/// Run the routine at {e:#x} with the machine's registers as the caller set them.\n"
                              f"pub(crate) fn enter_{self.A(e):x}(m: &mut M, s: &mut dyn Svc) {{\n"

@@ -137,7 +137,22 @@ impl<'v, 'w> Run<'v, 'w> {
     }
 }
 
+/// Addresses handed out as the methods of objects the host builds: slot k of the fake vtable.
+const FAKE_CODE: u64 = 0x4100_0000_0000;
+
 impl<'v, 'w> Svc for Run<'v, 'w> {
+    fn call(&mut self, m: &mut M, target: u64) -> bool {
+        match target.wrapping_sub(FAKE_CODE) {
+            // CWinThread::GetMainWnd (slot 31)
+            31 => {
+                m.r[0] = self.world.main_wnd;
+                m.pop();
+                true
+            }
+            _ => false,
+        }
+    }
+
     fn import(&mut self, m: &mut M, id: u32) {
         let name = commands::IMPORT_NAMES[id as usize];
         if std::env::var_os("S2LIFT_SERVICES").is_some() {
@@ -305,7 +320,22 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 }
                 m.r[0] = 0;
             }
-            "?AfxGetThread@@YAPEAVCWinThread@@XZ" | "?AfxGetModuleState@@YAPEAVAFX_MODULE_STATE@@XZ" | "?AfxGetApp@@YAPEAVCWinApp@@XZ" => {
+            "?AfxGetThread@@YAPEAVCWinThread@@XZ" => {
+                if self.world.thread == 0 {
+                    let t = m.alloc(0x400);
+                    let vt = m.alloc(0x400);
+                    for k in 0..128u64 {
+                        m.st(vt + 8 * k, 8, FAKE_CODE + k);
+                    }
+                    m.st(t, 8, vt);
+                    let wnd = m.alloc(0x100);
+                    m.st(wnd + 0x40, 8, 0x1111); // m_hWnd of the main window
+                    self.world.main_wnd = wnd;
+                    self.world.thread = t;
+                }
+                m.r[0] = self.world.thread;
+            }
+            "?AfxGetModuleState@@YAPEAVAFX_MODULE_STATE@@XZ" | "?AfxGetModuleState@@YAPEAVAFX_MODULE_STATE@@XZ" | "?AfxGetApp@@YAPEAVCWinApp@@XZ" => {
                 let key = name.len() as i64 + 1_000_000;
                 let o = match self.world.sonfiles.get(&key) {
                     Some(&o) => o,
@@ -560,6 +590,8 @@ pub struct World {
     sonfiles: std::collections::HashMap<i64, u64>,
     /// Whether the command objects have been built.
     registered: bool,
+    thread: u64,
+    main_wnd: u64,
 }
 
 impl Default for World {
@@ -570,7 +602,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0 }
     }
 }
 

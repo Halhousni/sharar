@@ -890,7 +890,7 @@ pub(crate) fn call_other(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64)
         || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)
         || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)
         || crate::rt_spikecmd_gen::try_call(m, s, t);
-    if !done {
+    if !done && !s.call(m, t) {
         m.fail(&format!("a call through a pointer to {t:#x}"));
     }
 }
