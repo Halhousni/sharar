@@ -1,0 +1,20 @@
+var res[6000], h%, c%, k%, n%, i%, mx, t0, t1, d[60], di%[60], ft, x;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Blood Pressure Waveform.smr", 0, 0);
+mx := MaxTime();
+t0 := mx * 0.2; t1 := t0 + 0.6;
+k% := 0;
+for c% := 1 to 32 do
+  if ChanKind(c%) <> 0 then
+    res[k%] := ChanKind(c%); k% += 1;
+    res[k%] := Count(c%, t0, t1); k% += 1;
+    res[k%] := Count(c%, 0, mx); k% += 1;
+    res[k%] := NextTime(c%, t0); k% += 1;
+    res[k%] := LastTime(c%, t1); k% += 1;
+    res[k%] := NextTime(c%, mx * 2); k% += 1;
+    n% := ChanData(c%, d[], t0, t1, ft); res[k%] := n%; res[k%+1] := ft; k% += 2;
+    for i% := 0 to (n% > 12) * 12 + (n% <= 12) * n% - 1 do res[k%] := d[i%]; k% += 1; next
+    n% := ChanData(c%, di%[], t0, t1, ft); res[k%] := n%; res[k%+1] := ft; k% += 2;
+    for i% := 0 to (n% > 12) * 12 + (n% <= 12) * n% - 1 do res[k%] := di%[i%]; k% += 1; next
+    res[k%] := ChanScale(c%); res[k%+1] := ChanOffset(c%); k% += 2;
+  endif
+next
