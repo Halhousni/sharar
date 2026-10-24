@@ -661,3 +661,13 @@ the connected 1401 (`SampleTimePerAdc`'s limits, starting, stopping) are not cov
 filter) are SONVIEW's own handlers. Commands that share a class (`IIRName$` / `IIRComment$`) are told
 apart by the order their objects are built in. Note for tests: the application keeps this state for the whole
 Spike2 session, so a test case must set what it reads.
+
+### Start-up of the translated application
+
+The translated SONVIEW and Filters modules run their C++ static initialisers (the compiler's `.CRT$XCU`
+table, found by `crt_run` in `lift_runtime.py`) when the first command runs, and the stand-in main window is
+built by SONVIEW's own `CMainWindow` constructor, with services nothing provides answering zero (the MFC
+window classes it derives from and the toolbars it creates). That leaves the window's real state
+(colour tables, the sampling configuration, the filter bank) for the application-level message handlers.
+What it does not have is the document/view tree, so commands that list or address views (`App`, `ViewList`,
+`WindowGetPos`) are still the session's own.
