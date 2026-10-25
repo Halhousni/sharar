@@ -1,0 +1,45 @@
+var res[800], k%, f%, c%, n%, i%, r, tt, h%;
+var a[20]; var b[20];
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+a[0]:=3.0; b[0]:=3.0;
+a[1]:=3.0; b[1]:=3.3;
+a[2]:=3.0; b[2]:=10.0;
+a[3]:=3.0; b[3]:=0.0;
+a[4]:=3.0; b[4]:=2.0;
+a[5]:=3.25; b[5]:=3.25;
+a[6]:=3.25; b[6]:=5.25;
+a[7]:=0.0; b[7]:=3.0;
+a[8]:=-1.0; b[8]:=3.0;
+a[9]:=3.5; b[9]:=-1.0;
+a[10]:=0.0; b[10]:=0.5;
+a[11]:=9.0; b[11]:=0.5;
+a[12]:=9.0; b[12]:=0.75;
+a[13]:=1.75; b[13]:=0.5;
+a[14]:=7.75; b[14]:=0.5;
+a[15]:=5.0; b[15]:=0.75;
+a[16]:=6.25; b[16]:=6.25;
+a[17]:=2.0; b[17]:=4.25;
+a[18]:=4.25; b[18]:=2.0;
+a[19]:=20.0; b[19]:=3.0;
+k% := 0;
+for f% := 0 to 7 do
+ for i% := 0 to 19 do
+  c% := MemChan(3);
+  for tt := 1 to 8 do MemSetItem(c%, 0, tt + 0.25); next
+  r := MemDeleteTime(c%, f%, a[i%], b[i%]);
+  n% := MemGetItem(c%, 0);
+  res[k%] := r; res[k%+1] := n%; res[k%+2] := MemGetItem(c%, 1); k% += 3;
+  ChanDelete(c%);
+ next
+next
+' no end time: flag 2 uses the start for both
+for f% := 0 to 7 do
+ for i% := 0 to 19 do
+  c% := MemChan(3);
+  for tt := 1 to 8 do MemSetItem(c%, 0, tt + 0.25); next
+  r := MemDeleteTime(c%, f%, a[i%]);
+  res[k%] := r; res[k%+1] := MemGetItem(c%, 0); k% += 2;
+  ChanDelete(c%);
+  if k% > 780 then i% := 100 endif
+ next
+next

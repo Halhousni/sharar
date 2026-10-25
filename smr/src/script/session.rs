@@ -763,6 +763,80 @@ impl Session {
                         m.items.drain(start..end);
                         some(V::Int((end - start) as i64))
                     }
+                    "MemDeleteTime" => {
+                        // CMemoryBuffer::RemoveItem (flag 2 clear) takes the item nearest to a time, within a
+                        // distance; with flag 1 every item within that distance. RemoveItemTime (flag 2 set)
+                        // takes the first item from a time up to a later time; with flag 1 every item up to it.
+                        let flags = int(mem, &args[1])?;
+                        if !(0..=7).contains(&flags) {
+                            return Ok(None);
+                        }
+                        let at = |t: f64| (t / tf).round() as i64;
+                        let t0 = at(flt(mem, &args[2])?);
+                        let t1 = if args.len() > 3 {
+                            at(flt(mem, &args[3])?).max(0)
+                        } else if flags & 2 != 0 {
+                            t0
+                        } else {
+                            0
+                        };
+                        let all = flags & 1 != 0;
+                        let m = self.view_mut().unwrap().mem[i].as_mut().unwrap();
+                        let ticks: Vec<i64> = m.items.iter().map(|x| x.tick).collect();
+                        let lower = |t: i64| ticks.partition_point(|&x| x < t);
+                        let (first, end) = if flags & 2 == 0 {
+                            let lo = (t0 - t1).max(0);
+                            let hi = if t0 <= 0x7000_0000_0000_0000 - t1 { t0 + t1 } else { 0x7000_0000_0000_0000 };
+                            if all {
+                                (lower(lo), lower(hi + 1))
+                            } else {
+                                let lb = lower(t0);
+                                let none = t1 + 1;
+                                // the next item up to t0 + t1, and the previous one back to t0 - t1 (the first
+                                // item counts as "previous" when nothing lies before the time)
+                                let next = (lb..ticks.len()).find(|&k| ticks[k] <= hi);
+                                let back = if lb == 0 { 0 } else { lb - 1 };
+                                let prev = if ticks.is_empty() { None } else { (0..=back.min(ticks.len() - 1)).rev().find(|&k| ticks[k] >= lo) };
+                                let dn = next.map(|k| ticks[k] - t0).unwrap_or(none);
+                                let dp = prev.map(|k| t0 - ticks[k]).unwrap_or(none);
+                                if dp <= t1 || dn <= t1 {
+                                    if dp < dn {
+                                        let k = prev.unwrap();
+                                        (k, k + 1)
+                                    } else {
+                                        let k = next.unwrap_or(ticks.len());
+                                        (k, k + 1)
+                                    }
+                                } else {
+                                    (0, 0)
+                                }
+                            }
+                        } else {
+                            let lb = lower(t0);
+                            if all {
+                                if lb < ticks.len() && ticks[lb] <= t1 {
+                                    let mut e = lower(t1);
+                                    if e < ticks.len() && ticks[e] == t1 {
+                                        e += 1;
+                                    }
+                                    (lb, e)
+                                } else {
+                                    (lb, lb)
+                                }
+                            } else {
+                                match (lb..ticks.len()).find(|&k| ticks[k] <= t1) {
+                                    Some(k) => (k, k + 1),
+                                    None => (lb, lb),
+                                }
+                            }
+                        };
+                        let end = end.min(m.items.len());
+                        if first >= end {
+                            return some(V::Int(0));
+                        }
+                        m.items.drain(first..end);
+                        some(V::Int((end - first) as i64))
+                    }
                     "MemImport" => {
                         let src = int(mem, &args[1])?;
                         let (t0, t1) = (flt(mem, &args[2])?, flt(mem, &args[3])?);
@@ -1488,7 +1562,7 @@ impl Host for Session {
                 some(V::Int(found.map(|v| v.handle).unwrap_or(0)))
             }
             "ChanData" if args.len() >= 4 && self.view().is_some() => self.chan_data(args, mem),
-            "MemChan" | "MemSetItem" | "MemGetItem" | "MemDeleteItem" | "MemImport" | "ChanDelete"
+            "MemChan" | "MemSetItem" | "MemGetItem" | "MemDeleteItem" | "MemDeleteTime" | "MemImport" | "ChanDelete"
                 if self.view().is_some() =>
             {
                 self.mem_command(name, args, mem)

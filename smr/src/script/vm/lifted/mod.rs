@@ -1192,6 +1192,10 @@ impl<'v, 'w> Run<'v, 'w> {
         // the machine is borrowed by the caller; the constructor runs on it, then its registers are restored
         commands::call_export("??0CSonFile@@QEAA@PEB_W@Z", m, self);
         m.r = saved;
+        if std::env::var_os("S2LIFT_SERVICES").is_some() {
+            let vt = m.ld(obj, 8);
+            eprintln!("  CSonFile {obj:#x} vtable {vt:#x} slots 0x1a8 {:#x} 0x1b0 {:#x} 0x1b8 {:#x}", m.ld(vt + 0x1a8, 8), m.ld(vt + 0x1b0, 8), m.ld(vt + 0x1b8, 8));
+        }
         self.world.sonfiles.insert(h, obj);
         obj
     }
