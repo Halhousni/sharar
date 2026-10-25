@@ -1,0 +1,25 @@
+var res[400], k%, a%, b%, s$, n%, lh%, p$;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+p$ := "C:\\Users\\Hilal\\Documents\\Spike8\\out\\t_winfile__a.txt";
+lh% := LogHandle();
+k% := 0;
+a% := FileNew(1);
+Print("line1\nline two\n");
+s$ := FileName$(0); Enc(s$, 100);
+res[k%] := FileSaveAs(p$); k% += 1;
+s$ := FileName$(0); Enc(s$, 130);
+s$ := FileName$(1); Enc(s$, 160);
+s$ := FileName$(3); Enc(s$, 190);
+Print("more\n");
+res[k%] := FileSave(); k% += 1;
+res[k%] := FileClose(0, -1); k% += 1;
+b% := FileOpen(p$, 1);
+res[k%] := (b% > 0); k% += 1;
+res[k%] := ViewKind(b%); k% += 1;
+EditSelectAll(); s$ := Selection$(); Enc(s$, 220);
+s$ := FileName$(0); Enc(s$, 260);
+res[k%] := FileClose(0, -1); k% += 1;

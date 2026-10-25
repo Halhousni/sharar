@@ -80,8 +80,8 @@ impl DataView {
 enum ExtKind {
     Text(TextFile),
     Bin(BinFile),
-    /// A text window, held as its text.
-    Win(String),
+    /// A text window: its text, and the name it was saved under (as the script wrote it).
+    Win(String, String),
 }
 
 struct Ext {
@@ -603,26 +603,7 @@ impl Session {
             "FileName$" => {
                 let n = if args.is_empty() { 0 } else { int(mem, &args[0])? };
                 let win = self.view().unwrap().script_name.replace('/', "\\");
-                let (drive, rest) = match win.find(':') {
-                    Some(i) => (win[..=i].to_string(), win[i + 1..].to_string()),
-                    None => (String::new(), win.clone()),
-                };
-                let cut = rest.rfind('\\').map(|i| i + 1).unwrap_or(0);
-                let (dir, file) = (rest[..cut].to_string(), rest[cut..].to_string());
-                let dot = file.rfind('.');
-                let (stem, ext) = match dot {
-                    Some(i) => (file[..i].to_string(), file[i..].to_string()),
-                    None => (file.clone(), String::new()),
-                };
-                some(V::Str(match n {
-                    0 => win,
-                    1 => drive,
-                    2 => dir,
-                    3 => stem,
-                    4 => String::new(),
-                    5 => ext,
-                    _ => String::new(),
-                }))
+                some(V::Str(file_name_part(&win, n)))
             }
             "FileComment$" => {
                 let n = int(mem, &args[0])?;
@@ -1298,20 +1279,20 @@ impl Host for Session {
 
     fn text_content(&self, h: i64) -> Option<String> {
         match self.exts.iter().find(|e| e.handle == h) {
-            Some(Ext { kind: ExtKind::Win(t), .. }) => Some(t.clone()),
+            Some(Ext { kind: ExtKind::Win(t, _), .. }) => Some(t.clone()),
             _ => None,
         }
     }
 
     fn set_text_content(&mut self, h: i64, text: String) {
-        if let Some(Ext { kind: ExtKind::Win(t), .. }) = self.exts.iter_mut().find(|e| e.handle == h) {
+        if let Some(Ext { kind: ExtKind::Win(t, _), .. }) = self.exts.iter_mut().find(|e| e.handle == h) {
             *t = text;
         }
     }
 
     fn text_append(&mut self, h: i64, text: &str) -> bool {
         match self.exts.iter_mut().find(|e| e.handle == h) {
-            Some(Ext { kind: ExtKind::Win(t), .. }) => {
+            Some(Ext { kind: ExtKind::Win(t, _), .. }) => {
                 t.push_str(text);
                 true
             }
@@ -1337,7 +1318,7 @@ impl Host for Session {
                     match e.kind {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
-                        ExtKind::Win(_) => 1,
+                        ExtKind::Win(..) => 1,
                     },
                     None,
                 )
@@ -1365,7 +1346,7 @@ impl Host for Session {
                     some(V::Int(match e.kind {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
-                        ExtKind::Win(_) => 1,
+                        ExtKind::Win(..) => 1,
                     }))
                 } else {
                     some(V::Int(-2))
@@ -1377,6 +1358,20 @@ impl Host for Session {
                     _ => return Err(RunError(super::vm::ERR_TYPE)),
                 };
                 let kind = int(mem, &args[1])?;
+                if kind == 1 {
+                    // a text window holding the file
+                    return match std::fs::read(self.resolve(&path)) {
+                        Ok(bytes) => {
+                            let text = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
+                            let handle = self.next;
+                            self.next += 1;
+                            self.exts.push(Ext { handle, kind: ExtKind::Win(text, path.clone()) });
+                            self.activate(handle);
+                            some(V::Int(handle))
+                        }
+                        Err(_) => some(V::Int(-1)),
+                    };
+                }
                 if kind == 8 || kind == 9 {
                     let mode = if args.len() > 2 { int(mem, &args[2])? } else { 0 };
                     let p = self.resolve(&path);
@@ -1416,10 +1411,43 @@ impl Host for Session {
                     Err(_) => some(V::Int(-1)),
                 }
             }
+            "FileSaveAs" | "FileSave" | "FileName$" if matches!(self.exts.iter().find(|e| e.handle == self.current), Some(Ext { kind: ExtKind::Win(..), .. })) => {
+                let cur = self.current;
+                let at = self.exts.iter().position(|e| e.handle == cur).unwrap();
+                match name {
+                    "FileName$" => {
+                        let n = if args.is_empty() { 0 } else { int(mem, &args[0])? };
+                        let ExtKind::Win(_, saved) = &self.exts[at].kind else { unreachable!() };
+                        some(V::Str(file_name_part(&saved.replace('/', "\\"), n)))
+                    }
+                    _ => {
+                        let target = if name == "FileSaveAs" {
+                            match mem.value(&args[0])? {
+                                V::Str(s) => Some(s),
+                                _ => return Err(RunError(super::vm::ERR_TYPE)),
+                            }
+                        } else {
+                            let ExtKind::Win(_, saved) = &self.exts[at].kind else { unreachable!() };
+                            if saved.is_empty() { None } else { Some(saved.clone()) }
+                        };
+                        let Some(target) = target else { return Ok(None) };
+                        let path = self.resolve(&target);
+                        let ExtKind::Win(text, saved) = &mut self.exts[at].kind else { unreachable!() };
+                        let bytes: Vec<u8> = text.replace("\r\n", "\n").replace('\n', "\r\n").into_bytes();
+                        match std::fs::write(&path, bytes) {
+                            Ok(()) => {
+                                *saved = target;
+                                some(V::Int(0))
+                            }
+                            Err(_) => some(V::Int(-1)),
+                        }
+                    }
+                }
+            }
             "FileNew" if matches!(args.first().map(|a| int(mem, a)), Some(Ok(1))) => {
                 let handle = self.next;
                 self.next += 1;
-                self.exts.push(Ext { handle, kind: ExtKind::Win(String::new()) });
+                self.exts.push(Ext { handle, kind: ExtKind::Win(String::new(), String::new()) });
                 self.activate(handle);
                 some(V::Int(handle))
             }
@@ -1810,3 +1838,24 @@ impl Host for SharedSession {
     }
 }
 
+/// A part of a file name, as `FileName$` gives it: 0 all, 1 drive, 2 directory, 3 name, 5 extension.
+fn file_name_part(win: &str, n: i64) -> String {
+    let (drive, rest) = match win.find(':') {
+        Some(i) => (win[..=i].to_string(), win[i + 1..].to_string()),
+        None => (String::new(), win.to_string()),
+    };
+    let cut = rest.rfind('\\').map(|i| i + 1).unwrap_or(0);
+    let (dir, file) = (rest[..cut].to_string(), rest[cut..].to_string());
+    let (stem, ext) = match file.rfind('.') {
+        Some(i) => (file[..i].to_string(), file[i..].to_string()),
+        None => (file.clone(), String::new()),
+    };
+    match n {
+        0 => win.to_string(),
+        1 => drive,
+        2 => dir,
+        3 => stem,
+        5 => ext,
+        _ => String::new(),
+    }
+}
