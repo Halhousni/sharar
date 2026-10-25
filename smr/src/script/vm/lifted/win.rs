@@ -23,6 +23,10 @@ pub struct Win {
     reg_keys: HashMap<u64, String>,
     reg_made: std::collections::HashSet<String>,
     clipboard: Option<String>,
+    /// What is on the clipboard, by format; the sizes of global memory blocks; the formats registered by name.
+    clip: HashMap<u32, Vec<u8>>,
+    gsize: HashMap<u64, usize>,
+    clip_names: HashMap<String, u32>,
     environment: HashMap<String, String>,
     processes: HashMap<u64, std::process::Child>,
     static_tm: u64,
@@ -807,26 +811,69 @@ impl Win {
                 m.r[0] = if found { 0 } else { 2 };
             }
             "RegCloseKey" => m.r[0] = 0,
-            "OpenClipboard" | "EmptyClipboard" | "CloseClipboard" => m.r[0] = 1,
-            "GlobalAlloc" => m.r[0] = m.alloc(rdx as usize + 16),
+            "OpenClipboard" | "CloseClipboard" => m.r[0] = 1,
+            "EmptyClipboard" => {
+                self.clip.clear();
+                self.clipboard = None;
+                m.r[0] = 1;
+            }
+            "RegisterClipboardFormatA" | "RegisterClipboardFormatW" => {
+                let mut v = Vec::new();
+                if name.ends_with('W') {
+                    v = wide(m, rcx);
+                } else {
+                    let mut k = 0;
+                    while m.ld(rcx + k, 1) != 0 {
+                        v.push(m.ld(rcx + k, 1) as u16);
+                        k += 1;
+                    }
+                }
+                let n = String::from_utf16_lossy(&v);
+                let next = 0xc000 + self.clip_names.len() as u32;
+                m.r[0] = *self.clip_names.entry(n).or_insert(next) as u64;
+            }
+            "IsClipboardFormatAvailable" => m.r[0] = self.clip.contains_key(&(rcx as u32)) as u64,
+            "GlobalAlloc" => {
+                let p = m.alloc(rdx as usize + 16);
+                self.gsize.insert(p, rdx as usize);
+                m.r[0] = p;
+            }
+            "GlobalSize" => m.r[0] = self.gsize.get(&rcx).copied().unwrap_or(0) as u64,
             "GlobalLock" => m.r[0] = rcx,
             "GlobalUnlock" => m.r[0] = 1,
             "GlobalFree" => {
+                self.gsize.remove(&rcx);
                 m.free(rcx);
                 m.r[0] = 0;
             }
             "SetClipboardData" => {
-                self.clipboard = Some(String::from_utf16_lossy(&wide(m, rdx)));
+                let n = self.gsize.get(&rdx).copied().unwrap_or(0);
+                let data: Vec<u8> = (0..n as u64).map(|i| m.ld(rdx + i, 1) as u8).collect();
+                if rcx as u32 == 13 {
+                    let u: Vec<u16> = data.chunks(2).map(|c| u16::from_le_bytes([c[0], *c.get(1).unwrap_or(&0)])).take_while(|&x| x != 0).collect();
+                    self.clipboard = Some(String::from_utf16_lossy(&u));
+                }
+                self.clip.insert(rcx as u32, data);
                 m.r[0] = rdx;
             }
             "GetClipboardData" => {
-                m.r[0] = match &self.clipboard.clone() {
-                    Some(t) => {
-                        let p = m.alloc(2 * t.len() + 2);
-                        put_wide(m, p, t);
+                m.r[0] = match self.clip.get(&(rcx as u32)).cloned() {
+                    Some(d) => {
+                        let p = m.alloc(d.len() + 16);
+                        for (i, b) in d.iter().enumerate() {
+                            m.st(p + i as u64, 1, *b as u64);
+                        }
+                        self.gsize.insert(p, d.len());
                         p
                     }
-                    None => 0,
+                    None => match (rcx as u32, self.clipboard.clone()) {
+                        (13, Some(t)) => {
+                            let p = m.alloc(2 * t.len() + 2);
+                            put_wide(m, p, &t);
+                            p
+                        }
+                        _ => 0,
+                    },
                 }
             }
             "_gmtime64" | "_localtime64" => {

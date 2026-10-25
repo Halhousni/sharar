@@ -949,6 +949,11 @@ class Lifter:
         spans = [(a, a + 16) for a in self.data_refs] + [(a, a + 8192) for a in self.table_bases]
         if tls_slot_addr:
             spans.append((tls_slot_addr, tls_slot_addr + 16))
+        if getattr(self, "whole_data", False):
+            # the module indexes its tables: keep all of its data
+            for n, v, vs, rp, rs in self.im.secs:
+                if n in (b".rdata", b".data"):
+                    spans.append((self.im.base + v, self.im.base + v + max(vs, rs)))
         spans.sort()
         merged = []
         for a, b in spans:
