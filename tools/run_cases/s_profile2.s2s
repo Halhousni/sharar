@@ -1,0 +1,10 @@
+var res[100], k%, r%, s$;
+k% := 0;
+Profile("ZzDel", "n1", 7);
+Profile("ZzDel", "n2", 8);
+Profile("ZzDel", "n1", 5, r%); res[k%] := r%; k% += 1;
+Profile("ZzDel", "n1");
+Profile("ZzDel", "n1", 5, r%); res[k%] := r%; k% += 1;
+Profile("ZzDel", "n2", 3, r%); res[k%] := r%; k% += 1;
+Profile("ZzDel");
+Profile("ZzDel", "n2", 3, r%); res[k%] := r%; k% += 1;

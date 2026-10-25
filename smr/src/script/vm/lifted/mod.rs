@@ -266,6 +266,16 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 let v = num(self.vm.a_flt(self.arg(int_arg(rdx))));
                 m.set_xl(0, v.to_bits());
             }
+            // the script debugger and its log window do not exist here
+            "?SetDebuggerString@CRunInfo@@QEBAXAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" | "?WriteLogStr@CRunInfo@@QEBAXPEB_W_N@Z" => {}
+            "?LastOperator@CRunInfo@@QEBAGXZ" => m.r[0] = 0,
+            // the script options (DebugOpts): kept for the length of the run
+            "?SetScriptOption@CRunInfo@@QEBAXHF@Z" => {
+                self.world.script_options.insert(rdx as u32 as i32, r8 as u16 as i16);
+            }
+            "?GetScriptOption@CRunInfo@@QEBAHH@Z" => {
+                m.r[0] = self.world.script_options.get(&(rdx as u32 as i32)).copied().unwrap_or(0) as i32 as u32 as u64;
+            }
             "?GetInt@CRunInfo@@QEBA_JH@Z" => m.r[0] = self.int_arg(int_arg(rdx)) as u64,
             "?GetIntErr@CRunInfo@@QEBA_JH_J0@Z" => {
                 let v = self.int_arg(int_arg(rdx));
@@ -969,9 +979,6 @@ impl<'v, 'w> Run<'v, 'w> {
                 eprintln!("  (the document's constructor did not finish)");
             }
         }
-        if std::env::var_os("S2LIFT_SERVICES").is_some() {
-            eprintln!("  (document: +0x1a0 {:#x} +0x1c0 {:#x})", m.ld(doc + 0x1a0, 8), m.ld(doc + 0x1c0, 8));
-        }
         m.st(doc + 0x270, 8, file);
         m.st(win + 0xd8, 8, doc);
         // the window's manager of cursors, which the window makes when it is created
@@ -1325,6 +1332,7 @@ pub struct World {
     frame: u64,
     /// The buffer `_ecvt` answers in.
     cvt_buf: u64,
+    script_options: std::collections::HashMap<i32, i16>,
 }
 
 impl Default for World {
@@ -1335,7 +1343,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0 }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default() }
     }
 }
 

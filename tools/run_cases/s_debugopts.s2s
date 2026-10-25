@@ -1,0 +1,8 @@
+var res[20], k%;
+k% := 0;
+res[k%] := DebugOpts(1, 0); k% += 1;
+res[k%] := DebugOpts(1, 1); k% += 1;
+res[k%] := DebugOpts(1); k% += 1;
+res[k%] := DebugOpts(3, 0); k% += 1;
+res[k%] := DebugOpts(3); k% += 1;
+res[k%] := DebugOpts(1, 0); k% += 1;

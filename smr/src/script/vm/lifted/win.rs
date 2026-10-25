@@ -795,6 +795,17 @@ impl Win {
                 let vname = if rdx == 0 { String::new() } else { String::from_utf16_lossy(&wide(m, rdx)) };
                 m.r[0] = if self.registry.remove(&format!("{path}|{vname}")).is_some() { 0 } else { 2 };
             }
+            "?DelRegTree@CWinApp@@QEAAJPEAUHKEY__@@AEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@PEAVCAtlTransactionManager@4@@Z" => {
+                let parent = self.reg_keys.get(&rdx).cloned().unwrap_or_default();
+                let sub = String::from_utf16_lossy(&wide(m, m.ld(r8, 8)));
+                let path = if sub.is_empty() { parent } else { format!("{parent}\\{sub}") };
+                let below = format!("{path}\\");
+                let mine = format!("{path}|");
+                let found = self.reg_made.contains(&path) || self.reg_made.iter().any(|k| k.starts_with(&below));
+                self.registry.retain(|k, _| !(k.starts_with(&mine) || k.starts_with(&below)));
+                self.reg_made.retain(|k| !(*k == path || k.starts_with(&below)));
+                m.r[0] = if found { 0 } else { 2 };
+            }
             "RegCloseKey" => m.r[0] = 0,
             "OpenClipboard" | "EmptyClipboard" | "CloseClipboard" => m.r[0] = 1,
             "GlobalAlloc" => m.r[0] = m.alloc(rdx as usize + 16),
