@@ -746,3 +746,20 @@ with the name without its extension.
 
 `tools/msgmaps.py` reads a class's message map out of an executable (which window class handles which message),
 and `tools/rtti.py` finds a class's vtable from its run-time type information.
+
+
+### Exporting a time view as text
+
+`ExportChanList`, `ExportTextFormat`, `ExportChanFormat`, `ExportRectFormat`, `FileSaveAs(name$, 1, 1)` and
+`EditCopy` in a time view run Spike2's own code, and the files they write agree byte for byte with the
+ones Spike2 writes (every example recording, every channel kind, the header, summary and column options, the
+rectangular form). The list of channels and times lives in a `CExportTimes` object that the application makes
+and that runtime.s2l keeps a pointer to; the host builds it with the DLL's own constructor when the commands are
+first used. The services this needed are the file-system ones (`CFileFind` over the real folder, with
+the guest's folders mapped to the ones here), `vsprintf`, the narrow `CStringT<char>::Format`, the character
+class functions, and the document title (the export's second line is the window's title, which the host puts in
+the document before a message reaches it).
+
+Not done: `FileSaveAs` as a picture (BMP, JPEG, PNG, TIFF, EMF are drawings of the window) and as a resource
+file (type 6, which needs the application's record of the last resource); `EditCopy` copies the text, and
+reports the bitmap and metafile as copied without making them.

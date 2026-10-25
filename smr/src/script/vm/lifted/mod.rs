@@ -905,7 +905,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     _ => {
                         // the window that gets the message, and the handler its own class has for it
                         let hwnd = rcx_of(m);
-                        let target = if hwnd == 0 {
+                        let target = if hwnd == 0 || hwnd == 0x1111 {
                             Some((1u8, self.main_window(m)))
                         } else if self.vm.host.as_ref().map(|host| !host.view_channels(view_of(hwnd)).is_empty()).unwrap_or(false) {
                             let win = self.time_window(m, view_of(hwnd));
