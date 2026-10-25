@@ -526,6 +526,22 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     r as i32 as u32 as u64
                 };
             }
+            // a window made only to be drawn into (the picture `EditCopy` puts on the clipboard)
+            "?CreateEx@CWnd@@UEAAHKPEB_W0KHHHHPEAUHWND__@@PEAUHMENU__@@PEAX@Z" => {
+                self.world.next_hwnd += 16;
+                m.st(rcx + 0x40, 8, self.world.next_hwnd);
+                m.r[0] = 1;
+            }
+            "?GetDispatchMap@CCmdTarget@@MEBAPEBUAFX_DISPMAP@@XZ" => {
+                if self.world.cvt_buf == 0 {
+                    self.world.cvt_buf = m.alloc(64);
+                }
+                m.r[0] = m.alloc(64);
+            }
+            // an MFC window class's destructor: the window stand-ins own nothing
+            n if n.starts_with("??1C") && n.ends_with("@@UEAA@XZ") => m.r[0] = rcx,
+            // a picture to copy: nothing is drawn
+            "??0CMetaFileDC@@QEAA@XZ" | "??1CMetaFileDC@@UEAA@XZ" | "??0CPaintDC@@QEAA@PEAVCWnd@@@Z" => m.r[0] = rcx,
             n if n.starts_with('?') && !n.starts_with("??") && ["@CGdiObject@@", "@CDC@@", "@CPen@@", "@CBrush@@", "@CFont@@", "@CBitmap@@", "@CRgn@@", "@CClientDC@@", "@CMetaFileDC@@", "@CPaintDC@@", "@CMenu@@", "@CToolTipCtrl@@"].iter().any(|c| n.contains(c)) => {
                 // drawing: nothing is drawn
                 m.r[0] = 1;
@@ -907,12 +923,15 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                         };
                         match target.and_then(|(c, t)| commands::handler_for(c, msg).map(|f| (t, f))) {
                             Some((this, f)) => {
+                                // copying a time view: the text goes to the clipboard; the pictures (a bitmap and
+                                // a metafile of the drawing) are not made, and are reported as made
+                                let picture = if msg == 0x282a && target.map(|t| t.0) == Some(0) { r8 & 3 } else { 0 };
                                 m.r[1] = this;
-                                m.r[2] = r8;
+                                m.r[2] = r8 & !picture;
                                 m.r[8] = r9;
                                 m.push(0);
                                 commands::call_at(m, self, f);
-                                m.r[0]
+                                m.r[0] | picture
                             }
                             None => {
                                 if std::env::var_os("S2LIFT_SERVICES").is_some() {

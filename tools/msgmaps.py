@@ -52,12 +52,12 @@ class Maps:
             off = rp
             while off + 32 <= rp + rs:
                 msg, code, ident, last, sig, pfn = struct.unpack_from("<IIIIQQ", self.b, off)
-                if self.text[0] <= pfn < self.text[1] and sig < 0x80 and msg < 0x10000:
+                if self.text[0] <= pfn < self.text[1] and (sig < 0x80 or self.im.base <= sig < self.im.base + 0x800000) and msg < 0x10000:
                     # walk back to the start of the array
                     start = off
                     while start - 32 >= rp:
                         m2, c2, i2, l2, s2, p2 = struct.unpack_from("<IIIIQQ", self.b, start - 32)
-                        if self.text[0] <= p2 < self.text[1] and s2 < 0x80 and m2 < 0x10000:
+                        if self.text[0] <= p2 < self.text[1] and (s2 < 0x80 or self.im.base <= s2 < self.im.base + 0x800000) and m2 < 0x10000:
                             start -= 32
                         else:
                             break
@@ -65,7 +65,7 @@ class Maps:
                     stop = start
                     while stop + 32 <= rp + rs:
                         m2, c2, i2, l2, s2, p2 = struct.unpack_from("<IIIIQQ", self.b, stop)
-                        if self.text[0] <= p2 < self.text[1] and s2 < 0x80 and m2 < 0x10000:
+                        if self.text[0] <= p2 < self.text[1] and (s2 < 0x80 or self.im.base <= s2 < self.im.base + 0x800000) and m2 < 0x10000:
                             stop += 32
                         else:
                             break

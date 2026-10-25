@@ -1,0 +1,28 @@
+var res[300], h%, k%, x%, t%, s$;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+proc Out(n$)
+  x% := FileSaveAs("C:\\Users\\Hilal\\Documents\\Spike8\\out\\m_export4__" + n$ + ".txt", 1, 1);
+  res[k%] := x%; k% += 1;
+end;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+ExportChanList(); ExportTextFormat();
+ExportRectFormat(100, 1);
+ExportChanList(0.0, 0.05, 1, 3);
+Out("a");
+ExportChanList(); ExportTextFormat();
+ExportRectFormat(250, 0, ",", ";", 1);
+ExportChanList(0.0, 0.03, 1, 3);
+Out("b");
+ExportChanList(); ExportTextFormat();
+ExportRectFormat();
+ExportChanList(0.0, 0.02, 1, 3);
+res[k%] := EditCopy(); k% += 1;
+t% := FileNew(1);
+res[k%] := EditPaste(); k% += 1;
+EditSelectAll(); s$ := Selection$(); Enc(s$, 100);
+FileClose(0, -1);

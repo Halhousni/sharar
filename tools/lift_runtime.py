@@ -318,7 +318,7 @@ for a in sys.argv:
         im_sv = lifters["sonview"].im
         tlo, thi = im_sv.tva, im_sv.tva + im_sv.text[2]
         for msg in sorted(want):
-            if not any(m_ == msg for (_, m_) in CLASS_HANDLERS):
+            if (0, msg) not in CLASS_HANDLERS:
                 for i in range(0, len(im_sv.b) - 32, 8):
                     mm, code, i1, i2 = struct.unpack_from("<IIII", im_sv.b, i)
                     if mm == msg and (code, i1, i2) == (0, 0, 0):

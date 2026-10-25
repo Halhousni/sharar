@@ -26139,7 +26139,7 @@ pub(super) fn f_c80009350(m: &mut M, s: &mut dyn Svc) {
                 // 18000937e mov ecx, ebx
                 { let v = m.gr(3, 4, false); m.sr(1, 4, false, v); }
                 // 180009380 call qword ptr [rip + 0x720fa]
-                s.import(m, 926);
+                s.import(m, 927);
                 // 180009386 test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 180009388 jne 0x180009394
@@ -195231,7 +195231,7 @@ pub(super) fn f_c8003e440(m: &mut M, s: &mut dyn Svc) {
                 // 18003f577 mov ecx, ebx
                 { let v = m.gr(3, 4, false); m.sr(1, 4, false, v); }
                 // 18003f579 call qword ptr [rip + 0x3bf01]
-                s.import(m, 926);
+                s.import(m, 927);
                 // 18003f57f test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 18003f581 jne 0x18003f58d
@@ -298563,7 +298563,7 @@ pub(super) fn f_c80066810(m: &mut M, s: &mut dyn Svc) {
                 // 180066863 mov qword ptr [rbx + 0x1228], rsi
                 { let v = m.gr(6, 8, false); let a = m.ea(3, -1, 1, 4648); m.st(a, 8, v); }
                 // 18006686a call qword ptr [rip + 0x14df0]
-                s.import(m, 917);
+                s.import(m, 918);
                 // 180066870 mov qword ptr [rbx + 0x1228], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(3, -1, 1, 4648); m.st(a, 8, v); }
                 // 180066877 test dil, dil
@@ -324404,7 +324404,7 @@ pub(super) fn f_c800702b0(m: &mut M, s: &mut dyn Svc) {
                 // 18007032b mov qword ptr [rsp + 0x20], rdi
                 { let v = m.gr(7, 8, false); let a = m.ea(4, -1, 1, 32); m.st(a, 8, v); }
                 // 180070330 call qword ptr [rip + 0xad1a]
-                s.import(m, 920);
+                s.import(m, 921);
                 // 180070336 mov r9d, dword ptr [rbx + 0x144c]
                 { let v = m.ld(m.ea(3, -1, 1, 5196), 4); m.sr(9, 4, false, v); }
                 // 18007033d mov r8d, dword ptr [rbx + 0x1448]
