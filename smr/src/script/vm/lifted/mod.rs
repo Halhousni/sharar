@@ -324,6 +324,21 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 let r = if lo <= v && v <= hi { v } else if lo <= v { hi } else { lo };
                 m.set_xl(0, r.to_bits());
             }
+            // three arguments, red green blue as fractions, to a colour
+            "?GetCRef@CRunInfo@@QEBAKH@Z" => {
+                let i = int_arg(rdx);
+                if i + 2 > self.args.len() as i32 {
+                    panic_any(Thrown(-0x3fc));
+                }
+                let mut c = 0u32;
+                for k in 0..3 {
+                    let v = num(self.vm.a_flt(self.arg(i + k)));
+                    let v = if 0.0 <= v && v <= 1.0 { v } else if 0.0 <= v { 1.0 } else { 0.0 };
+                    let t = (v * 255.0 + 0.5).floor() as u32 & 0xff;
+                    c |= t << (8 * k);
+                }
+                m.r[0] = c as u64;
+            }
             "?GetArgType@CRunInfo@@QEBAXHAEAVTypeDesc@@@Z" => self.arg_type(m, int_arg(rdx), r8),
             // a script function a command calls back (`ZeroFind`): the argument is the routine's number
             "?GetArgObject@CRunInfo@@QEBAPEAXH@Z" => {
@@ -398,9 +413,9 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 // a colour into three arguments: red, green, blue
                 let c = r8 as u32;
                 let i = int_arg(rdx);
-                self.set_arg(i, V::Flt((c & 0xff) as f64 / 255.0));
-                self.set_arg(i + 1, V::Flt(((c >> 8) & 0xff) as f64 / 255.0));
-                self.set_arg(i + 2, V::Flt(((c >> 16) & 0xff) as f64 / 255.0));
+                self.set_arg(i, V::Flt((c & 0xff) as f64 * (1.0 / 255.0)));
+                self.set_arg(i + 1, V::Flt(((c >> 8) & 0xff) as f64 * (1.0 / 255.0)));
+                self.set_arg(i + 2, V::Flt(((c >> 16) & 0xff) as f64 * (1.0 / 255.0)));
             }
             "?SendMessageToDescendants@CWnd@@SAXPEAUHWND__@@I_K_JHH@Z" => {}
             // painting and arranging windows: there is no screen, so nothing to do

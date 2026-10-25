@@ -1495,6 +1495,27 @@ impl Host for Session {
                 }
                 some(V::Str(old))
             }
+            // the program's own windows (their handles are numbers Spike2 gives them) and its version
+            "App" => {
+                let t = if args.is_empty() { 0 } else { int(mem, &args[0])? };
+                some(V::Int(match t {
+                    -3 => 82844,
+                    -2 => 10,
+                    -1 => 810,
+                    0 => 10,
+                    1 => 1,
+                    2 => 9,
+                    3 => 13,
+                    4 => 3,
+                    5 => 2,
+                    6 => 4,
+                    7 => 5,
+                    8 => 6,
+                    9 => 7,
+                    10 => 8,
+                    _ => 0,
+                }))
+            }
             // a data file opened from disk is read only: Spike2 will not save it under another name
             "FileSaveAs" if self.view().is_some() => some(V::Int(-1548)),
             "FileNew" if matches!(args.first().map(|a| int(mem, a)), Some(Ok(1))) => {
