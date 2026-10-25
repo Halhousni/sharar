@@ -33,6 +33,14 @@ pub const ERR_TYPE: i32 = -7001;
 /// A routine passed to a command is the number of the routine added to this.
 pub(crate) const ROUTINE_ARG: i64 = 0x4000_0000_0000;
 
+/// An argument a translated command has made ready for a script function: a value, or an array (a cell
+/// holding a copy of the command's own array, which is written back when the function returns).
+#[derive(Debug, Clone)]
+pub(crate) enum XArg {
+    Val(V),
+    Arr { cell: usize, obj: u64 },
+}
+
 /// A value a script holds.
 #[derive(Debug, Clone, PartialEq)]
 pub enum V {
@@ -82,7 +90,7 @@ pub enum Ref {
 }
 
 #[derive(Debug, Clone)]
-enum Item {
+pub(crate) enum Item {
     Val(V),
     Ref(Ref),
     Loop(ForLoop, Ref),
@@ -164,8 +172,10 @@ pub struct Vm {
     /// The globals of the scripts that ran before this one (`ScriptRun`).
     retired: Vec<(Vec<String>, Vec<Cell>)>,
     /// Arguments a translated command has made ready for a script function, and what the function gave back.
-    pub(crate) xargs: Vec<V>,
+    pub(crate) xargs: Vec<XArg>,
     pub(crate) xret: Option<V>,
+    /// The array objects the last function call left for the command to take off the stack again.
+    pub(crate) xpop: Vec<u64>,
 }
 
 fn flt_to_num(v: &V) -> Result<f64, RunError> {
@@ -233,6 +243,7 @@ impl Vm {
             retired: Vec::new(),
             xargs: Vec::new(),
             xret: None,
+            xpop: Vec::new(),
         })
     }
 
@@ -449,11 +460,10 @@ impl Vm {
     }
 
     /// Run script routine `ri` to its end from inside a command, with `args`; the value it returns.
-    pub(crate) fn call_sync(&mut self, ri: usize, args: Vec<V>) -> Result<Option<V>, RunError> {
+    pub(crate) fn call_sync(&mut self, ri: usize, items: Vec<Item>) -> Result<Option<V>, RunError> {
         let depth = self.frames.len();
         let saved_ip = self.code.ip;
         let wants = self.prog.routines[ri].ret.is_some();
-        let items: Vec<Item> = args.into_iter().map(Item::Val).collect();
         self.call_routine(ri, items, wants)?;
         while self.frames.len() > depth {
             match self.step()? {

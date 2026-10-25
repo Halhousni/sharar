@@ -1,0 +1,17 @@
+var res[300], k%, i%, r%, it%, err;
+var x[20], y[20], a[3], cov[3][3];
+func User(ind%, a[], dyda[])
+  var e;
+  e := Exp(-a[1] * x[ind%]);
+  dyda[0] := e;
+  dyda[1] := -a[0] * x[ind%] * e;
+  dyda[2] := 1.0;
+  return y[ind%] - (a[0] * e + a[2]);
+end;
+k% := 0;
+for i% := 0 to 19 do x[i%] := i% * 0.25; y[i%] := 2.5 * Exp(-0.7 * x[i%]) + 0.3 + 0.01 * Sin(i% * 1.9) next
+res[k%] := FitNLUser(User, 3, 20); k% += 1;
+res[k%] := FitNLUser(0, 2.0); res[k%+1] := FitNLUser(1, 0.5); res[k%+2] := FitNLUser(2, 0.0); k% += 3;
+r% := FitNLUser(a[], err, 300, it%, cov[][]);
+res[k%] := r%; res[k%+1] := it%; res[k%+2] := err; k% += 3;
+for i% := 0 to 2 do res[k%] := a[i%]; k% += 1; next

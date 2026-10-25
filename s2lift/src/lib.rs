@@ -18,6 +18,9 @@ mod rt_use1432_gen;
 mod rt_filters_gen;
 mod rt_ccomm_gen;
 mod rt_scilexer_gen;
+mod rt_fitting_gen;
+mod rt_mateng_gen;
+mod rt_firwin_gen;
 mod rt_spikeutl_gen;
 mod spikeutl_gen;
 

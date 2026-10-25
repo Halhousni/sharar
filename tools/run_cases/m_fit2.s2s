@@ -1,0 +1,40 @@
+var res[400], k%, i%, j%, r%, it%;
+var x[30], y[30], a[10], cov[4][4], err;
+proc Rec(n%)
+  var q%;
+  res[k%] := r%; res[k%+1] := it%; res[k%+2] := err; k% += 3;
+  for q% := 0 to n% - 1 do res[k%] := a[q%]; k% += 1; next
+end;
+k% := 0;
+' two exponentials with an offset
+for i% := 0 to 29 do x[i%] := i% * 0.3; y[i%] := 3.0 * Exp(-x[i%] / 2.0) + 1.0 + 0.02 * Sin(i% * 1.7) next
+FitExp(3, y[], x[]);
+FitExp(0, 2.5); FitExp(1, 1.5, 0.1, 10.0); FitExp(2, 0.5);
+r% := FitExp(a[], err, 200, it%, cov[][]);
+Rec(3);
+' one gaussian
+for i% := 0 to 29 do x[i%] := i% * 0.2; y[i%] := 2.0 * Exp(-0.5 * (x[i%] - 3.0) * (x[i%] - 3.0) / 0.64) + 0.01 * Cos(i% * 2.1) next
+FitGauss(3, y[], x[]);
+FitGauss(0, 1.5); FitGauss(1, 2.5); FitGauss(2, 1.0);
+r% := FitGauss(a[], err, 500, it%);
+Rec(3);
+' a sine
+for i% := 0 to 29 do x[i%] := i% * 0.1; y[i%] := 1.5 * Sin(2.0 * x[i%] + 0.4) + 0.01 * Cos(i% * 3.1) next
+FitSin(3, y[], x[]);
+FitSin(0, 1.0); FitSin(1, 1.8); FitSin(2, 0.2);
+r% := FitSin(a[], err, 500, it%);
+Rec(3);
+' a sigmoid
+for i% := 0 to 29 do x[i%] := i% * 0.2; y[i%] := 0.5 + 2.0 / (1.0 + Exp((3.0 - x[i%]) / 0.5)) + 0.01 * Sin(i% * 2.7) next
+FitSigmoid(4, y[], x[]);
+FitSigmoid(0, 0.4); FitSigmoid(1, 2.3); FitSigmoid(2, 2.5); FitSigmoid(3, 0.7);
+r% := FitSigmoid(a[], err, 500, it%);
+Rec(4);
+' a chi-squared fit with a single error value, and few iterations
+for i% := 0 to 29 do x[i%] := i% * 0.3; y[i%] := 3.0 * Exp(-x[i%] / 2.0) + 0.02 * Sin(i% * 1.7) next
+FitExp(2, y[], x[], 0.05);
+FitExp(0, 2.0); FitExp(1, 1.0);
+r% := FitExp(a[], err, 3, it%);
+Rec(2);
+r% := FitExp(a[], err, 300, it%);
+Rec(2);

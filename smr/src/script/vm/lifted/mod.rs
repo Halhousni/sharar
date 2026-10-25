@@ -6,7 +6,7 @@
 //! A script array is copied into the machine's memory in the layout `CArrObj` expects, the
 //! translated code works on it there, and the result is copied back when the command ends.
 
-use super::{Arg, Cell, Ref, RunError, Vm, V};
+use super::{Arg, Cell, Ref, RunError, Vm, XArg, V};
 mod cstring;
 mod win;
 use crate::script::compile::Ty;
@@ -347,15 +347,68 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             }
             "?XMakeFloat@CRunInfo@@QEBAXN@Z" => {
                 let v = f64::from_bits(m.xl(1));
-                self.vm.xargs.push(V::Flt(v));
+                self.vm.xargs.push(XArg::Val(V::Flt(v)));
             }
-            "?XMakeInt@CRunInfo@@QEBAX_J@Z" => self.vm.xargs.push(V::Int(rdx as i64)),
+            "?XMakeInt@CRunInfo@@QEBAX_J@Z" => self.vm.xargs.push(XArg::Val(V::Int(rdx as i64))),
+            // an array of the command's own, made available to the function: a copy that is written back
+            "?XPush@CRunInfo@@QEBAXPEAVTBasicObject@@@Z" => {
+                let obj = rdx;
+                let (vt, nd) = (m.ld(obj + 0x28, 4), m.ld(obj + 0x2c, 4) as usize);
+                let ty = match vt {
+                    1 => Ty::Int,
+                    2 => Ty::Float,
+                    _ => panic_any(Thrown(-0x1b7e)),
+                };
+                let dims: Vec<usize> = (0..nd.clamp(1, 5)).map(|k| m.ld(obj + 0x30 + 4 * k as u64, 4) as u32 as usize).collect();
+                let total: usize = dims.iter().product();
+                let data = m.ld(obj + 0x48, 8);
+                let mut elems = Vec::with_capacity(total);
+                for e in 0..total as u64 {
+                    let w = m.ld(data + 8 * e, 8);
+                    elems.push(match ty {
+                        Ty::Int => V::Int(w as i64),
+                        _ => V::Flt(f64::from_bits(w)),
+                    });
+                }
+                self.vm.cells.push(Cell::Array { ty, dims, data: elems });
+                let cell = self.vm.cells.len() - 1;
+                self.vm.xargs.push(XArg::Arr { cell, obj });
+            }
             "?XCallFunc@CRunInfo@@QEBAFFPEAVTProcedure@@@Z" => {
                 let n = (rdx as u16 as usize).min(self.vm.xargs.len());
                 let at = self.vm.xargs.len() - n;
-                let args: Vec<V> = self.vm.xargs.drain(at..).collect();
+                let args: Vec<XArg> = self.vm.xargs.drain(at..).collect();
+                let items: Vec<crate::script::vm::Item> = args
+                    .iter()
+                    .map(|a| match a {
+                        XArg::Val(v) => crate::script::vm::Item::Val(v.clone()),
+                        XArg::Arr { cell, .. } => crate::script::vm::Item::Ref(Ref::Cell(*cell)),
+                    })
+                    .collect();
+                self.vm.xpop = args.iter().filter_map(|a| if let XArg::Arr { obj, .. } = a { Some(*obj) } else { None }).collect();
+                let first_temp = args.iter().filter_map(|a| if let XArg::Arr { cell, .. } = a { Some(*cell) } else { None }).min();
                 let ri = (r8 as i64 - super::ROUTINE_ARG) as usize;
-                match self.vm.call_sync(ri, args) {
+                let outcome = self.vm.call_sync(ri, items);
+                // the arrays go back to where the command keeps them
+                for a in &args {
+                    if let XArg::Arr { cell, obj } = a {
+                        let data = m.ld(obj + 0x48, 8);
+                        if let Cell::Array { data: elems, .. } = &self.vm.cells[*cell] {
+                            for (e, v) in elems.iter().enumerate() {
+                                let w = match v {
+                                    V::Int(i) => *i as u64,
+                                    V::Flt(f) => f.to_bits(),
+                                    V::Str(_) => 0,
+                                };
+                                m.st(data + 8 * e as u64, 8, w);
+                            }
+                        }
+                    }
+                }
+                if let Some(c) = first_temp {
+                    self.vm.cells.truncate(c);
+                }
+                match outcome {
                     Ok(v) => {
                         self.vm.xret = v;
                         m.r[0] = (-2i16) as u16 as u64;
@@ -363,6 +416,8 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     Err(RunError(e)) => panic_any(Thrown(e)),
                 }
             }
+            "?XPopStack@CRunInfo@@QEBAPEAVTBasicObject@@XZ" => m.r[0] = self.vm.xpop.pop().unwrap_or(0),
+            "?XFreeIfDead@CRunInfo@@QEBAXPEAVTBasicObject@@@Z" => {}
             "?XGetFloatReturn@CRunInfo@@QEBAXAEAN@Z" => {
                 let v = match self.vm.xret.clone() {
                     Some(V::Flt(f)) => f,
@@ -744,6 +799,12 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.r[0] = self.world.winlong.insert((rcx, rdx as u32 as i32 as i64), r8).unwrap_or(0);
             }
             "DefWindowProcA" | "DefWindowProcW" => m.r[0] = 0,
+            "_copysign" | "copysign" => {
+                let (x, y) = (f64::from_bits(m.xl(0)), f64::from_bits(m.xl(1)));
+                m.set_xl(0, x.copysign(y).to_bits());
+            }
+            "_finite" => m.r[0] = f64::from_bits(m.xl(0)).is_finite() as u64,
+            "_isnan" => m.r[0] = f64::from_bits(m.xl(0)).is_nan() as u64,
             // the C library's character classes, in the "C" locale
             "isprint" | "isalpha" | "isdigit" | "isalnum" | "isspace" | "ispunct" | "iscntrl" | "isupper" | "islower" | "isxdigit" | "isgraph" | "iswprint" | "iswalpha" | "iswdigit" | "iswalnum" | "iswspace" | "iswpunct" | "iswcntrl" | "iswupper" | "iswlower" | "iswxdigit" | "iswgraph" => {
                 let c = (rcx as u32 as i32) as i64;

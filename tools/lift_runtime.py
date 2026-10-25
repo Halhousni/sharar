@@ -20,8 +20,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 table = json.loads(subprocess.run([sys.executable, os.path.join(HERE, "command_table.py"),
                                    os.path.join(vmbin, "runtime.s2l")], capture_output=True, text=True).stdout)
 execs = {c["name"]: c["exec"] for c in table}
+# the other libraries that register script commands: module, file
+EXTRA_MODS = {"fitting": "Fitting.s2l", "mateng": "MatEng.s2l", "firwin": "FIRWin.s2l", "spikecmd": "spikecmd.dll"}
+EXTRA_ROWS = {}
+for _m, _f in EXTRA_MODS.items():
+    EXTRA_ROWS[_m] = json.loads(subprocess.run([sys.executable, os.path.join(HERE, "command_table.py"), "--extra",
+                                                os.path.join(vmbin, _f)], capture_output=True, text=True, check=True).stdout)
+# a command's module and Execute
+cmd_module = {c["name"]: "runtime" for c in table}
+for _m, _rows in EXTRA_ROWS.items():
+    for c in _rows:
+        cmd_module[c["name"]] = _m
+        execs[c["name"]] = c["exec"]
 if "--all" in sys.argv:
-    wanted = [c["name"] for c in table]
+    wanted = [c["name"] for c in table] + [c["name"] for _m in EXTRA_MODS for c in EXTRA_ROWS[_m]]
 
 
 def exports(path):
@@ -29,8 +41,8 @@ def exports(path):
     im = Image(path)
     lo, hi = im.tva, im.tva + im.text[2]
     out = {}
-    for line in subprocess.run([sys.executable, os.path.join(HERE, "pe_exports.py"), path],
-                               capture_output=True, text=True, check=True).stdout.splitlines():
+    r = subprocess.run([sys.executable, os.path.join(HERE, "pe_exports.py"), path], capture_output=True, text=True)
+    for line in (r.stdout.splitlines() if r.returncode == 0 else []):
         a, n = line.split(" ", 1)
         if lo <= int(a, 16) < hi:
             out[n] = int(a, 16)
@@ -39,7 +51,8 @@ def exports(path):
 
 # The DLLs whose code is translated, and what they export.
 MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll",
-           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe", "use1432": "USE1432_vm.dll", "filters": "Filters.dll", "ccomm": "ccomm.dll", "scilexer": "SciLexer.dll"}
+           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe", "use1432": "USE1432_vm.dll", "filters": "Filters.dll", "ccomm": "ccomm.dll", "scilexer": "SciLexer.dll",
+           "fitting": "Fitting.s2l", "mateng": "MatEng.s2l", "firwin": "FIRWin.s2l"}
 def find(f):
     for d in (vmbin, os.environ.get("ORACLE_DIR", "")):
         if d and os.path.exists(os.path.join(d, f)):
@@ -53,8 +66,8 @@ def data_exports(path):
     im = Image(path)
     lo, hi = im.tva, im.tva + im.text[2]
     out = {}
-    for line in subprocess.run([sys.executable, os.path.join(HERE, "pe_exports.py"), path],
-                               capture_output=True, text=True, check=True).stdout.splitlines():
+    r = subprocess.run([sys.executable, os.path.join(HERE, "pe_exports.py"), path], capture_output=True, text=True)
+    for line in (r.stdout.splitlines() if r.returncode == 0 else []):
         a, n = line.split(" ", 1)
         if not lo <= int(a, 16) < hi:
             out[n] = int(a, 16)
@@ -90,7 +103,7 @@ import_names = []
 lifters = {}
 entries_extra = {}
 # Each module's addresses are moved apart, so that a pointer says which module's code it is.
-BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32, "use1432": 8 << 32, "filters": 9 << 32, "ccomm": 10 << 32, "scilexer": 11 << 32}
+BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32, "use1432": 8 << 32, "filters": 9 << 32, "ccomm": 10 << 32, "scilexer": 11 << 32, "fitting": 12 << 32, "mateng": 13 << 32, "firwin": 14 << 32}
 
 
 def service(lifter, name):
@@ -123,7 +136,7 @@ def cross_data(name):
 
 
 for mod, f in MODULES.items():
-    roots = [execs[n] for n in wanted] if mod == "runtime" else []
+    roots = [execs[n] for n in wanted if cmd_module.get(n) == mod]
     lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross, cross_data=cross_data, bias=BIAS[mod])
     lifters[mod].whole_data = mod == "scilexer"
     lifters[mod].import_names = import_names
@@ -140,8 +153,8 @@ for mod_, lf_ in lifters.items():
 # The functions that build the command objects: each makes a run of commands (`new`, the base
 # constructor, the vtable) and hands every one to `DoInit`. Running them at start gives the host the
 # objects, and each object says which command it is by its vtable.
-def registrars():
-    rt = lifters["runtime"]
+def registrars(mod="runtime"):
+    rt = lifters[mod]
     im = rt.im
     slot = [a for a, n in rt.iat.items() if n == "?DoInit@@YAFPEAVCBaseCmd@@@Z"]
     out = []
@@ -200,7 +213,7 @@ def crt_run(mod):
             best = run
     return best if len(best) >= 20 else []
 
-INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "filters", "ccomm", "scilexer", "sonview", "runtime"]
+INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "filters", "ccomm", "scilexer", "sonview", "fitting", "mateng", "firwin", "runtime"]
 INITS = {m: (crt_run(m) if m in ("sonview", "filters", "scilexer") else init_tables(m)) for m in INIT_ORDER}
 for m_, fs in INITS.items():
     for a in fs:
@@ -213,6 +226,13 @@ for a in REGISTRARS:
     if a not in lifters["runtime"].roots:
         lifters["runtime"].roots.append(a)
 entries_extra.setdefault("runtime", set()).update(REGISTRARS)
+# the other libraries make their command objects the same way
+EXTRA_REGISTRARS = {m_: registrars(m_) for m_ in EXTRA_MODS} if "--no-registrars" not in sys.argv else {}
+for m_, regs in EXTRA_REGISTRARS.items():
+    for a in regs:
+        if a not in lifters[m_].roots:
+            lifters[m_].roots.append(a)
+    entries_extra.setdefault(m_, set()).update(regs)
 
 # `--addr=module:0x180012340`: a routine only ever reached through a pointer.
 for a in sys.argv:
@@ -335,7 +355,8 @@ for msg, fs in MSG_HANDLERS.items():
 
 # Follow the imports: a routine another module supplies becomes a root there, until nothing is new.
 entries = {m: set(entries_extra.get(m, ())) for m in MODULES}
-entries["runtime"] |= {execs[n] for n in wanted}
+for n in wanted:
+    entries[cmd_module[n]].add(execs[n])
 changed = True
 while changed:
     changed = False
@@ -411,7 +432,7 @@ lines += ["];", "",
           "static IMAGES: &[&crate::mach::Img] = &[",
           "    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,",
           "    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,",
-          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG, &crate::rt_use1432_gen::IMG, &crate::rt_filters_gen::IMG, &crate::rt_ccomm_gen::IMG, &crate::rt_scilexer_gen::IMG,",
+          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG, &crate::rt_use1432_gen::IMG, &crate::rt_filters_gen::IMG, &crate::rt_ccomm_gen::IMG, &crate::rt_scilexer_gen::IMG, &crate::rt_fitting_gen::IMG, &crate::rt_mateng_gen::IMG, &crate::rt_firwin_gen::IMG,",
           "];", "",
           "pub fn machine() -> crate::mach::M {",
           "    crate::mach::M::big(IMAGES)",
@@ -421,7 +442,7 @@ lines += ["];", "",
           "    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)",
           "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)",
           "        || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)",
-          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t) || crate::rt_use1432_gen::try_call(m, s, t) || crate::rt_filters_gen::try_call(m, s, t) || crate::rt_ccomm_gen::try_call(m, s, t) || crate::rt_scilexer_gen::try_call(m, s, t);",
+          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t) || crate::rt_use1432_gen::try_call(m, s, t) || crate::rt_filters_gen::try_call(m, s, t) || crate::rt_ccomm_gen::try_call(m, s, t) || crate::rt_scilexer_gen::try_call(m, s, t) || crate::rt_fitting_gen::try_call(m, s, t) || crate::rt_mateng_gen::try_call(m, s, t) || crate::rt_firwin_gen::try_call(m, s, t);",
           "    if !done && !s.call(m, t) {",
           "        m.fail(&format!(\"a call through a pointer to {t:#x}\"));",
           "    }",
@@ -429,11 +450,13 @@ lines += ["];", "",
           "/// Run command `name`'s Execute: rcx is the command object, rdx the run information.",
           "pub fn run(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -> bool {",
           "    match name {"]
-lines += [f"        {json.dumps(n)} => crate::rt_runtime_gen::enter_{execs[n]:x}(m, s)," for n in wanted]
+lines += [f"        {json.dumps(n)} => crate::rt_{cmd_module[n]}_gen::enter_{execs[n] + BIAS[cmd_module[n]]:x}(m, s)," for n in wanted]
 lines += ["        _ => return false,", "    }", "    true", "}", "",
           "/// Run the functions that build every command object (each reports its objects to `DoInit`).",
           "pub fn register_all(m: &mut crate::mach::M, s: &mut dyn crate::Svc) {"]
 lines += [f"    crate::rt_runtime_gen::enter_{a:x}(m, s);" for a in REGISTRARS]
+for m_, regs in EXTRA_REGISTRARS.items():
+    lines += [f"    crate::rt_{m_}_gen::enter_{a + BIAS[m_]:x}(m, s);" for a in regs]
 lines += ["}", "",
           "/// The number of static initialisers, in the order they run (dependencies first).",
           f"pub const INIT_COUNT: usize = {sum(len(INITS[m_]) for m_ in INIT_ORDER)};", "",
@@ -448,6 +471,8 @@ for m_ in INIT_ORDER:
 lines += ["        _ => {}", "    }"]
 lines += ["}", "", "/// Each command's vtable, which says which command an object is.", "pub const VTABLES: &[(&str, u64)] = &["]
 lines += [f"    ({json.dumps(c['name'])}, {c['vtable']:#x})," for c in table if c["name"] in set(wanted)]
+for m_ in EXTRA_MODS:
+    lines += [f"    ({json.dumps(c['name'])}, {c['vtable'] + BIAS[m_]:#x})," for c in EXTRA_ROWS[m_] if c["name"] in set(wanted)]
 lines += ["];", "",
           "/// Call an exported routine that was asked for with `--root` by its decorated name.",
           "pub fn call_export(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -> bool {",
