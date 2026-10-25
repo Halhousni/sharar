@@ -142,7 +142,8 @@ const FAKE_CODE: u64 = 0x4100_0000_0000;
 
 impl<'v, 'w> Svc for Run<'v, 'w> {
     fn call(&mut self, m: &mut M, target: u64) -> bool {
-        match target.wrapping_sub(FAKE_CODE) {
+        let slot = target.wrapping_sub(FAKE_CODE);
+        match slot {
             // CWinThread::GetMainWnd (slot 31)
             31 => {
                 m.r[0] = self.world.main_wnd;
@@ -155,9 +156,55 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.pop();
                 true
             }
-            // CWinApp::GetProfileInt(section, entry, default): nothing is stored, so the default
-            0x108 => {
-                m.r[0] = m.r[9] & 0xffff_ffff;
+            // the application's settings (CWinApp::GetProfileInt / WriteProfileInt / GetProfileString /
+            // WriteProfileString, slots 0x108..0x120): kept for the length of the run
+            0x108 | 0x110 | 0x118 | 0x120 => {
+                let wide_at = |m: &M, p: u64| -> String {
+                    let mut v = Vec::new();
+                    while p != 0 && m.ld(p + 2 * v.len() as u64, 2) != 0 {
+                        v.push(m.ld(p + 2 * v.len() as u64, 2) as u16);
+                    }
+                    String::from_utf16_lossy(&v)
+                };
+                match slot {
+                    0x108 => {
+                        let (sec, ent) = (wide_at(m, m.r[2]), wide_at(m, m.r[8]));
+                        let dflt = m.r[9] & 0xffff_ffff;
+                        m.r[0] = match self.world.win.profile_get(&sec, &ent) {
+                            Some(v) if v.len() >= 5 && v[0] == 4 => u32::from_le_bytes([v[1], v[2], v[3], v[4]]) as u64,
+                            _ => dflt,
+                        };
+                    }
+                    0x110 => {
+                        let (sec, ent) = (wide_at(m, m.r[2]), wide_at(m, m.r[8]));
+                        let val = (m.r[9] as u32).to_le_bytes();
+                        self.world.win.profile_set(&sec, &ent, 4, &val);
+                        m.r[0] = 1;
+                    }
+                    0x118 => {
+                        // (this, return string, section, entry, default)
+                        let ret = m.r[2];
+                        let (sec, ent) = (wide_at(m, m.r[8]), wide_at(m, m.r[9]));
+                        let dflt = wide_at(m, m.ld(m.r[4] + 0x28, 8));
+                        let text = match self.world.win.profile_get(&sec, &ent) {
+                            Some(v) if !v.is_empty() && v[0] == 1 => {
+                                let u: Vec<u16> = v[1..].chunks(2).map(|c| u16::from_le_bytes([c[0], *c.get(1).unwrap_or(&0)])).take_while(|&x| x != 0).collect();
+                                String::from_utf16_lossy(&u)
+                            }
+                            _ => dflt,
+                        };
+                        let units: Vec<u32> = text.encode_utf16().map(|u| u as u32).collect();
+                        self.world.strs.write(m, ret, &units, true);
+                        m.r[0] = ret;
+                    }
+                    _ => {
+                        let (sec, ent, val) = (wide_at(m, m.r[2]), wide_at(m, m.r[8]), wide_at(m, m.r[9]));
+                        let mut data: Vec<u8> = val.encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
+                        data.extend_from_slice(&[0, 0]);
+                        self.world.win.profile_set(&sec, &ent, 1, &data);
+                        m.r[0] = 1;
+                    }
+                }
                 m.pop();
                 true
             }
@@ -602,6 +649,8 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     Some(&o) => o,
                     None => {
                         let o = m.alloc(0x400);
+                        let app = self.app(m);
+                        m.st(o + 8, 8, app);
                         self.world.sonfiles.insert(key, o);
                         o
                     }
@@ -777,7 +826,9 @@ impl<'v, 'w> Run<'v, 'w> {
     fn app(&mut self, m: &mut M) -> u64 {
         if self.world.app == 0 {
             let (o, vt) = (m.alloc(0x400), m.alloc(0x800));
-            m.st(vt + 0x108, 8, FAKE_CODE + 0x108);
+            for k in [0x108u64, 0x110, 0x118, 0x120] {
+                m.st(vt + k, 8, FAKE_CODE + k);
+            }
             m.st(o, 8, vt);
             m.st(o + 0x88, 8, 0x30100);
             self.world.app = o;

@@ -1,0 +1,10 @@
+var res[100], k%, r%, s$, i%;
+k% := 0;
+Profile("ZzTest", "n1", 7);
+Profile("ZzTest", "n1", 5, r%); res[k%] := r%; k% += 1;
+Profile("ZzTest", "s1", "stored");
+Profile("ZzTest", "s1", "dflt", s$); res[k%] := Len(s$); for i% := 1 to Len(s$) do res[k%+i%] := Asc(Mid$(s$, i%, 1)) next k% += 1 + Len(s$);
+Profile("ZzTest", "n2", -12);
+Profile("ZzTest", "n2", 9, r%); res[k%] := r%; k% += 1;
+Profile("ZzOther", "s2", "a longer value");
+Profile("ZzOther", "s2", "dflt", s$); res[k%] := Len(s$); k% += 1;

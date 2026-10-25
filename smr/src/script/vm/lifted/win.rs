@@ -20,6 +20,8 @@ pub struct Win {
     /// Directory listings in progress: handle to the names still to give.
     finds: HashMap<u64, std::collections::VecDeque<(String, std::fs::Metadata)>>,
     registry: HashMap<String, Vec<u8>>,
+    reg_keys: HashMap<u64, String>,
+    reg_made: std::collections::HashSet<String>,
     clipboard: Option<String>,
     environment: HashMap<String, String>,
     processes: HashMap<u64, std::process::Child>,
@@ -82,6 +84,19 @@ impl Win {
             std::io::ErrorKind::PermissionDenied => ERROR_ACCESS_DENIED,
             _ => 31,
         };
+    }
+
+    /// A setting kept for the application (`GetProfileInt` and the like): the value stored under
+    /// `section`/`entry`, as its type byte and data.
+    pub fn profile_get(&self, section: &str, entry: &str) -> Option<Vec<u8>> {
+        self.registry.get(&format!("APP\\{section}|{entry}")).cloned()
+    }
+
+    pub fn profile_set(&mut self, section: &str, entry: &str, ty: u8, data: &[u8]) {
+        let mut v = vec![ty];
+        v.extend_from_slice(data);
+        self.reg_made.insert(format!("APP\\{section}"));
+        self.registry.insert(format!("APP\\{section}|{entry}"), v);
     }
 
     /// Answer a call of `name`; false if it is not one of ours.
@@ -695,12 +710,92 @@ impl Win {
                 m.r[0] = p;
             }
             "FreeEnvironmentStringsW" => m.r[0] = 1,
-            "RegQueryValueExW" | "RegSetValueExW" | "RegDeleteValueW" | "RegCloseKey" => {
-                m.r[0] = match name {
-                    "RegCloseKey" | "RegSetValueExW" | "RegDeleteValueW" => 0,
-                    _ => 2, // ERROR_FILE_NOT_FOUND: no stored setting
+            // the registry is a table kept for the length of the run (nothing is read from the machine)
+            "?GetAppRegistryKey@CWinApp@@QEAAPEAUHKEY__@@PEAVCAtlTransactionManager@ATL@@@Z" => {
+                self.reg_keys.insert(0x7001, "APP".to_string());
+                m.r[0] = 0x7001;
+            }
+            "?GetSectionKey@CWinApp@@QEAAPEAUHKEY__@@PEB_WPEAVCAtlTransactionManager@ATL@@@Z" => {
+                let section = String::from_utf16_lossy(&wide(m, rdx));
+                let path = format!("APP\\{section}");
+                self.reg_made.insert(path.clone());
+                self.next += 1;
+                let h = 0x7100 + self.next * 4;
+                self.reg_keys.insert(h, path);
+                m.r[0] = h;
+            }
+            "RegCreateKeyExW" | "RegOpenKeyExW" => {
+                let parent = self.reg_keys.get(&rcx).cloned().unwrap_or_else(|| format!("ROOT{rcx:x}"));
+                let sub = if rdx == 0 { String::new() } else { String::from_utf16_lossy(&wide(m, rdx)) };
+                let path = if sub.is_empty() { parent } else { format!("{parent}\\{sub}") };
+                let existing = self.registry.keys().any(|k| k.starts_with(&format!("{path}|")));
+                let out_ptr = if name == "RegCreateKeyExW" { stack(m, 4) } else { stack(m, 0) };
+                if name == "RegOpenKeyExW" && !existing && !self.reg_made.contains(&path) {
+                    m.r[0] = 2;
+                } else {
+                    self.reg_made.insert(path.clone());
+                    self.next += 1;
+                    let h = 0x7100 + self.next * 4;
+                    self.reg_keys.insert(h, path);
+                    if out_ptr != 0 {
+                        m.st(out_ptr, 8, h);
+                    }
+                    if name == "RegCreateKeyExW" {
+                        let disp = stack(m, 5);
+                        if disp != 0 {
+                            m.st(disp, 4, if existing { 2 } else { 1 });
+                        }
+                    }
+                    m.r[0] = 0;
                 }
             }
+            "RegQueryValueExW" => {
+                let path = self.reg_keys.get(&rcx).cloned().unwrap_or_default();
+                let vname = if rdx == 0 { String::new() } else { String::from_utf16_lossy(&wide(m, rdx)) };
+                match self.registry.get(&format!("{path}|{vname}")).cloned() {
+                    Some(v) => {
+                        let (ty, data) = (v[0] as u64, &v[1..]);
+                        let (tptr, dptr, sptr) = (m.r[9], stack(m, 0), stack(m, 1));
+                        if tptr != 0 {
+                            m.st(tptr, 4, ty);
+                        }
+                        let cap = if sptr != 0 { m.ld(sptr, 4) } else { 0 };
+                        if sptr != 0 {
+                            m.st(sptr, 4, data.len() as u64);
+                        }
+                        if dptr != 0 {
+                            if cap >= data.len() as u64 {
+                                for (i, b) in data.iter().enumerate() {
+                                    m.st(dptr + i as u64, 1, *b as u64);
+                                }
+                                m.r[0] = 0;
+                            } else {
+                                m.r[0] = 234; // ERROR_MORE_DATA
+                            }
+                        } else {
+                            m.r[0] = 0;
+                        }
+                    }
+                    None => m.r[0] = 2,
+                }
+            }
+            "RegSetValueExW" => {
+                let path = self.reg_keys.get(&rcx).cloned().unwrap_or_default();
+                let vname = if rdx == 0 { String::new() } else { String::from_utf16_lossy(&wide(m, rdx)) };
+                let (ty, dptr, n) = (m.r[9] as u8, stack(m, 0), stack(m, 1) & 0xffff_ffff);
+                let mut v = vec![ty];
+                for i in 0..n {
+                    v.push(m.ld(dptr + i, 1) as u8);
+                }
+                self.registry.insert(format!("{path}|{vname}"), v);
+                m.r[0] = 0;
+            }
+            "RegDeleteValueW" => {
+                let path = self.reg_keys.get(&rcx).cloned().unwrap_or_default();
+                let vname = if rdx == 0 { String::new() } else { String::from_utf16_lossy(&wide(m, rdx)) };
+                m.r[0] = if self.registry.remove(&format!("{path}|{vname}")).is_some() { 0 } else { 2 };
+            }
+            "RegCloseKey" => m.r[0] = 0,
             "OpenClipboard" | "EmptyClipboard" | "CloseClipboard" => m.r[0] = 1,
             "GlobalAlloc" => m.r[0] = m.alloc(rdx as usize + 16),
             "GlobalLock" => m.r[0] = rcx,
