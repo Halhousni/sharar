@@ -56,6 +56,10 @@ pub trait Host {
     fn view_channels(&self, _view: i64) -> Vec<(i64, i64)> {
         Vec::new()
     }
+    /// The text of a script file, for `ScriptRun`.
+    fn read_script(&self, _name: &str) -> Option<String> {
+        None
+    }
     /// The handle of the log window.
     fn log_handle(&self) -> i64 {
         11

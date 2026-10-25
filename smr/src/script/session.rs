@@ -1298,6 +1298,10 @@ impl Host for Session {
         self.log
     }
 
+    fn read_script(&self, name: &str) -> Option<String> {
+        std::fs::read(self.resolve(name)).ok().map(|b| String::from_utf8_lossy(&b).into_owned())
+    }
+
     fn text_content(&self, h: i64) -> Option<String> {
         match self.exts.iter().find(|e| e.handle == h) {
             Some(Ext { kind: ExtKind::Win(t, _, _), .. }) => Some(t.clone()),
@@ -1873,6 +1877,9 @@ impl Host for SharedSession {
     }
     fn log_handle(&self) -> i64 {
         self.0.lock().unwrap().log_handle()
+    }
+    fn read_script(&self, name: &str) -> Option<String> {
+        self.0.lock().unwrap().read_script(name)
     }
     fn text_content(&self, view: i64) -> Option<String> {
         self.0.lock().unwrap().text_content(view)

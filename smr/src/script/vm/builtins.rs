@@ -278,6 +278,12 @@ impl Vm {
                 }
                 some(V::Int(0))
             }
+            "ScriptRun" => {
+                let name = self.a_str(&args[0])?;
+                let flags = if args.len() > 1 { self.a_int(&args[1])? } else { 0 };
+                self.next_script = Some((name, flags));
+                none()
+            }
             "PrintLog" => {
                 let t = self.print_text(args)?;
                 if self.log_has_editor() {

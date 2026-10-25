@@ -1,0 +1,8 @@
+var res[10], a%, p$;
+p$ := "C:\\Users\\Hilal\\Documents\\Spike8\\out\\m_scriptrun__child.s2s";
+a% := FileNew(1);
+Print("var f%%, k%%;\nf%% := FileOpen(\"C:\\\\Users\\\\Hilal\\\\Documents\\\\Spike8\\\\out\\\\m_scriptrun__out.txt\", 8, 1);\nPrint(\"child ran\\n\");\nfor k%% := 1 to 3 do Print(\"%%d\\n\", k%% * k%%) next\nFileClose();\n");
+res[0] := FileSaveAs(p$);
+res[1] := FileClose(0, -1);
+ScriptRun(p$);
+res[2] := 5;

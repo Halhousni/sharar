@@ -153,6 +153,10 @@ pub struct Vm {
     pub(crate) read_cfg: super::text::ReadCfg,
     /// One generator each for `Rand`, `RandExp` and `RandNorm`, as Spike2 keeps.
     pub(crate) rng: [builtins::CRand; 3],
+    /// A script `ScriptRun` asked for: it starts when this one ends.
+    pub(crate) next_script: Option<(String, i64)>,
+    /// The globals of the scripts that ran before this one (`ScriptRun`).
+    retired: Vec<(Vec<String>, Vec<Cell>)>,
 }
 
 fn flt_to_num(v: &V) -> Result<f64, RunError> {
@@ -216,6 +220,8 @@ impl Vm {
             view: 0,
             read_cfg: super::text::ReadCfg::default(),
             rng: [builtins::CRand::new(0), builtins::CRand::new(0), builtins::CRand::new(0)],
+            next_script: None,
+            retired: Vec::new(),
         })
     }
 
@@ -848,10 +854,33 @@ impl Vm {
         loop {
             match self.step() {
                 Ok(None) => {}
+                Ok(Some(Stop::Done)) => match self.chain() {
+                    Ok(true) => {}
+                    Ok(false) => return Stop::Done,
+                    Err(e) => return Stop::Error(e),
+                },
                 Ok(Some(s)) => return s,
                 Err(RunError(e)) => return Stop::Error(e),
             }
         }
+    }
+
+    /// The script `ScriptRun` named, if there is one, takes this one's place: the views and the log stay.
+    fn chain(&mut self) -> Result<bool, i32> {
+        let Some((name, _flags)) = self.next_script.take() else { return Ok(false) };
+        let Some(src) = self.host.as_ref().and_then(|h| h.read_script(&name)) else { return Err(-1) };
+        let Ok(compiled) = super::compile_with_commands(&src) else { return Err(-1) };
+        let Ok(mut next) = Vm::new(compiled, self.with_commands) else { return Err(-1) };
+        next.host = self.host.take();
+        next.lifted_world = self.lifted_world.take();
+        next.log = std::mem::take(&mut self.log);
+        next.read_cfg = self.read_cfg.clone();
+        next.rng = std::mem::replace(&mut self.rng, [builtins::CRand::new(0), builtins::CRand::new(0), builtins::CRand::new(0)]);
+        next.lifted_error = self.lifted_error.take();
+        next.retired = std::mem::take(&mut self.retired);
+        next.retired.push((self.prog.globals.iter().map(|g| g.name.clone()).collect(), std::mem::take(&mut self.cells)));
+        *self = next;
+        Ok(true)
     }
 
     /// Like [`run`](Vm::run), but stops with [`Stop::Cancelled`] soon after `cancel` is set.
@@ -864,6 +893,11 @@ impl Vm {
             }
             match self.step() {
                 Ok(None) => {}
+                Ok(Some(Stop::Done)) => match self.chain() {
+                    Ok(true) => {}
+                    Ok(false) => return Stop::Done,
+                    Err(e) => return Stop::Error(e),
+                },
                 Ok(Some(s)) => return s,
                 Err(RunError(e)) => return Stop::Error(e),
             }
@@ -883,11 +917,17 @@ impl Vm {
 
     /// The elements of a global array by name, in storage order.
     pub fn array(&self, name: &str) -> Option<Vec<V>> {
-        let i = self.prog.globals.iter().position(|g| g.name == name)?;
-        match &self.cells[i] {
-            Cell::Array { data, .. } => Some(data.clone()),
-            _ => None,
-        }
+        let find = |names: Vec<&str>, cells: &[Cell]| {
+            let i = names.iter().position(|n| *n == name)?;
+            match &cells[i] {
+                Cell::Array { data, .. } => Some(data.clone()),
+                _ => None,
+            }
+        };
+        find(self.prog.globals.iter().map(|g| g.name.as_str()).collect(), &self.cells).or_else(|| {
+            // a script that ScriptRun started took over: the arrays of the one that started it
+            self.retired.iter().rev().find_map(|(names, cells)| find(names.iter().map(|n| n.as_str()).collect(), cells))
+        })
     }
 
     // ---- commands ---------------------------------------------------------------------

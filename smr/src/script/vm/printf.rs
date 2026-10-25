@@ -202,20 +202,6 @@ pub fn format(fmt: &str, args: &[Fv]) -> (String, usize) {
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
-        if c == '\\' && i + 1 < chars.len() {
-            // The script's own escapes survive into the format: \n, \t.
-            match chars[i + 1] {
-                'n' => out.push('\n'),
-                't' => out.push('\t'),
-                '\\' => out.push('\\'),
-                o => {
-                    out.push('\\');
-                    out.push(o);
-                }
-            }
-            i += 2;
-            continue;
-        }
         if c != '%' {
             out.push(c);
             i += 1;
