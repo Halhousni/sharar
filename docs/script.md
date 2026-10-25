@@ -717,3 +717,32 @@ settings (`Profile` starts empty). A test case must write what it reads.
 port needs (`tools/regen/vslots.txt` and `addrs.txt` hold the long lists) and then builds. It needs a Python
 with `capstone` (`PY=`) and the compiler oracle directory (`ORACLE_DIR=`). A new routine the port has to call
 is added to `addrs.txt` as `--addr=module:0xADDRESS`.
+
+
+### Text windows and the editor
+
+The log and the windows `FileNew(1)` and `FileOpen(name, 1)` make are text windows. Spike2 draws them with
+Scintilla, so the port translates `SciLexer.dll` too (`scilexer`, address bias 11<<32) and runs the real editor:
+`Selection$`, `EditFind` and `EditReplace` (plain, whole word and regular expressions), `MoveBy`, `MoveTo`,
+`TabSettings`, `FontGet`/`FontSet`, `EditCut`/`Copy`/`Paste` (the clipboard keeps each format a program puts
+there) and `Modified` are Spike2's own code over it.
+
+How it is wired: the host answers the window system for the editor. `LoadLibraryW("SciLexer.dll")` runs the
+DLL's class registration (`RegisterClassEx` is recorded: class name → window procedure); `CWnd::CreateEx` for
+the class `Scintilla` makes a window number, keeps the per-window words `GetWindowLongPtr` and
+`SetWindowLongPtr` ask for, and sends `WM_CREATE` to the translated window procedure; `SendMessage` to that
+window number calls the procedure. SONVIEW's `CLogView`/`CLogDoc` (the log) and `CTextView`/`CTextDoc` (the
+other text windows) are made by their own constructors (`text_view` in `lifted/mod.rs`) and their
+`OnCreate` makes the editor. The text itself stays in the session (`vm.log`, `ExtKind::Win`): it is put into the
+editor the first time a command needs the editor, and read back after every translated command. Once the
+editor exists `Print` and `PrintLog` go through its own routines (the caret and the selection decide where text
+lands), and before it exists they append to the stored text.
+
+Names and numbers that only the vendor's code shows: new text windows are `Text1`, `Text2`, … (the count never
+goes back); closing the current view makes the view that was current before it current again;
+`WindowVisible(x)` gives the old state (0 hidden, 1 shown, 2 minimised, 3 maximised; new windows start
+hidden, the log shown); `ViewKind` of a handle that is not a view is -2; a window saved under a name is titled
+with the name without its extension.
+
+`tools/msgmaps.py` reads a class's message map out of an executable (which window class handles which message),
+and `tools/rtti.py` finds a class's vtable from its run-time type information.
