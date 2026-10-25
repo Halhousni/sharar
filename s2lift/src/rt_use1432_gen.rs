@@ -8945,7 +8945,7 @@ pub(super) fn f_980004d20(m: &mut M, s: &mut dyn Svc) {
                 // 180004eff xor ecx, ecx
                 { let v = m.xor(m.gr(1, 4, false), m.gr(1, 4, false), 4); m.sr(1, 4, false, v); }
                 // 180004f01 call qword ptr [rip + 0x1129]
-                s.import(m, 835);
+                s.import(m, 839);
                 // 180004f07 test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 180004f09 je 0x180004fc2

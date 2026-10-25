@@ -1,0 +1,53 @@
+var res[400], i%, k%, a%, s$, lh%, nm$, sz, st%, v1, v2, v3, v4, c1%, c2%;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+lh% := LogHandle();
+k% := 0;
+a% := FileNew(1);
+s$ := WindowTitle$(); Enc(s$, 100);
+Print("x");
+res[k%] := FontGet(nm$, sz, st%, 0, c1%, c2%); k% += 1;
+Enc(nm$, 130); res[k%] := sz; k% += 1; res[k%] := st%; k% += 1; res[k%] := c1%; k% += 1; res[k%] := c2%; k% += 1;
+res[k%] := FontSet("Courier New", 12, 0); k% += 1;
+res[k%] := FontGet(nm$, sz, st%, 0, c1%, c2%); k% += 1;
+Enc(nm$, 160); res[k%] := sz; k% += 1; res[k%] := st%; k% += 1;
+res[k%] := FontSet("Arial", 9.5, 1); k% += 1;
+res[k%] := FontGet(nm$, sz, st%); k% += 1;
+Enc(nm$, 190); res[k%] := sz; k% += 1; res[k%] := st%; k% += 1;
+View(lh%);
+s$ := WindowTitle$(); Enc(s$, 220);
+res[k%] := FontGet(nm$, sz, st%); k% += 1;
+Enc(nm$, 250); res[k%] := sz; k% += 1;
+View(a%);
+res[k%] := FileClose(0, -1); k% += 1;
+' titles
+a% := FileNew(1);
+s$ := WindowTitle$(); Enc(s$, 280);
+s$ := WindowTitle$("My title"); Enc(s$, 300);
+s$ := WindowTitle$(); Enc(s$, 320);
+FileClose(0, -1);
+a% := FileNew(1);
+s$ := WindowTitle$(); Enc(s$, 340);
+FileClose(0, -1);
+' visibility and the modified flag
+a% := FileNew(1);
+for i% := 0 to 4 do res[330 + i%] := WindowVisible(); res[335 + i%] := WindowVisible(i%); next
+res[345] := WindowVisible();
+res[346] := WindowVisible(1);
+View(lh%);
+res[349] := Modified();
+res[350] := Modified(1);
+res[351] := Modified();
+res[352] := Modified(0);
+View(a%);
+res[353] := Modified();
+Print("x");
+res[354] := Modified();
+res[355] := Modified(0, 1);
+res[356] := Modified();
+res[357] := Modified(1);
+res[358] := Modified();
+FileClose(0, -1);

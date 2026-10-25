@@ -81,7 +81,7 @@ enum ExtKind {
     Text(TextFile),
     Bin(BinFile),
     /// A text window: its text, and the name it was saved under (as the script wrote it).
-    Win(String, String),
+    Win(String, String, String),
 }
 
 struct Ext {
@@ -98,6 +98,11 @@ pub struct Session {
     maps: Vec<(String, PathBuf)>,
     /// The views, the one last made current first: the one before it is current again when it closes.
     mru: Vec<i64>,
+    /// How many text windows have been made (they are named Text1, Text2, …), and the log's title.
+    text_made: i64,
+    log_title: String,
+    /// How each window is shown: 0 hidden, 1 shown, 2 minimised, 3 maximised (a window not listed: the log is shown, the rest hidden).
+    win_state: std::collections::HashMap<i64, u8>,
 }
 
 /// The code Spike2's file library returns for a channel that does not exist.
@@ -111,7 +116,7 @@ impl Default for Session {
 
 impl Session {
     pub fn new() -> Session {
-        Session { views: Vec::new(), exts: Vec::new(), log: 11, current: 11, next: 14, maps: Vec::new(), mru: vec![11] }
+        Session { views: Vec::new(), exts: Vec::new(), log: 11, current: 11, next: 14, maps: Vec::new(), mru: vec![11], text_made: 0, log_title: "Log1".to_string(), win_state: Default::default() }
     }
 
     /// Read files whose script path starts with `windows_prefix` from `dir` instead. A script
@@ -138,6 +143,28 @@ impl Session {
 
     fn view(&self) -> Option<&DataView> {
         self.views.iter().find(|v| v.handle == self.current)
+    }
+
+    /// `WindowVisible`: the state the window was in; given 0 to 3 it takes that state, 4 or none leaves it.
+    fn window_visible(&mut self, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let cur = self.current;
+        let was = self.win_state.get(&cur).copied().unwrap_or(if cur == self.log { 1 } else { 0 });
+        if let Some(a) = args.first() {
+            let x = int(mem, a)?;
+            if !(0..=4).contains(&x) {
+                return Ok(None);
+            }
+            if x < 4 {
+                self.win_state.insert(cur, x as u8);
+            }
+        }
+        Ok(Some(Some(V::Int(was as i64))))
+    }
+
+    /// The name of the next new text window.
+    fn untitled(&mut self) -> String {
+        self.text_made += 1;
+        format!("Text{}", self.text_made)
     }
 
     /// Make `handle` the current view, and the first to come back to.
@@ -483,17 +510,11 @@ impl Session {
             }
             "Draw" | "DrawAll" | "Optimise" | "ViewStandard" => none,
             "Window" => {
-                self.view_mut().unwrap().visible = true;
+                let cur = self.current;
+                self.win_state.insert(cur, 1);
                 some(V::Int(1))
             }
-            "WindowVisible" => {
-                let v = self.view_mut().unwrap();
-                let was = v.visible;
-                if let Some(a) = args.first() {
-                    v.visible = int(mem, a)? != 0;
-                }
-                some(V::Int(was as i64))
-            }
+            "WindowVisible" => self.window_visible(args, mem),
             "WindowTitle$" => {
                 let default = {
                     let v = self.view().unwrap();
@@ -1279,20 +1300,20 @@ impl Host for Session {
 
     fn text_content(&self, h: i64) -> Option<String> {
         match self.exts.iter().find(|e| e.handle == h) {
-            Some(Ext { kind: ExtKind::Win(t, _), .. }) => Some(t.clone()),
+            Some(Ext { kind: ExtKind::Win(t, _, _), .. }) => Some(t.clone()),
             _ => None,
         }
     }
 
     fn set_text_content(&mut self, h: i64, text: String) {
-        if let Some(Ext { kind: ExtKind::Win(t, _), .. }) = self.exts.iter_mut().find(|e| e.handle == h) {
+        if let Some(Ext { kind: ExtKind::Win(t, _, _), .. }) = self.exts.iter_mut().find(|e| e.handle == h) {
             *t = text;
         }
     }
 
     fn text_append(&mut self, h: i64, text: &str) -> bool {
         match self.exts.iter_mut().find(|e| e.handle == h) {
-            Some(Ext { kind: ExtKind::Win(t, _), .. }) => {
+            Some(Ext { kind: ExtKind::Win(t, _, _), .. }) => {
                 t.push_str(text);
                 true
             }
@@ -1365,7 +1386,7 @@ impl Host for Session {
                             let text = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
                             let handle = self.next;
                             self.next += 1;
-                            self.exts.push(Ext { handle, kind: ExtKind::Win(text, path.clone()) });
+                            self.exts.push(Ext { handle, kind: ExtKind::Win(text, path.clone(), file_name_part(&path.replace('/', "\\"), 3)) });
                             self.activate(handle);
                             some(V::Int(handle))
                         }
@@ -1417,7 +1438,7 @@ impl Host for Session {
                 match name {
                     "FileName$" => {
                         let n = if args.is_empty() { 0 } else { int(mem, &args[0])? };
-                        let ExtKind::Win(_, saved) = &self.exts[at].kind else { unreachable!() };
+                        let ExtKind::Win(_, saved, _) = &self.exts[at].kind else { unreachable!() };
                         some(V::Str(file_name_part(&saved.replace('/', "\\"), n)))
                     }
                     _ => {
@@ -1427,15 +1448,16 @@ impl Host for Session {
                                 _ => return Err(RunError(super::vm::ERR_TYPE)),
                             }
                         } else {
-                            let ExtKind::Win(_, saved) = &self.exts[at].kind else { unreachable!() };
+                            let ExtKind::Win(_, saved, _) = &self.exts[at].kind else { unreachable!() };
                             if saved.is_empty() { None } else { Some(saved.clone()) }
                         };
                         let Some(target) = target else { return Ok(None) };
                         let path = self.resolve(&target);
-                        let ExtKind::Win(text, saved) = &mut self.exts[at].kind else { unreachable!() };
+                        let ExtKind::Win(text, saved, title) = &mut self.exts[at].kind else { unreachable!() };
                         let bytes: Vec<u8> = text.replace("\r\n", "\n").replace('\n', "\r\n").into_bytes();
                         match std::fs::write(&path, bytes) {
                             Ok(()) => {
+                                *title = file_name_part(&target.replace('/', "\\"), 3);
                                 *saved = target;
                                 some(V::Int(0))
                             }
@@ -1444,10 +1466,36 @@ impl Host for Session {
                     }
                 }
             }
+            "WindowVisible" if self.current == self.log || matches!(self.exts.iter().find(|e| e.handle == self.current), Some(Ext { kind: ExtKind::Win(..), .. })) => self.window_visible(args, mem),
+            "WindowTitle$" if self.current == self.log || matches!(self.exts.iter().find(|e| e.handle == self.current), Some(Ext { kind: ExtKind::Win(..), .. })) => {
+                let cur = self.current;
+                let new = if args.is_empty() {
+                    None
+                } else {
+                    match mem.value(&args[0])? {
+                        V::Str(s) => Some(s),
+                        _ => return Err(RunError(super::vm::ERR_TYPE)),
+                    }
+                };
+                let slot: &mut String = if cur == self.log {
+                    &mut self.log_title
+                } else {
+                    match self.exts.iter_mut().find(|e| e.handle == cur) {
+                        Some(Ext { kind: ExtKind::Win(_, _, t), .. }) => t,
+                        _ => unreachable!(),
+                    }
+                };
+                let old = slot.clone();
+                if let Some(n) = new {
+                    *slot = n;
+                }
+                some(V::Str(old))
+            }
             "FileNew" if matches!(args.first().map(|a| int(mem, a)), Some(Ok(1))) => {
                 let handle = self.next;
                 self.next += 1;
-                self.exts.push(Ext { handle, kind: ExtKind::Win(String::new(), String::new()) });
+                let title = self.untitled();
+                self.exts.push(Ext { handle, kind: ExtKind::Win(String::new(), String::new(), title) });
                 self.activate(handle);
                 some(V::Int(handle))
             }

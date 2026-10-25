@@ -502,7 +502,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.st(m.r[2], 8, ip.to_bits());
                 m.set_xl(0, (x - ip).to_bits());
             }
-            "?GetFirstViewPosition@CDocument@@UEBAPEAU__POSITION@@XZ" | "?GetStatus@CFile@@SAHPEB_WAEAUCFileStatus@@PEAVCAtlTransactionManager@ATL@@@Z" | "?OnFilePrint@CView@@IEAAXXZ" => m.r[0] = 0,
+            "?GetStatus@CFile@@SAHPEB_WAEAUCFileStatus@@PEAVCAtlTransactionManager@ATL@@@Z" | "?OnFilePrint@CView@@IEAAXXZ" => m.r[0] = 0,
             n if n.starts_with("?GetThisClass@") => m.r[0] = 0x7777_0000,
             "?IsKindOf@CObject@@QEBAHPEBUCRuntimeClass@@@Z" => m.r[0] = 0,
             "GetParent" => m.r[0] = if m.r[1] != 0 { 0x30001 } else { 0 },
@@ -620,6 +620,16 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.r[0] = self.world.winlong.insert((rcx, rdx as u32 as i32 as i64), r8).unwrap_or(0);
             }
             "DefWindowProcA" | "DefWindowProcW" => m.r[0] = 0,
+            "?GetFirstViewPosition@CDocument@@UEBAPEAU__POSITION@@XZ" => {
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  (first view of {rcx:#x}; known {:x?})", self.world.doc_view);
+                }
+                m.r[0] = self.world.doc_view.contains_key(&rcx) as u64;
+            }
+            "?GetNextView@CDocument@@UEBAPEAVCView@@AEAPEAU__POSITION@@@Z" => {
+                m.r[0] = self.world.doc_view.get(&rcx).copied().unwrap_or(0);
+                m.st(rdx, 8, 0);
+            }
             "?CreateEx@CWnd@@UEAAHKPEB_W0KAEBUtagRECT@@PEAV1@IPEAX@Z" => {
                 // this, exstyle, class, name, style, rect, parent, id, param
                 let class = String::from_utf16_lossy(&win::wide_at(m, r8));
@@ -1153,17 +1163,25 @@ impl<'v, 'w> Run<'v, 'w> {
         let bias = 7u64 << 32;
         self.app(m);
         self.world.lenient = true;
+        // the log has its own classes; any other text window is a plain text document and view
+        let is_log = self.vm.host.as_ref().and_then(|host| host.text_content(h)).is_none();
         let doc = m.alloc(0x400);
         let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400a_7aa0 + bias, [doc, 0, 0, 0])));
         m.st(doc + 0x1a0, 4, 1);
-        m.st(doc, 8, 0x1_4029_f928 + bias);
-        m.st(doc + 0x1a8, 1, 0);
+        m.st(doc, 8, if is_log { 0x1_4029_f928 } else { 0x1_402c_2b48 } + bias);
+        if is_log {
+            m.st(doc + 0x1a8, 1, 0);
+        }
         let view = m.alloc(0x400);
-        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_4014_3810 + bias, [view, 0xc, 0, 0])));
-        m.st(view, 8, 0x1_402a_00e8 + bias);
+        let kind = if is_log { 0xc } else { 7 };
+        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_4014_3810 + bias, [view, kind, 0, 0])));
+        if is_log {
+            m.st(view, 8, 0x1_402a_00e8 + bias);
+        }
         m.st(view + 0xd8, 8, doc);
         m.st(view + 0x40, 8, hwnd_of(h));
         self.world.txtwins.insert(h, view);
+        self.world.doc_view.insert(doc, view);
         let cs = m.alloc(0x80);
         let r = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_4014_3a40 + bias, [view, cs, 0, 0])));
         if std::env::var_os("S2LIFT_SERVICES").is_some() {
@@ -1195,7 +1213,8 @@ impl<'v, 'w> Run<'v, 'w> {
             self.call_lifted(m, wp, [edit, 2025, bytes.len() as u64, 0]);
             if std::env::var_os("S2LIFT_SERVICES").is_some() {
                 let len = self.call_lifted(m, wp, [edit, 2006, 0, 0]);
-                eprintln!("  (the editor holds {len} bytes; loaded {})", bytes.len());
+                let modify = self.call_lifted(m, wp, [edit, 2159, 0, 0]);
+                eprintln!("  (the editor holds {len} bytes; loaded {}; modified {modify})", bytes.len());
             }
         }
         self.world.lenient = false;
@@ -1517,6 +1536,8 @@ pub struct World {
     /// The editor window of each text window that has one (by view handle), and which of them is the log.
     edits: std::collections::HashMap<i64, u64>,
     log_h: i64,
+    /// The view of each text document.
+    doc_view: std::collections::HashMap<u64, u64>,
 }
 
 impl Default for World {
@@ -1527,7 +1548,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, edits: Default::default(), log_h: -1 }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, edits: Default::default(), log_h: -1, doc_view: Default::default() }
     }
 }
 
