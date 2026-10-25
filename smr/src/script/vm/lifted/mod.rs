@@ -1176,19 +1176,26 @@ impl<'v, 'w> Run<'v, 'w> {
         // the text the window holds: what has been printed to it
         let edit = m.ld(view + 0x110 + 0x40, 8);
         if edit != 0 {
-            let text = self.vm.log.replace("\r\n", "\n").replace('\n', "\r\n");
+            let own = self.vm.host.as_ref().and_then(|host| host.text_content(h));
+            if own.is_none() {
+                self.world.log_h = h;
+            }
+            if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                eprintln!("  (window {h}: own text {:?}, log {} bytes)", own, self.vm.log.len());
+            }
+            let text = own.unwrap_or_else(|| self.vm.log.clone()).replace("\r\n", "\n").replace('\n', "\r\n");
             let bytes = text.as_bytes();
             let p = m.alloc(bytes.len() + 1);
             for (i, b) in bytes.iter().enumerate() {
                 m.st(p + i as u64, 1, *b as u64);
             }
             let wp = self.world.classes.get("Scintilla").copied().unwrap_or(0);
-            self.world.log_edit = edit;
-            self.call_lifted(m, wp, [edit, 0x181, 0, p]);
+            self.world.edits.insert(h, edit);
+            self.call_lifted(m, wp, [edit, 2181, 0, p]);
             self.call_lifted(m, wp, [edit, 2025, bytes.len() as u64, 0]);
             if std::env::var_os("S2LIFT_SERVICES").is_some() {
                 let len = self.call_lifted(m, wp, [edit, 2006, 0, 0]);
-                eprintln!("  (the window holds {len} bytes; loaded {})", bytes.len());
+                eprintln!("  (the editor holds {len} bytes; loaded {})", bytes.len());
             }
         }
         self.world.lenient = false;
@@ -1507,8 +1514,9 @@ pub struct World {
     sci_loaded: bool,
     sci_wins: std::collections::HashSet<u64>,
     next_hwnd: u64,
-    /// The editor window of the log, once the log's text window exists.
-    log_edit: u64,
+    /// The editor window of each text window that has one (by view handle), and which of them is the log.
+    edits: std::collections::HashMap<i64, u64>,
+    log_h: i64,
 }
 
 impl Default for World {
@@ -1519,7 +1527,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, log_edit: 0 }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, edits: Default::default(), log_h: -1 }
     }
 }
 
@@ -1553,6 +1561,9 @@ impl Vm {
                     let _ = r;
                 }
                 commands::register_all(&mut m, &mut run);
+                // where the commands that print to the log send their text
+                let log = run.vm.host.as_ref().map(|h| h.log_handle()).unwrap_or(11);
+                m.st(0x1_8008_bf68 + (1u64 << 32), 8, hwnd_of(log));
                 // the commands that configure sampling hold the application's configuration object
                 let saved_sp = m.r[4];
                 let r = catch_unwind(AssertUnwindSafe(|| {
@@ -1617,7 +1628,7 @@ impl Vm {
             }
         };
         let vm = run.vm;
-        if result.is_ok() && world.log_edit != 0 {
+        if result.is_ok() && !world.edits.is_empty() {
             let saved = std::panic::take_hook();
             std::panic::set_hook(Box::new(|_| {}));
             let _ = catch_unwind(AssertUnwindSafe(|| Vm::log_sync(&mut world, vm, &mut m)));
@@ -1634,9 +1645,38 @@ impl Vm {
     /// if there is one.
     pub(crate) fn log_append(&mut self, text: &str) {
         self.log.push_str(text);
-        if !self.lifted_world.as_ref().map(|w| w.log_edit != 0).unwrap_or(false) {
-            return;
+        let h = self.lifted_world.as_ref().map(|w| w.log_h).unwrap_or(-1);
+        self.editor_append(h, text);
+    }
+
+    /// Does text window `h` have its editor yet?
+    pub(crate) fn has_editor(&self, h: i64) -> bool {
+        self.lifted_world.as_ref().map(|w| w.edits.contains_key(&h)).unwrap_or(false)
+    }
+
+    pub(crate) fn log_has_editor(&self) -> bool {
+        self.lifted_world.as_ref().map(|w| w.edits.contains_key(&w.log_h)).unwrap_or(false)
+    }
+
+    /// Text printed to the current view when that is a text window of its own.
+    pub(crate) fn window_append(&mut self, h: i64, text: &str) -> bool {
+        let taken = match self.host.take() {
+            Some(mut host) => {
+                let r = host.text_append(h, text);
+                self.host = Some(host);
+                r
+            }
+            None => false,
+        };
+        if taken {
+            self.editor_append(h, text);
         }
+        taken
+    }
+
+    /// Put `text` at the end of the editor of text window `h` if it has one, with the caret after it.
+    fn editor_append(&mut self, h: i64, text: &str) {
+        let Some(edit) = self.lifted_world.as_ref().and_then(|w| w.edits.get(&h).copied()) else { return };
         let mut world = self.lifted_world.take().unwrap();
         let mut m = world.m.take().expect("the machine is out only during a command");
         {
@@ -1650,7 +1690,6 @@ impl Vm {
                     m.st(p + i as u64, 1, *b as u64);
                 }
                 let wp = run.world.classes.get("Scintilla").copied().unwrap_or(0);
-                let edit = run.world.log_edit;
                 run.call_lifted(&mut m, wp, [edit, 2282, bytes.len() as u64, p]);
                 let len = run.call_lifted(&mut m, wp, [edit, 2006, 0, 0]);
                 run.call_lifted(&mut m, wp, [edit, 2025, len, 0]);
@@ -1661,23 +1700,28 @@ impl Vm {
         self.lifted_world = Some(world);
     }
 
-    /// After a command: the log's text as its editor now holds it.
+    /// After a command: the text of each text window as its editor now holds it.
     fn log_sync(world: &mut World, vm: &mut Vm, m: &mut M) {
-        if world.log_edit == 0 {
-            return;
+        let edits: Vec<(i64, u64)> = world.edits.iter().map(|(h, e)| (*h, *e)).collect();
+        for (h, edit) in edits {
+            let log_h = world.log_h;
+            let mut run = Run { vm: &mut *vm, args: &[], result: None, bound: Vec::new(), missing: None, world: &mut *world, holders: Vec::new() };
+            let wp = run.world.classes.get("Scintilla").copied().unwrap_or(0);
+            let len = run.call_lifted(m, wp, [edit, 2006, 0, 0]);
+            let buf = m.alloc(len as usize + 2);
+            run.call_lifted(m, wp, [edit, 2182, len + 1, buf]);
+            let mut bytes = Vec::with_capacity(len as usize);
+            for i in 0..len {
+                bytes.push(m.ld(buf + i, 1) as u8);
+            }
+            m.free(buf);
+            let text = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
+            if h == log_h {
+                run.vm.log = text;
+            } else if let Some(host) = run.vm.host.as_mut() {
+                host.set_text_content(h, text);
+            }
         }
-        let mut run = Run { vm, args: &[], result: None, bound: Vec::new(), missing: None, world, holders: Vec::new() };
-        let wp = run.world.classes.get("Scintilla").copied().unwrap_or(0);
-        let edit = run.world.log_edit;
-        let len = run.call_lifted(m, wp, [edit, 2006, 0, 0]);
-        let buf = m.alloc(len as usize + 2);
-        run.call_lifted(m, wp, [edit, 2182, len + 1, buf]);
-        let mut bytes = Vec::with_capacity(len as usize);
-        for i in 0..len {
-            bytes.push(m.ld(buf + i, 1) as u8);
-        }
-        m.free(buf);
-        run.vm.log = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
     }
 }
 

@@ -56,6 +56,20 @@ pub trait Host {
     fn view_channels(&self, _view: i64) -> Vec<(i64, i64)> {
         Vec::new()
     }
+    /// The handle of the log window.
+    fn log_handle(&self) -> i64 {
+        11
+    }
+    /// The text of a text window other than the log (newlines as `\n`).
+    fn text_content(&self, _view: i64) -> Option<String> {
+        None
+    }
+    /// Replace the text of a text window other than the log.
+    fn set_text_content(&mut self, _view: i64, _text: String) {}
+    /// Add text to a text window other than the log; false if `view` is not one.
+    fn text_append(&mut self, _view: i64, _text: &str) -> bool {
+        false
+    }
     /// Run a command, or return `Ok(None)` if it is not this host's.
     fn command(
         &mut self,

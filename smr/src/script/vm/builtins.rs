@@ -255,6 +255,16 @@ impl Vm {
             "Print$" => some(V::Str(self.print_text(args)?)),
             "Print" => {
                 let t = self.print_text(args)?;
+                let cur = self.current_view();
+                // a window whose editor exists is written to by the editor's own routines, which move its caret
+                if self.has_editor(cur) {
+                    if let Some(out) = self.run_lifted("Print", variant, args)? {
+                        return Ok(Some(out));
+                    }
+                }
+                if self.window_append(cur, &t) {
+                    return some(V::Int(0));
+                }
                 let taken = match self.host.take() {
                     Some(mut h) => {
                         let r = h.print(&t);
@@ -270,6 +280,11 @@ impl Vm {
             }
             "PrintLog" => {
                 let t = self.print_text(args)?;
+                if self.log_has_editor() {
+                    if let Some(out) = self.run_lifted("PrintLog", variant, args)? {
+                        return Ok(Some(out));
+                    }
+                }
                 self.log_append(&t);
                 some(V::Int(0))
             }

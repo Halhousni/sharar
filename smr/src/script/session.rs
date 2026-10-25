@@ -80,6 +80,8 @@ impl DataView {
 enum ExtKind {
     Text(TextFile),
     Bin(BinFile),
+    /// A text window, held as its text.
+    Win(String),
 }
 
 struct Ext {
@@ -94,6 +96,8 @@ pub struct Session {
     current: i64,
     next: i64,
     maps: Vec<(String, PathBuf)>,
+    /// The views, the one last made current first: the one before it is current again when it closes.
+    mru: Vec<i64>,
 }
 
 /// The code Spike2's file library returns for a channel that does not exist.
@@ -107,7 +111,7 @@ impl Default for Session {
 
 impl Session {
     pub fn new() -> Session {
-        Session { views: Vec::new(), exts: Vec::new(), log: 11, current: 11, next: 14, maps: Vec::new() }
+        Session { views: Vec::new(), exts: Vec::new(), log: 11, current: 11, next: 14, maps: Vec::new(), mru: vec![11] }
     }
 
     /// Read files whose script path starts with `windows_prefix` from `dir` instead. A script
@@ -134,6 +138,13 @@ impl Session {
 
     fn view(&self) -> Option<&DataView> {
         self.views.iter().find(|v| v.handle == self.current)
+    }
+
+    /// Make `handle` the current view, and the first to come back to.
+    fn activate(&mut self, handle: i64) {
+        self.mru.retain(|&h| h != handle);
+        self.mru.insert(0, handle);
+        self.current = handle;
     }
 
     fn ext_mut(&mut self) -> Option<&mut Ext> {
@@ -1258,7 +1269,7 @@ impl Host for Session {
             || self.views.iter().any(|v| v.handle == handle)
             || self.exts.iter().any(|e| e.handle == handle)
         {
-            self.current = handle;
+            self.activate(handle);
             Ok(())
         } else {
             Err(RunError(super::vm::ERR_TYPE))
@@ -1281,6 +1292,33 @@ impl Host for Session {
         Some((v.file.time_factor, kind_code(c.kind)))
     }
 
+    fn log_handle(&self) -> i64 {
+        self.log
+    }
+
+    fn text_content(&self, h: i64) -> Option<String> {
+        match self.exts.iter().find(|e| e.handle == h) {
+            Some(Ext { kind: ExtKind::Win(t), .. }) => Some(t.clone()),
+            _ => None,
+        }
+    }
+
+    fn set_text_content(&mut self, h: i64, text: String) {
+        if let Some(Ext { kind: ExtKind::Win(t), .. }) = self.exts.iter_mut().find(|e| e.handle == h) {
+            *t = text;
+        }
+    }
+
+    fn text_append(&mut self, h: i64, text: &str) -> bool {
+        match self.exts.iter_mut().find(|e| e.handle == h) {
+            Some(Ext { kind: ExtKind::Win(t), .. }) => {
+                t.push_str(text);
+                true
+            }
+            _ => false,
+        }
+    }
+
     fn view_channels(&self, h: i64) -> Vec<(i64, i64)> {
         match self.views.iter().find(|v| v.handle == h) {
             Some(v) => v.file.channels.iter().map(|c| (c.index as i64 + 1, kind_code(c.kind))).collect(),
@@ -1299,6 +1337,7 @@ impl Host for Session {
                     match e.kind {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
+                        ExtKind::Win(_) => 1,
                     },
                     None,
                 )
@@ -1326,9 +1365,10 @@ impl Host for Session {
                     some(V::Int(match e.kind {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
+                        ExtKind::Win(_) => 1,
                     }))
                 } else {
-                    some(V::Int(-1))
+                    some(V::Int(-2))
                 }
             }
             "FileOpen" => {
@@ -1354,7 +1394,7 @@ impl Host for Session {
                             let handle = self.next;
                             self.next += 1;
                             self.exts.push(Ext { handle, kind });
-                            self.current = handle;
+                            self.activate(handle);
                             some(V::Int(handle))
                         }
                         Err(_) => some(V::Int(-1518)),
@@ -1370,11 +1410,18 @@ impl Host for Session {
                         let mut dv = DataView::new(handle, file);
                         dv.script_name = path.clone();
                         self.views.push(dv);
-                        self.current = handle;
+                        self.activate(handle);
                         some(V::Int(handle))
                     }
                     Err(_) => some(V::Int(-1)),
                 }
+            }
+            "FileNew" if matches!(args.first().map(|a| int(mem, a)), Some(Ok(1))) => {
+                let handle = self.next;
+                self.next += 1;
+                self.exts.push(Ext { handle, kind: ExtKind::Win(String::new()) });
+                self.activate(handle);
+                some(V::Int(handle))
             }
             "FileClose" => {
                 let c = self.current;
@@ -1388,9 +1435,12 @@ impl Host for Session {
                 } else {
                     return Ok(None);
                 }
-                // The most recently opened view still open becomes the current one.
-                let newest = self.views.iter().map(|v| v.handle).chain(self.exts.iter().map(|e| e.handle)).max();
-                self.current = newest.unwrap_or(self.log);
+                // The view that was current before it comes back.
+                self.mru.retain(|&h| h != c);
+                let log = self.log;
+                let open = |s: &Session, h: i64| h == log || s.views.iter().any(|v| v.handle == h) || s.exts.iter().any(|e| e.handle == h);
+                let back = self.mru.iter().copied().find(|&h| open(self, h));
+                self.current = back.unwrap_or(self.log);
                 some(V::Int(0))
             }
             "Read" => {
@@ -1705,7 +1755,7 @@ impl Session {
         }
         dv.x_range = state.x_range;
         self.views.push(dv);
-        self.current = handle;
+        self.activate(handle);
         Ok(handle)
     }
 
@@ -1742,6 +1792,18 @@ impl Host for SharedSession {
     }
     fn view_channels(&self, view: i64) -> Vec<(i64, i64)> {
         self.0.lock().unwrap().view_channels(view)
+    }
+    fn log_handle(&self) -> i64 {
+        self.0.lock().unwrap().log_handle()
+    }
+    fn text_content(&self, view: i64) -> Option<String> {
+        self.0.lock().unwrap().text_content(view)
+    }
+    fn set_text_content(&mut self, view: i64, text: String) {
+        self.0.lock().unwrap().set_text_content(view, text)
+    }
+    fn text_append(&mut self, view: i64, text: &str) -> bool {
+        self.0.lock().unwrap().text_append(view, text)
     }
     fn command(&mut self, name: &str, variant: usize, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
         self.0.lock().unwrap().command(name, variant, args, mem)
