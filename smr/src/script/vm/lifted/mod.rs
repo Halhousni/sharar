@@ -583,36 +583,33 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     0x15d1 => self.measure(m, view_of(rcx_of(m)), r9),
                     0x15d3 => self.search(m, view_of(rcx_of(m)), r9),
                     0x15a6 => self.chan_value(m, view_of(rcx_of(m)), r9),
-                    _ => match commands::msg_handlers(msg).first().copied() {
-                        Some(f) => {
-                            // the window's own handler, run with an object standing for the window
-                            let hwnd = rcx_of(m);
-                            let this = match self.world.wnds.get(&hwnd) {
-                                Some(&t) => t,
-                                None if hwnd == 0 => self.main_window(m),
-                                None if self.vm.host.as_ref().map(|host| !host.view_channels(view_of(hwnd)).is_empty()).unwrap_or(false) => self.time_window(m, view_of(hwnd)),
-                                None => {
-                                    let t = m.alloc(0x4000);
-                                    m.st(t + 0x40, 8, hwnd);
-                                    self.world.wnds.insert(hwnd, t);
-                                    t
-                                }
-                            };
-                            let (wp, lp) = (r8, r9);
-                            m.r[1] = this;
-                            m.r[2] = wp;
-                            m.r[8] = lp;
-                            m.push(0);
-                            commands::call_at(m, self, f);
-                            m.r[0]
-                        }
-                        None => {
-                            if std::env::var_os("S2LIFT_SERVICES").is_some() {
-                                eprintln!("  (message {msg:#x} to {:#x} not handled)", rcx_of(m));
+                    _ => {
+                        // the window that gets the message, and the handler its own class has for it
+                        let hwnd = rcx_of(m);
+                        let target = if hwnd == 0 {
+                            Some((1u8, self.main_window(m)))
+                        } else if self.vm.host.as_ref().map(|host| !host.view_channels(view_of(hwnd)).is_empty()).unwrap_or(false) {
+                            Some((0u8, self.time_window(m, view_of(hwnd))))
+                        } else {
+                            None
+                        };
+                        match target.and_then(|(c, t)| commands::handler_for(c, msg).map(|f| (t, f))) {
+                            Some((this, f)) => {
+                                m.r[1] = this;
+                                m.r[2] = r8;
+                                m.r[8] = r9;
+                                m.push(0);
+                                commands::call_at(m, self, f);
+                                m.r[0]
                             }
-                            0
+                            None => {
+                                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                                    eprintln!("  (message {msg:#x} to {hwnd:#x} not handled)");
+                                }
+                                0
+                            }
                         }
-                    },
+                    }
                 };
             }
             "?DoInit@@YAFPEAVCBaseCmd@@@Z" => {
@@ -971,6 +968,9 @@ impl<'v, 'w> Run<'v, 'w> {
             if r.is_err() && std::env::var_os("S2LIFT_SERVICES").is_some() {
                 eprintln!("  (the document's constructor did not finish)");
             }
+        }
+        if std::env::var_os("S2LIFT_SERVICES").is_some() {
+            eprintln!("  (document: +0x1a0 {:#x} +0x1c0 {:#x})", m.ld(doc + 0x1a0, 8), m.ld(doc + 0x1c0, 8));
         }
         m.st(doc + 0x270, 8, file);
         m.st(win + 0xd8, 8, doc);

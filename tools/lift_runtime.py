@@ -263,28 +263,42 @@ for a in sys.argv:
 # `--msg=0x244e,0x2261`: the SONVIEW handlers of window messages, found in the message maps
 # (AFX_MSGMAP_ENTRY: message, code, id, last id, signature, function), so SendMessage can reach them.
 MSG_HANDLERS = {}
+CLASS_HANDLERS = {}   # (class number, message) -> handler address
+# the classes whose windows the host builds: 0 the data view's window, 1 the main window
+WINDOW_CLASSES = {0: 0x1402c56c8, 1: 0x1402a56a8}
 for a in sys.argv:
     if a.startswith("--msg="):
-        im_sv = lifters["sonview"].im
+        from msgmaps import Maps
+        mp = Maps(lifters["sonview"].dll_path)
         want = {int(x, 16) for x in a[len("--msg="):].split(",")}
-        text_lo, text_hi = im_sv.tva, im_sv.tva + im_sv.text[2]
-        for i in range(0, len(im_sv.b) - 32, 8):
-            msg, code, i1, i2 = struct.unpack_from("<IIII", im_sv.b, i)
-            if msg in want and (code, i1, i2) == (0, 0, 0):
-                pfn = struct.unpack_from("<Q", im_sv.b, i + 24)[0]
-                if text_lo <= pfn < text_hi:
-                    MSG_HANDLERS.setdefault(msg, []).append(pfn)
+        for cls, vt in WINDOW_CLASSES.items():
+            chain = mp.class_maps(vt)
+            for msg in sorted(want):
+                for arr in chain:
+                    hit = [e for e in mp.arrays[arr] if e[0] == msg and e[1:4] == (0, 0, 0)]
+                    if hit:
+                        CLASS_HANDLERS[(cls, msg)] = hit[0][4]
+                        MSG_HANDLERS.setdefault(msg, []).append(hit[0][4])
+                        break
+        # a map array whose AFX_MSGMAP record is not found is not in any chain: keep the first handler
+        # found in the file for a message no class chain has (data views only)
+        im_sv = lifters["sonview"].im
+        tlo, thi = im_sv.tva, im_sv.tva + im_sv.text[2]
+        for msg in sorted(want):
+            if not any(m_ == msg for (_, m_) in CLASS_HANDLERS):
+                for i in range(0, len(im_sv.b) - 32, 8):
+                    mm, code, i1, i2 = struct.unpack_from("<IIII", im_sv.b, i)
+                    if mm == msg and (code, i1, i2) == (0, 0, 0):
+                        pfn = struct.unpack_from("<Q", im_sv.b, i + 24)[0]
+                        if tlo <= pfn < thi:
+                            CLASS_HANDLERS[(0, msg)] = pfn
+                            MSG_HANDLERS.setdefault(msg, []).append(pfn)
+                            break
 for msg, fs in MSG_HANDLERS.items():
     for f in fs:
         if f not in lifters["sonview"].roots:
             lifters["sonview"].roots.append(f)
         entries_extra.setdefault("sonview", set()).add(f)
-
-# The 1401 library's error text (Error$ asks for it); its other routines drive hardware.
-for n in ("U14GetErrorString",):
-    a = EXPORTS["use1432"][n]
-    lifters["use1432"].roots.append(a)
-    entries_extra.setdefault("use1432", set()).add(a)
 
 # Follow the imports: a routine another module supplies becomes a root there, until nothing is new.
 entries = {m: set(entries_extra.get(m, ())) for m in MODULES}
@@ -411,12 +425,12 @@ for mod_, addrs in sorted(entries_extra.items()):
     for n, a in sorted(EXPORTS[mod_].items()):
         if a in addrs:
             lines.append(f"        {json.dumps(n)} => crate::rt_{mod_}_gen::enter_{a + BIAS[mod_]:x}(m, s),")
-lines += ["        _ => return false,", "    }", "    true", "}", "",
-          "/// The message-map functions of window message `msg` (several classes may handle it).",
-          "pub fn msg_handlers(msg: u32) -> &'static [u64] {", "    match msg {"]
-for msg, fs in sorted(MSG_HANDLERS.items()):
-    lines.append(f"        {msg:#x} => &[{', '.join(hex(f + BIAS['sonview']) for f in fs)}],")
-lines += ["        _ => &[],", "    }", "}", "",
+lines += ["        _ => return false,", "    }", "    true", "}"]
+lines += ["", "/// The handler of window message `msg` for window class `class` (0 a data view's window, 1 the main window).",
+          "pub fn handler_for(class: u8, msg: u32) -> Option<u64> {", "    match (class, msg) {"]
+for (cls, msg), f in sorted(CLASS_HANDLERS.items()):
+    lines.append(f"        ({cls}, {msg:#x}) => Some({f + BIAS['sonview']:#x}),")
+lines += ["        _ => None,", "    }", "}", "",
           "/// Run the translated routine at the biased address `t`.",
           "pub fn call_at(m: &mut crate::mach::M, s: &mut dyn crate::Svc, t: u64) {", "    call_other(m, s, t)", "}"]
 from lift import write_if_changed
