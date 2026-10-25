@@ -231587,6 +231587,108 @@ pub(super) fn f_180058d50(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_180059210(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x180059210);
+    let mut pc: u64 = 0x180059210;
+    loop {
+        match pc {
+            0x180059210 => {
+                m.block(0x180059210);
+                // 180059210 lea rcx, [rip + 0x45899]
+                { let v = 0x18009eab0u64; m.sr(1, 8, false, v); }
+                // 180059217 jmp qword ptr [rip + 0x180a]
+                s.import(m, 32); m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_180059220(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x180059220);
+    let mut pc: u64 = 0x180059220;
+    loop {
+        match pc {
+            0x180059220 => {
+                m.block(0x180059220);
+                // 180059220 lea rcx, [rip + 0x45891]
+                { let v = 0x18009eab8u64; m.sr(1, 8, false, v); }
+                // 180059227 jmp qword ptr [rip + 0x17fa]
+                s.import(m, 32); m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_180059230(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x180059230);
+    let mut pc: u64 = 0x180059230;
+    loop {
+        match pc {
+            0x180059230 => {
+                m.block(0x180059230);
+                // 180059230 lea rcx, [rip + 0x45889]
+                { let v = 0x18009eac0u64; m.sr(1, 8, false, v); }
+                // 180059237 jmp qword ptr [rip + 0x17ea]
+                s.import(m, 32); m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_180059240(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x180059240);
+    let mut pc: u64 = 0x180059240;
+    loop {
+        match pc {
+            0x180059240 => {
+                m.block(0x180059240);
+                // 180059240 lea rcx, [rip + 0x45881]
+                { let v = 0x18009eac8u64; m.sr(1, 8, false, v); }
+                // 180059247 jmp qword ptr [rip + 0x17da]
+                s.import(m, 32); m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_180059250(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x180059250);
+    let mut pc: u64 = 0x180059250;
+    loop {
+        match pc {
+            0x180059250 => {
+                m.block(0x180059250);
+                // 180059250 lea rcx, [rip + 0x45879]
+                { let v = 0x18009ead0u64; m.sr(1, 8, false, v); }
+                // 180059257 jmp qword ptr [rip + 0x17ca]
+                s.import(m, 32); m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_180059260(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x180059260);
+    let mut pc: u64 = 0x180059260;
+    loop {
+        match pc {
+            0x180059260 => {
+                m.block(0x180059260);
+                // 180059260 lea rcx, [rip + 0x45871]
+                { let v = 0x18009ead8u64; m.sr(1, 8, false, v); }
+                // 180059267 jmp qword ptr [rip + 0x17ba]
+                s.import(m, 32); m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_1a800dc87(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x1a800dc87);
     let mut pc: u64 = 0x1a800dc87;
@@ -233087,6 +233189,12 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x180058cf0 => f_180058cf0(m, s),
         0x180058d20 => f_180058d20(m, s),
         0x180058d50 => f_180058d50(m, s),
+        0x180059210 => f_180059210(m, s),
+        0x180059220 => f_180059220(m, s),
+        0x180059230 => f_180059230(m, s),
+        0x180059240 => f_180059240(m, s),
+        0x180059250 => f_180059250(m, s),
+        0x180059260 => f_180059260(m, s),
         0x1a800dc87 => f_1a800dc87(m, s),
         0x400000000000 => { crate::rt_compiler_gen::enter_2800295d0(m, s); m.pop(); }
         0x400000000010 => { crate::rt_compiler_gen::enter_280028ee0(m, s); m.pop(); }
@@ -234552,6 +234660,12 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x180058cf0 => f_180058cf0(m, s),
         0x180058d20 => f_180058d20(m, s),
         0x180058d50 => f_180058d50(m, s),
+        0x180059210 => f_180059210(m, s),
+        0x180059220 => f_180059220(m, s),
+        0x180059230 => f_180059230(m, s),
+        0x180059240 => f_180059240(m, s),
+        0x180059250 => f_180059250(m, s),
+        0x180059260 => f_180059260(m, s),
         0x1a800dc87 => f_1a800dc87(m, s),
         0x400000000000 => { crate::rt_compiler_gen::enter_2800295d0(m, s); m.pop(); }
         0x400000000010 => { crate::rt_compiler_gen::enter_280028ee0(m, s); m.pop(); }

@@ -264,13 +264,13 @@ impl Vm {
                     None => false,
                 };
                 if !taken {
-                    self.log.push_str(&t);
+                    self.log_append(&t);
                 }
                 some(V::Int(0))
             }
             "PrintLog" => {
                 let t = self.print_text(args)?;
-                self.log.push_str(&t);
+                self.log_append(&t);
                 some(V::Int(0))
             }
             // ---- arrays --------------------------------------------------------------

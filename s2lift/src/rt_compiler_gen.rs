@@ -35693,6 +35693,25 @@ pub(super) fn f_280033860(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_280033d80(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x280033d80);
+    let mut pc: u64 = 0x280033d80;
+    loop {
+        match pc {
+            0x280033d80 => {
+                m.block(0x280033d80);
+                // 180033d80 lea rax, [rip + 0x24af1]
+                { let v = 0x280058878u64; m.sr(0, 8, false, v); }
+                // 180033d87 mov qword ptr [rcx], rax
+                { let v = m.gr(0, 8, false); let a = m.ea(1, -1, 1, 0); m.st(a, 8, v); }
+                // 180033d8a jmp 0x180004230
+                f_280004230(m, s); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_280033dd0(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x280033dd0);
     let mut pc: u64 = 0x280033dd0;
@@ -65679,6 +65698,23 @@ pub(super) fn f_28004f0b0(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_28004f180(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x28004f180);
+    let mut pc: u64 = 0x28004f180;
+    loop {
+        match pc {
+            0x28004f180 => {
+                m.block(0x28004f180);
+                // 18004f180 lea rcx, [rip + 0x3cea9]
+                { let v = 0x28008c030u64; m.sr(1, 8, false, v); }
+                // 18004f187 jmp 0x180021c50
+                f_280021c50(m, s); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 static BLOB: &[u8] = include_bytes!("rt_compiler.dat");
 /// (address in the DLL, offset in the blob, length)
 const RANGES: &[(u64, u32, u32)] = &[
@@ -66043,6 +66079,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x280033710 => f_280033710(m, s),
         0x2800337f0 => f_2800337f0(m, s),
         0x280033860 => f_280033860(m, s),
+        0x280033d80 => f_280033d80(m, s),
         0x280033dd0 => f_280033dd0(m, s),
         0x280033e40 => f_280033e40(m, s),
         0x280033eb0 => f_280033eb0(m, s),
@@ -66289,6 +66326,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x28004c53c => f_28004c53c(m, s),
         0x28004c60f => f_28004c60f(m, s),
         0x28004f0b0 => f_28004f0b0(m, s),
+        0x28004f180 => f_28004f180(m, s),
         _ => crate::commands::call_other(m, s, t),
     }
 }
@@ -66638,6 +66676,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x280033710 => f_280033710(m, s),
         0x2800337f0 => f_2800337f0(m, s),
         0x280033860 => f_280033860(m, s),
+        0x280033d80 => f_280033d80(m, s),
         0x280033dd0 => f_280033dd0(m, s),
         0x280033e40 => f_280033e40(m, s),
         0x280033eb0 => f_280033eb0(m, s),
@@ -66884,6 +66923,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x28004c53c => f_28004c53c(m, s),
         0x28004c60f => f_28004c60f(m, s),
         0x28004f0b0 => f_28004f0b0(m, s),
+        0x28004f180 => f_28004f180(m, s),
         _ => return false,
     }
     true

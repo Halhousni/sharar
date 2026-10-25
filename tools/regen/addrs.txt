@@ -1,1 +1,1 @@
- --addr=sonlayer:0x180046750 --addr=sonlayer:0x180030120 --addr=sonview:0x14001e8f0
+ --addr=sonlayer:0x180046750 --addr=sonlayer:0x180030120 --addr=sonview:0x14001e8f0 --addr=scilexer:0x180070120 --addr=scilexer:0x1800707a0 --addr=scilexer:0x180070790 --addr=sonview:0x140143a40 --addr=sonview:0x140143810 --addr=sonview:0x1400a7aa0 --vrtti=scilexer

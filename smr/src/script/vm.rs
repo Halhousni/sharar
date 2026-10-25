@@ -1031,6 +1031,6 @@ impl Mem for Vm {
         &mut self.read_cfg
     }
     fn log(&mut self, text: &str) {
-        self.log.push_str(text);
+        self.log_append(text);
     }
 }

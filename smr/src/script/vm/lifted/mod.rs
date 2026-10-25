@@ -253,6 +253,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
         if std::env::var_os("S2LIFT_SERVICES").is_some() {
             eprintln!("service {name} rcx={:#x} rdx={:#x} r8={:#x} r9={:#x}", m.r[1], m.r[2], m.r[8], m.r[9]);
         }
+        let rcx = m.r[1];
         let rdx = m.r[2];
         let r8 = m.r[8];
         let r9 = m.r[9];
@@ -420,13 +421,33 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 }
                 m.r[0] = 1;
             }
-            "SelectObject" | "DeleteObject" | "GetStockObject" | "CreateFontIndirectW" | "CreatePen" | "CreateSolidBrush" | "SetBkMode" | "SetTextColor" | "SetBkColor" | "SetMapMode" | "GetDeviceCaps" | "SaveDC" | "RestoreDC" | "IntersectClipRect" | "SelectClipRgn" | "CreateCompatibleDC" | "DeleteDC" | "SetROP2" | "MoveToEx" | "LineTo" | "Rectangle" | "FillRect" | "TextOutW" | "ExtTextOutW" | "DrawTextW" | "SetTextAlign" | "GetCurrentObject" | "PtVisible" | "RectVisible" => {
+            "SelectObject" | "DeleteObject" | "GetStockObject" | "CreateFontIndirectW" | "CreatePen" | "CreateSolidBrush" | "SetBkMode" | "SetTextColor" | "SetBkColor" | "SetMapMode" | "SaveDC" | "RestoreDC" | "IntersectClipRect" | "SelectClipRgn" | "CreateCompatibleDC" | "DeleteDC" | "SetROP2" | "MoveToEx" | "LineTo" | "Rectangle" | "FillRect" | "TextOutW" | "ExtTextOutW" | "DrawTextW" | "SetTextAlign" | "GetCurrentObject" | "PtVisible" | "RectVisible" => {
                 m.r[0] = 1;
             }
-            "GetObjectType" | "GetObjectW" | "GetClipBox" | "GetCursorPos" | "GetKeyState" | "GetAsyncKeyState" | "GetSystemMetrics" | "GetWindowLongPtrW" | "SetWindowLongPtrW" | "GetBkColor" | "GetTextColor" | "GetBkMode" | "GetROP2" | "GetMapMode" | "GetViewportOrgEx" | "SetViewportOrgEx" | "OffsetViewportOrgEx" | "GetDCOrgEx" => {
+            "GetObjectType" | "GetObjectW" | "GetClipBox" | "GetCursorPos" | "GetKeyState" | "GetAsyncKeyState" | "GetSystemMetrics" | "GetBkColor" | "GetTextColor" | "GetBkMode" | "GetROP2" | "GetMapMode" | "GetViewportOrgEx" | "SetViewportOrgEx" | "OffsetViewportOrgEx" | "GetDCOrgEx" => {
                 m.r[0] = 0;
             }
             "GetSysColor" => m.r[0] = 0x808080,
+            "GetDeviceCaps" => {
+                m.r[0] = match rdx as u32 {
+                    88 | 90 => 96,
+                    8 => 1920,
+                    10 => 1080,
+                    12 => 32,
+                    14 => 1,
+                    _ => 1,
+                }
+            }
+            "MulDiv" => {
+                let (a, b, c) = (rcx as i32 as i64, rdx as i32 as i64, r8 as i32 as i64);
+                m.r[0] = if c == 0 {
+                    u32::MAX as u64
+                } else {
+                    let p = a * b;
+                    let r = (p + if (p < 0) != (c < 0) { -(c.abs() / 2) } else { c.abs() / 2 }) / c;
+                    r as i32 as u32 as u64
+                };
+            }
             n if n.starts_with('?') && !n.starts_with("??") && ["@CGdiObject@@", "@CDC@@", "@CPen@@", "@CBrush@@", "@CFont@@", "@CBitmap@@", "@CRgn@@", "@CClientDC@@", "@CMetaFileDC@@", "@CPaintDC@@", "@CMenu@@", "@CToolTipCtrl@@"].iter().any(|c| n.contains(c)) => {
                 // drawing: nothing is drawn
                 m.r[0] = 1;
@@ -563,6 +584,63 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 }
                 self.result = Some(V::Str(String::from_utf16_lossy(&units)));
             }
+            // ---- the editor component (SciLexer.dll) ----------------------------------------------
+            "LoadLibraryW" => {
+                let name = String::from_utf16_lossy(&win::wide_at(m, rcx));
+                if name.to_lowercase().ends_with("scilexer.dll") {
+                    if !self.world.sci_loaded {
+                        self.world.sci_loaded = true;
+                        // its DllMain registers the window classes
+                        self.call_lifted(m, 0x1_8007_0120 + (11u64 << 32), [0x7000_0000, 0, 0, 0]);
+                    }
+                    m.r[0] = 0x7000_0000;
+                } else {
+                    m.r[0] = 0;
+                }
+            }
+            "RegisterClassExW" | "RegisterClassExA" => {
+                let proc_ = m.ld(rcx + 8, 8);
+                let namep = m.ld(rcx + 0x40, 8);
+                let name = if name == "RegisterClassExW" {
+                    String::from_utf16_lossy(&win::wide_at(m, namep))
+                } else {
+                    let mut v = Vec::new();
+                    while m.ld(namep + v.len() as u64, 1) != 0 {
+                        v.push(m.ld(namep + v.len() as u64, 1) as u8);
+                    }
+                    String::from_utf8_lossy(&v).into_owned()
+                };
+                self.world.classes.insert(name, proc_);
+                m.r[0] = 0xc001 + self.world.classes.len() as u64;
+            }
+            "GetWindowLongPtrA" | "GetWindowLongPtrW" | "GetWindowLongA" | "GetWindowLongW" => {
+                m.r[0] = self.world.winlong.get(&(rcx, rdx as u32 as i32 as i64)).copied().unwrap_or(0);
+            }
+            "SetWindowLongPtrA" | "SetWindowLongPtrW" | "SetWindowLongA" | "SetWindowLongW" => {
+                m.r[0] = self.world.winlong.insert((rcx, rdx as u32 as i32 as i64), r8).unwrap_or(0);
+            }
+            "DefWindowProcA" | "DefWindowProcW" => m.r[0] = 0,
+            "?CreateEx@CWnd@@UEAAHKPEB_W0KAEBUtagRECT@@PEAV1@IPEAX@Z" => {
+                // this, exstyle, class, name, style, rect, parent, id, param
+                let class = String::from_utf16_lossy(&win::wide_at(m, r8));
+                let wp = self.world.classes.get(&class).copied();
+                self.world.next_hwnd += 16;
+                let hwnd = self.world.next_hwnd;
+                m.st(rcx + 0x40, 8, hwnd);
+                match wp {
+                    Some(wp) => {
+                        self.world.sci_wins.insert(hwnd);
+                        let cs = m.alloc(0x80);
+                        m.st(cs + 0x30, 4, 100);
+                        m.st(cs + 0x34, 4, 100);
+                        let parent = stack_arg(m, 2);
+                        m.st(cs + 0x18, 8, if parent != 0 { m.ld(parent + 0x40, 8) } else { 0 });
+                        self.call_lifted(m, wp, [hwnd, 1, 0, cs]);
+                        m.r[0] = 1;
+                    }
+                    None => m.r[0] = 0,
+                }
+            }
             other if cstring::call(&mut self.world.strs, m, other) => {}
             other if self.world.win.call(m, other) => {}
             // The C++ runtime and the C library: memory is the machine's heap, which is never
@@ -587,6 +665,15 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     }
                 }
             }
+            "SendMessageW" | "SendMessageA" if self.world.sci_wins.contains(&rcx) => {
+                let wp = self.world.classes.get("Scintilla").copied().unwrap_or(0);
+                let r = self.call_lifted(m, wp, [rcx, rdx, r8, r9]);
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  (editor {rcx:#x} message {rdx:#x} {r8:#x} {r9:#x} -> {r:#x})");
+                }
+                m.r[0] = r;
+            }
+            "SendMessageA" => m.r[0] = 0,
             "SendMessageW" => {
                 let msg = rdx as u32;
                 m.r[0] = match msg {
@@ -601,6 +688,8 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                             Some((1u8, self.main_window(m)))
                         } else if self.vm.host.as_ref().map(|host| !host.view_channels(view_of(hwnd)).is_empty()).unwrap_or(false) {
                             Some((0u8, self.time_window(m, view_of(hwnd))))
+                        } else if self.vm.host.as_ref().and_then(|host| host.view_info(view_of(hwnd))).map(|(k, _)| k == 1).unwrap_or(false) {
+                            Some((2u8, self.text_view(m, view_of(hwnd))))
                         } else {
                             None
                         };
@@ -800,6 +889,10 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
 
 /// A window handle that stands for view `h` (nothing like it exists here; the translated code
 /// only passes it back).
+fn stack_arg(m: &M, k: u64) -> u64 {
+    m.ld(m.r[4] + 0x20 + 8 * k, 8)
+}
+
 fn hwnd_of(h: i64) -> u64 {
     0x30000 + 16 * h as u64
 }
@@ -1049,6 +1142,73 @@ impl<'v, 'w> Run<'v, 'w> {
         m.st(win + 0x248, 8, ptrs + 8 * 32);
         m.st(win + 0x250, 8, ptrs + 8 * 40);
         win
+    }
+
+    /// The text window of view `h` (the log): SONVIEW's own view and document objects, made by their
+    /// constructors, with the editor component created the way the window's creation handler does it.
+    fn text_view(&mut self, m: &mut M, h: i64) -> u64 {
+        if let Some(&w) = self.world.txtwins.get(&h) {
+            return w;
+        }
+        let bias = 7u64 << 32;
+        self.app(m);
+        self.world.lenient = true;
+        let doc = m.alloc(0x400);
+        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400a_7aa0 + bias, [doc, 0, 0, 0])));
+        m.st(doc + 0x1a0, 4, 1);
+        m.st(doc, 8, 0x1_4029_f928 + bias);
+        m.st(doc + 0x1a8, 1, 0);
+        let view = m.alloc(0x400);
+        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_4014_3810 + bias, [view, 0xc, 0, 0])));
+        m.st(view, 8, 0x1_402a_00e8 + bias);
+        m.st(view + 0xd8, 8, doc);
+        m.st(view + 0x40, 8, hwnd_of(h));
+        self.world.txtwins.insert(h, view);
+        let cs = m.alloc(0x80);
+        let r = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_4014_3a40 + bias, [view, cs, 0, 0])));
+        if std::env::var_os("S2LIFT_SERVICES").is_some() {
+            let why = match &r {
+                Err(p) => p.downcast_ref::<String>().cloned().or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default(),
+                Ok(v) => format!("returned {}", *v as i32),
+            };
+            eprintln!("  (text window {view:#x}: creation {why}, editor window {:#x})", m.ld(view + 0x110 + 0x40, 8));
+        }
+        // the text the window holds: what has been printed to it
+        let edit = m.ld(view + 0x110 + 0x40, 8);
+        if edit != 0 {
+            let text = self.vm.log.replace("\r\n", "\n").replace('\n', "\r\n");
+            let bytes = text.as_bytes();
+            let p = m.alloc(bytes.len() + 1);
+            for (i, b) in bytes.iter().enumerate() {
+                m.st(p + i as u64, 1, *b as u64);
+            }
+            let wp = self.world.classes.get("Scintilla").copied().unwrap_or(0);
+            self.world.log_edit = edit;
+            self.call_lifted(m, wp, [edit, 0x181, 0, p]);
+            self.call_lifted(m, wp, [edit, 2025, bytes.len() as u64, 0]);
+            if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                let len = self.call_lifted(m, wp, [edit, 2006, 0, 0]);
+                eprintln!("  (the window holds {len} bytes; loaded {})", bytes.len());
+            }
+        }
+        self.world.lenient = false;
+        view
+    }
+
+    /// Run the translated routine at `f` with up to four arguments; the machine's registers are put back.
+    fn call_lifted(&mut self, m: &mut M, f: u64, a: [u64; 4]) -> u64 {
+        let sp = m.r[4];
+        let saved = m.r;
+        m.r[1] = a[0];
+        m.r[2] = a[1];
+        m.r[8] = a[2];
+        m.r[9] = a[3];
+        m.push(0);
+        commands::call_at(m, self, f);
+        let r = m.r[0];
+        m.r[4] = sp;
+        m.r = saved;
+        r
     }
 
     /// The vtable of SONVIEW's class for a channel of this kind (the number `ChanKind` gives).
@@ -1338,6 +1498,17 @@ pub struct World {
     /// The buffer `_ecvt` answers in.
     cvt_buf: u64,
     script_options: std::collections::HashMap<i32, i16>,
+    /// The text window stand-ins, by view handle.
+    txtwins: std::collections::HashMap<i64, u64>,
+    /// The window classes registered by the translated code (by name) and the per-window words it keeps.
+    classes: std::collections::HashMap<String, u64>,
+    winlong: std::collections::HashMap<(u64, i64), u64>,
+    /// Whether the editor component has been loaded, and the windows made from its class.
+    sci_loaded: bool,
+    sci_wins: std::collections::HashSet<u64>,
+    next_hwnd: u64,
+    /// The editor window of the log, once the log's text window exists.
+    log_edit: u64,
 }
 
 impl Default for World {
@@ -1348,7 +1519,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default() }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, log_edit: 0 }
     }
 }
 
@@ -1446,9 +1617,67 @@ impl Vm {
             }
         };
         let vm = run.vm;
+        if result.is_ok() && world.log_edit != 0 {
+            let saved = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let _ = catch_unwind(AssertUnwindSafe(|| Vm::log_sync(&mut world, vm, &mut m)));
+            std::panic::set_hook(saved);
+        }
         world.m = Some(m);
         vm.lifted_world = Some(world);
         result
+    }
+}
+
+impl Vm {
+    /// Text printed to the log: kept for the window, and put into the editor of the log's text window
+    /// if there is one.
+    pub(crate) fn log_append(&mut self, text: &str) {
+        self.log.push_str(text);
+        if !self.lifted_world.as_ref().map(|w| w.log_edit != 0).unwrap_or(false) {
+            return;
+        }
+        let mut world = self.lifted_world.take().unwrap();
+        let mut m = world.m.take().expect("the machine is out only during a command");
+        {
+            let mut run = Run { vm: self, args: &[], result: None, bound: Vec::new(), missing: None, world: &mut *world, holders: Vec::new() };
+            let quiet = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let _ = catch_unwind(AssertUnwindSafe(|| {
+                let bytes = text.replace("\r\n", "\n").replace('\n', "\r\n").into_bytes();
+                let p = m.alloc(bytes.len() + 1);
+                for (i, b) in bytes.iter().enumerate() {
+                    m.st(p + i as u64, 1, *b as u64);
+                }
+                let wp = run.world.classes.get("Scintilla").copied().unwrap_or(0);
+                let edit = run.world.log_edit;
+                run.call_lifted(&mut m, wp, [edit, 2282, bytes.len() as u64, p]);
+                let len = run.call_lifted(&mut m, wp, [edit, 2006, 0, 0]);
+                run.call_lifted(&mut m, wp, [edit, 2025, len, 0]);
+            }));
+            std::panic::set_hook(quiet);
+        }
+        world.m = Some(m);
+        self.lifted_world = Some(world);
+    }
+
+    /// After a command: the log's text as its editor now holds it.
+    fn log_sync(world: &mut World, vm: &mut Vm, m: &mut M) {
+        if world.log_edit == 0 {
+            return;
+        }
+        let mut run = Run { vm, args: &[], result: None, bound: Vec::new(), missing: None, world, holders: Vec::new() };
+        let wp = run.world.classes.get("Scintilla").copied().unwrap_or(0);
+        let edit = run.world.log_edit;
+        let len = run.call_lifted(m, wp, [edit, 2006, 0, 0]);
+        let buf = m.alloc(len as usize + 2);
+        run.call_lifted(m, wp, [edit, 2182, len + 1, buf]);
+        let mut bytes = Vec::with_capacity(len as usize);
+        for i in 0..len {
+            bytes.push(m.ld(buf + i, 1) as u8);
+        }
+        m.free(buf);
+        run.vm.log = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
     }
 }
 

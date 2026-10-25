@@ -39,7 +39,7 @@ def exports(path):
 
 # The DLLs whose code is translated, and what they export.
 MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll",
-           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe", "use1432": "USE1432_vm.dll", "filters": "Filters.dll", "ccomm": "ccomm.dll"}
+           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe", "use1432": "USE1432_vm.dll", "filters": "Filters.dll", "ccomm": "ccomm.dll", "scilexer": "SciLexer.dll"}
 def find(f):
     for d in (vmbin, os.environ.get("ORACLE_DIR", "")):
         if d and os.path.exists(os.path.join(d, f)):
@@ -90,7 +90,7 @@ import_names = []
 lifters = {}
 entries_extra = {}
 # Each module's addresses are moved apart, so that a pointer says which module's code it is.
-BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32, "use1432": 8 << 32, "filters": 9 << 32, "ccomm": 10 << 32}
+BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32, "use1432": 8 << 32, "filters": 9 << 32, "ccomm": 10 << 32, "scilexer": 11 << 32}
 
 
 def service(lifter, name):
@@ -199,8 +199,8 @@ def crt_run(mod):
             best = run
     return best if len(best) >= 20 else []
 
-INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "filters", "ccomm", "sonview", "runtime"]
-INITS = {m: (crt_run(m) if m in ("sonview", "filters") else init_tables(m)) for m in INIT_ORDER}
+INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "filters", "ccomm", "scilexer", "sonview", "runtime"]
+INITS = {m: (crt_run(m) if m in ("sonview", "filters", "scilexer") else init_tables(m)) for m in INIT_ORDER}
 for m_, fs in INITS.items():
     for a in fs:
         if a not in lifters[m_].roots:
@@ -250,6 +250,38 @@ for a in sys.argv:
                 lf.roots.append(ptr)
             entries_extra.setdefault(mod, set()).add(ptr)
 
+# `--vrtti=scilexer`: every method of every class whose vtable the RTTI names (for a module whose
+# virtual calls are too many to list).
+def rtti_vtables(im):
+    cols = set()
+    for n, v, vs, rp, rs in im.secs:
+        if n not in (b".rdata", b".data"):
+            continue
+        for off in range(rp, rp + rs - 24, 4):
+            sig, o1, o2, td, cd, me = struct.unpack_from("<IIIIII", im.b, off)
+            if sig == 1 and me == v + (off - rp) and 0 < td < 0x10000000 and 0 < cd < 0x10000000:
+                cols.add(im.base + me)
+    out = []
+    for n, v, vs, rp, rs in im.secs:
+        if n not in (b".rdata", b".data"):
+            continue
+        for off in range(rp, rp + rs - 8, 8):
+            if struct.unpack_from("<Q", im.b, off)[0] in cols:
+                out.append(im.base + v + (off - rp) + 8)
+    return out
+
+for a in sys.argv:
+    if a.startswith("--vrtti="):
+        mod = a[len("--vrtti="):]
+        lf = lifters[mod]
+        for vt in rtti_vtables(lf.im):
+            lf.data_refs.add(vt)
+            lf.table_bases.add(vt)
+            for ptr in lf.vtable_methods(vt):
+                if ptr not in lf.roots:
+                    lf.roots.append(ptr)
+                entries_extra.setdefault(mod, set()).add(ptr)
+
 # Extra routines to translate whatever the commands call: `--root module:regex` (the exports of
 # that module whose names match), entered from the host.
 for a in sys.argv:
@@ -265,7 +297,7 @@ for a in sys.argv:
 MSG_HANDLERS = {}
 CLASS_HANDLERS = {}   # (class number, message) -> handler address
 # the classes whose windows the host builds: 0 the data view's window, 1 the main window
-WINDOW_CLASSES = {0: 0x1402c56c8, 1: 0x1402a56a8}
+WINDOW_CLASSES = {0: 0x1402c56c8, 1: 0x1402a56a8, 2: 0x1402a00e8}
 for a in sys.argv:
     if a.startswith("--msg="):
         from msgmaps import Maps
@@ -378,7 +410,7 @@ lines += ["];", "",
           "static IMAGES: &[&crate::mach::Img] = &[",
           "    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,",
           "    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,",
-          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG, &crate::rt_use1432_gen::IMG, &crate::rt_filters_gen::IMG, &crate::rt_ccomm_gen::IMG,",
+          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG, &crate::rt_use1432_gen::IMG, &crate::rt_filters_gen::IMG, &crate::rt_ccomm_gen::IMG, &crate::rt_scilexer_gen::IMG,",
           "];", "",
           "pub fn machine() -> crate::mach::M {",
           "    crate::mach::M::big(IMAGES)",
@@ -388,7 +420,7 @@ lines += ["];", "",
           "    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)",
           "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)",
           "        || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)",
-          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t) || crate::rt_use1432_gen::try_call(m, s, t) || crate::rt_filters_gen::try_call(m, s, t) || crate::rt_ccomm_gen::try_call(m, s, t);",
+          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t) || crate::rt_use1432_gen::try_call(m, s, t) || crate::rt_filters_gen::try_call(m, s, t) || crate::rt_ccomm_gen::try_call(m, s, t) || crate::rt_scilexer_gen::try_call(m, s, t);",
           "    if !done && !s.call(m, t) {",
           "        m.fail(&format!(\"a call through a pointer to {t:#x}\"));",
           "    }",

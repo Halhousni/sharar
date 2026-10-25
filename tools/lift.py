@@ -344,7 +344,10 @@ class Lifter:
             return True
         # a thunk: jmp qword ptr [rip + import]
         o = im.off(t)
-        return im.b[o:o + 2] == b"\xff\x25"
+        if im.b[o:o + 2] == b"\xff\x25":
+            return True
+        # a routine too small to need unwind data (a leaf) is not in the table: it starts after padding
+        return im.b[o - 1] in (0xcc, 0x90, 0xc3)
 
     def A(self, x):
         """An address of this module as the generated code writes it (the module's addresses are
@@ -543,7 +546,7 @@ class Lifter:
         if mn == "not":
             sz = ops[0].size
             return put(ins, ops[0], f"!{val(ins, ops[0])} & {(1 << 8 * sz) - 1:#x}"), False
-        if mn in ("shl", "shr", "sar"):
+        if mn in ("shl", "shr", "sar", "rol", "ror"):
             sz = ops[0].size
             cnt = "1" if len(ops) == 1 else val(ins, ops[1], 1)
             return put(ins, ops[0], f"m.{mn}({val(ins, ops[0])}, {cnt}, {sz})"), False

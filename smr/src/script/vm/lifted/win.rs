@@ -1037,3 +1037,12 @@ fn split_command_line(s: &str) -> Vec<String> {
     }
     out
 }
+
+/// The zero-ended wide string at `p`.
+pub fn wide_at(m: &M, p: u64) -> Vec<u16> {
+    let mut v = Vec::new();
+    while p != 0 && m.ld(p + 2 * v.len() as u64, 2) != 0 {
+        v.push(m.ld(p + 2 * v.len() as u64, 2) as u16);
+    }
+    v
+}

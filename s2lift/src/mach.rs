@@ -542,6 +542,34 @@ impl M {
         r
     }
 
+    pub fn rol(&mut self, a: u64, n: u64, size: u32) -> u64 {
+        let bits = size * 8;
+        let a = a & mask(size);
+        let c = (n & if size == 8 { 63 } else { 31 }) as u32;
+        if c == 0 {
+            return a;
+        }
+        let k = c % bits;
+        let r = if k == 0 { a } else { ((a << k) | (a >> (bits - k))) & mask(size) };
+        self.cf = r & 1 != 0;
+        self.of = sign(r, size) != self.cf;
+        r
+    }
+
+    pub fn ror(&mut self, a: u64, n: u64, size: u32) -> u64 {
+        let bits = size * 8;
+        let a = a & mask(size);
+        let c = (n & if size == 8 { 63 } else { 31 }) as u32;
+        if c == 0 {
+            return a;
+        }
+        let k = c % bits;
+        let r = if k == 0 { a } else { ((a >> k) | (a << (bits - k))) & mask(size) };
+        self.cf = sign(r, size);
+        self.of = sign(r, size) != ((r >> (bits - 2)) & 1 != 0);
+        r
+    }
+
     pub fn shr(&mut self, a: u64, n: u64, size: u32) -> u64 {
         let n = (n & if size == 8 { 63 } else { 31 }) as u32;
         let a = a & mask(size);
