@@ -60,6 +60,14 @@ pub trait Host {
     fn path_maps(&self) -> Vec<(String, std::path::PathBuf)> {
         Vec::new()
     }
+    /// Element `i` of channel `ch` of result view `vh`; or the script error to stop with.
+    fn view_elem(&self, _vh: i64, _ch: i64, _i: i64) -> Result<f64, i32> {
+        Err(-7001)
+    }
+    /// Set it.
+    fn set_view_elem(&mut self, _vh: i64, _ch: i64, _i: i64, _v: f64) -> Result<(), i32> {
+        Err(-7001)
+    }
     /// The title of a data view's window.
     fn view_title(&self, _view: i64) -> Option<String> {
         None

@@ -1647,7 +1647,9 @@ impl<'v, 'w> Run<'v, 'w> {
             Arg::Val(V::Int(_)) => (1, vec![]),
             Arg::Val(V::Flt(_)) => (2, vec![]),
             Arg::Val(V::Str(_)) => (3, vec![]),
-            Arg::Ref(r) => match self.vm.cells.get(match r { Ref::Cell(c) | Ref::Elem(c, _) => c }) {
+            Arg::Ref(Ref::ViewElem(..)) => (2, vec![]),
+            Arg::Ref(Ref::ViewArr(..)) => (2, vec![0]),
+            Arg::Ref(r) => match self.vm.cells.get(match r { Ref::Cell(c) | Ref::Elem(c, _) => c, _ => usize::MAX }) {
                 Some(Cell::Array { ty, dims, .. }) if matches!(r, Ref::Cell(_)) => {
                     (match ty { Ty::Int => 1, Ty::Float => 2, Ty::Str => 3 }, dims.clone())
                 }

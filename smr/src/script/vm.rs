@@ -75,6 +75,10 @@ enum Cell {
 pub enum Ref {
     Cell(usize),
     Elem(usize, usize),
+    /// The data array of a result view's channel: `View(h%, c%).[`…`]`.
+    ViewArr(i64, i64),
+    /// One element of it.
+    ViewElem(i64, i64, i64),
 }
 
 #[derive(Debug, Clone)]
@@ -269,11 +273,23 @@ impl Vm {
                 Cell::Array { data, .. } => data[i].clone(),
                 _ => panic!("not an array"),
             },
+            Ref::ViewArr(..) | Ref::ViewElem(..) => panic!("a result view's data is read with try_get"),
         }
     }
 
     /// Read a place, refusing a whole array.
     fn try_get(&self, r: Ref) -> Result<V, RunError> {
+        match r {
+            Ref::ViewElem(vh, ch, i) => {
+                return match self.host.as_ref().map(|h| h.view_elem(vh, ch, i)) {
+                    Some(Ok(v)) => Ok(V::Flt(v)),
+                    Some(Err(e)) => Err(RunError(e)),
+                    None => Err(RunError(ERR_TYPE)),
+                };
+            }
+            Ref::ViewArr(..) => return Err(RunError(ERR_TYPE)),
+            _ => {}
+        }
         if let Ref::Cell(c) = r {
             if matches!(self.cells[c], Cell::Array { .. }) {
                 return Err(RunError(ERR_TYPE));
@@ -287,12 +303,21 @@ impl Vm {
             Ref::Cell(c) | Ref::Elem(c, _) => match &self.cells[c] {
                 Cell::Scalar { ty, .. } | Cell::Array { ty, .. } => *ty,
             },
+            Ref::ViewArr(..) | Ref::ViewElem(..) => Ty::Float,
         }
     }
 
     /// Write, converting to the place's own type as the typed setters do: an integer place
     /// takes `to_int`, a real one `cvtsi2sd`.
     pub(super) fn set(&mut self, r: Ref, v: V) -> Result<(), RunError> {
+        if let Ref::ViewElem(vh, ch, i) = r {
+            let x = as_flt(v.num()?);
+            return match self.host.as_mut().map(|h| h.set_view_elem(vh, ch, i, x)) {
+                Some(Ok(())) => Ok(()),
+                Some(Err(e)) => Err(RunError(e)),
+                None => Err(RunError(ERR_TYPE)),
+            };
+        }
         let ty = self.ty_of(r);
         let v = match (ty, v) {
             (Ty::Int, v) => V::Int(to_int(v.num()?)?),
@@ -311,6 +336,7 @@ impl Vm {
                     data[i] = v;
                 }
             }
+            Ref::ViewArr(..) | Ref::ViewElem(..) => {}
         }
         Ok(())
     }
@@ -510,6 +536,12 @@ impl Vm {
         }
         idx.reverse();
         let arr = self.reference();
+        if let Ref::ViewArr(vh, ch) = arr {
+            if n != 1 {
+                return Err(RunError(ERR_TYPE));
+            }
+            return Ok(Ref::ViewElem(vh, ch, idx[0]));
+        }
         let Ref::Cell(c) = arr else { return Err(RunError(ERR_TYPE)) };
         let Cell::Array { dims, .. } = &self.cells[c] else { return Err(RunError(ERR_TYPE)) };
         if dims.len() != n {
@@ -658,7 +690,7 @@ impl Vm {
             0x3e..=0x46 => {
                 let rhs = self.value()?;
                 let place = self.reference();
-                let cur = self.get(place);
+                let cur = self.try_get(place)?;
                 let v = match op {
                     0x3e..=0x41 => {
                         let (c, r) = (to_int(cur.num()?)?, to_int(rhs.num()?)?);
@@ -751,7 +783,7 @@ impl Vm {
                 let limit = self.num()?;
                 let start = self.num()?;
                 let place = self.reference();
-                let mut var = self.get(place).num()?;
+                let mut var = self.try_get(place)?.num()?;
                 let r = self.code.make_for(&mut var, start, limit, step, op == 0x5e);
                 self.set(place, V::from_num(var))?;
                 if let Some(lp) = r? {
@@ -762,7 +794,7 @@ impl Vm {
                 let Some(&Item::Loop(lp, place)) = self.stack.last() else {
                     panic!("Next without a loop record");
                 };
-                let mut var = self.get(place).num()?;
+                let mut var = self.try_get(place)?.num()?;
                 let again = self.code.next(&lp, &mut var)?;
                 self.set(place, V::from_num(var))?;
                 if !again {
@@ -848,6 +880,12 @@ impl Vm {
             }
             // View(h%) as a value, View(h%) as a statement, View(), and the swap that ends
             // View(h%).Command().
+            // View(h%, c%) followed by .[i]: the data array of a result view's channel
+            0x72 => {
+                let ch = self.int()?;
+                let vh = self.int()?;
+                self.stack.push(Item::Ref(Ref::ViewArr(vh, ch)));
+            }
             0x73 => {
                 let new = self.int()?;
                 let old = self.current_view();

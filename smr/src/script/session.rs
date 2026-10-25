@@ -77,8 +77,23 @@ impl DataView {
 }
 
 /// A text or binary file a script has open.
+/// A result view made by `SetResult`: channels of bins holding reals, and the names it shows.
+struct ResView {
+    bins: usize,
+    binsz: f64,
+    offset: f64,
+    title: String,
+    xunits: String,
+    yunits: String,
+    xtitle: String,
+    ytitle: String,
+    data: Vec<Vec<f64>>,
+    sweeps: i64,
+}
+
 enum ExtKind {
     Text(TextFile),
+    Result(ResView),
     Bin(BinFile),
     /// A text window: its text, and the name it was saved under (as the script wrote it).
     Win(String, String, String),
@@ -100,6 +115,7 @@ pub struct Session {
     mru: Vec<i64>,
     /// How many text windows have been made (they are named Text1, Text2, …), and the log's title.
     text_made: i64,
+    results_made: i64,
     log_title: String,
     /// How each window is shown: 0 hidden, 1 shown, 2 minimised, 3 maximised (a window not listed: the log is shown, the rest hidden).
     win_state: std::collections::HashMap<i64, u8>,
@@ -116,7 +132,7 @@ impl Default for Session {
 
 impl Session {
     pub fn new() -> Session {
-        Session { views: Vec::new(), exts: Vec::new(), log: 11, current: 11, next: 14, maps: Vec::new(), mru: vec![11], text_made: 0, log_title: "Log1".to_string(), win_state: Default::default() }
+        Session { views: Vec::new(), exts: Vec::new(), log: 11, current: 11, next: 14, maps: Vec::new(), mru: vec![11], text_made: 0, results_made: 0, log_title: "Log1".to_string(), win_state: Default::default() }
     }
 
     /// Read files whose script path starts with `windows_prefix` from `dir` instead. A script
@@ -165,6 +181,105 @@ impl Session {
     fn untitled(&mut self) -> String {
         self.text_made += 1;
         format!("Text{}", self.text_made)
+    }
+
+    /// `SetResult`: a result view of a user's own kind, attached to no time view.
+    fn set_result(&mut self, variant: usize, args: &[Arg], mem: &mut dyn Mem) -> Result<Handled, RunError> {
+        let first = if variant == 2 { 1 } else { 0 };
+        if args.len() < first + 5 {
+            return Err(RunError(-1020));
+        }
+        let nchan = if first == 1 { int(mem, &args[0])?.clamp(1, 400) as usize } else { 1 };
+        let bins = int(mem, &args[first])?.clamp(1, 0x7fff_ffff) as usize;
+        let binsz = flt(mem, &args[first + 1])?;
+        if binsz <= 0.0 {
+            return Err(RunError(-1001));
+        }
+        let offset = flt(mem, &args[first + 2])?;
+        let text = |mem: &mut dyn Mem, i: usize| -> Result<String, RunError> {
+            match args.get(first + i) {
+                Some(a) => match mem.value(a)? {
+                    V::Str(s) => Ok(s),
+                    _ => Err(RunError(super::vm::ERR_TYPE)),
+                },
+                None => Ok(String::new()),
+            }
+        };
+        let (title, xunits, yunits, xtitle, ytitle) = (text(mem, 3)?, text(mem, 4)?, text(mem, 5)?, text(mem, 6)?, text(mem, 7)?);
+        self.results_made += 1;
+        let title = if title.is_empty() { format!("Result{}", self.results_made) } else { title };
+        let handle = self.next;
+        self.next += 1;
+        let view = ResView { bins, binsz, offset, title, xunits, yunits, xtitle, ytitle, data: vec![vec![0.0; bins]; nchan], sweeps: 0 };
+        self.exts.push(Ext { handle, kind: ExtKind::Result(view) });
+        // the script's view; the window is not made the active one
+        self.current = handle;
+        Ok(Some(Some(V::Int(handle))))
+    }
+
+    /// The commands that ask a result view about itself; `None` for the ones that are not answered here.
+    fn result_command(&mut self, name: &str, args: &[Arg], mem: &mut dyn Mem) -> Result<Option<Handled>, RunError> {
+        let some = |v: V| Ok(Some(Some(Some(v))));
+        let cur = self.current;
+        let Some(Ext { kind: ExtKind::Result(r), .. }) = self.exts.iter_mut().find(|e| e.handle == cur) else { return Ok(None) };
+        match name {
+            "MaxTime" | "XHigh" => some(V::Flt(r.bins as f64)),
+            "XLow" => some(V::Flt(0.0)),
+            "BinSize" => some(V::Flt(r.binsz)),
+            "BinToX" => {
+                let b = flt(mem, &args[0])?.clamp(0.0, r.bins as f64);
+                some(V::Flt(r.offset + r.binsz * b))
+            }
+            "XToBin" => {
+                let x = flt(mem, &args[0])?;
+                some(V::Flt(((x - r.offset) / r.binsz).clamp(0.0, r.bins as f64)))
+            }
+            "ChanKind" => {
+                let c = int(mem, &args[0])?;
+                some(V::Int(if (0..=r.data.len() as i64).contains(&c) { 127 } else { 0 }))
+            }
+            "Sweeps" => {
+                let old = r.sweeps;
+                if let Some(a) = args.first() {
+                    r.sweeps = (flt(mem, a)? as i64).max(0);
+                }
+                some(V::Int(old))
+            }
+            "Modified" => some(V::Int(0)),
+            // the error bar on a bin: a view made by SetResult holds none
+            "BinError" if args.len() == 2 => {
+                let c = int(mem, &args[0])?;
+                if c < 1 || c as usize > r.data.len() {
+                    return Ok(None);
+                }
+                some(V::Flt(0.0))
+            }
+            "WindowTitle$" => {
+                let old = r.title.clone();
+                if let Some(a) = args.first() {
+                    if let V::Str(s) = mem.value(a)? {
+                        r.title = s;
+                    }
+                }
+                some(V::Str(old))
+            }
+            "ChanTitle$" | "ChanUnits$" | "ChanComment$" | "Chan$" => {
+                let c = int(mem, &args[0])?;
+                if c < 1 || c as usize > r.data.len() {
+                    return Ok(None);
+                }
+                some(V::Str(match name {
+                    "ChanTitle$" => r.ytitle.clone(),
+                    "ChanUnits$" => r.yunits.clone(),
+                    "Chan$" => c.to_string(),
+                    _ => String::new(),
+                }))
+            }
+            "XTitle$" => some(V::Str(r.xtitle.clone())),
+            "XUnits$" => some(V::Str(r.xunits.clone())),
+            "FileName$" => some(V::Str(String::new())),
+            _ => Ok(None),
+        }
     }
 
     /// Make `handle` the current view, and the first to come back to.
@@ -1271,7 +1386,12 @@ impl Host for Session {
             || self.views.iter().any(|v| v.handle == handle)
             || self.exts.iter().any(|e| e.handle == handle)
         {
-            self.activate(handle);
+            // a result view is not a window that comes to the front when the script switches to it
+            if matches!(self.exts.iter().find(|e| e.handle == handle), Some(Ext { kind: ExtKind::Result(_), .. })) {
+                self.current = handle;
+            } else {
+                self.activate(handle);
+            }
             Ok(())
         } else {
             Err(RunError(super::vm::ERR_TYPE))
@@ -1292,6 +1412,31 @@ impl Host for Session {
         let v = self.views.iter().find(|v| v.handle == h)?;
         let c = v.file.channels.iter().find(|c| c.index as i64 == chan - 1)?;
         Some((v.file.time_factor, kind_code(c.kind)))
+    }
+
+    fn view_elem(&self, vh: i64, ch: i64, i: i64) -> Result<f64, i32> {
+        match self.exts.iter().find(|e| e.handle == vh) {
+            Some(Ext { kind: ExtKind::Result(r), .. }) => {
+                if ch < 1 || ch as usize > r.data.len() || i < 0 || i as usize >= r.bins {
+                    return Err(-1000);
+                }
+                Ok(r.data[ch as usize - 1][i as usize])
+            }
+            _ => Err(-1000),
+        }
+    }
+
+    fn set_view_elem(&mut self, vh: i64, ch: i64, i: i64, v: f64) -> Result<(), i32> {
+        match self.exts.iter_mut().find(|e| e.handle == vh) {
+            Some(Ext { kind: ExtKind::Result(r), .. }) => {
+                if ch < 1 || ch as usize > r.data.len() || i < 0 || i as usize >= r.bins {
+                    return Err(-1000);
+                }
+                r.data[ch as usize - 1][i as usize] = v;
+                Ok(())
+            }
+            _ => Err(-1000),
+        }
     }
 
     fn log_handle(&self) -> i64 {
@@ -1358,6 +1503,7 @@ impl Host for Session {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
                         ExtKind::Win(..) => 1,
+                        ExtKind::Result(_) => 5,
                     },
                     None,
                 )
@@ -1368,11 +1514,19 @@ impl Host for Session {
     fn command(
         &mut self,
         name: &str,
-        _variant: usize,
+        variant: usize,
         args: &[Arg],
         mem: &mut dyn Mem,
     ) -> Result<Handled, RunError> {
         let some = |v: V| Ok(Some(Some(v)));
+        if name == "SetResult" {
+            return self.set_result(variant, args, mem);
+        }
+        if matches!(self.exts.iter().find(|e| e.handle == self.current), Some(Ext { kind: ExtKind::Result(_), .. })) {
+            if let Some(out) = self.result_command(name, args, mem)? {
+                return Ok(out);
+            }
+        }
         match name {
             "LogHandle" => some(V::Int(self.log)),
             "ViewKind" => {
@@ -1386,6 +1540,7 @@ impl Host for Session {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
                         ExtKind::Win(..) => 1,
+                        ExtKind::Result(_) => 4,
                     }))
                 } else {
                     some(V::Int(-2))
@@ -1912,6 +2067,12 @@ impl Host for SharedSession {
     }
     fn log_handle(&self) -> i64 {
         self.0.lock().unwrap().log_handle()
+    }
+    fn view_elem(&self, vh: i64, ch: i64, i: i64) -> Result<f64, i32> {
+        self.0.lock().unwrap().view_elem(vh, ch, i)
+    }
+    fn set_view_elem(&mut self, vh: i64, ch: i64, i: i64, v: f64) -> Result<(), i32> {
+        self.0.lock().unwrap().set_view_elem(vh, ch, i, v)
     }
     fn read_script(&self, name: &str) -> Option<String> {
         self.0.lock().unwrap().read_script(name)

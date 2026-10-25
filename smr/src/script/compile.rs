@@ -96,6 +96,7 @@ const O_BIT_XOR: u16 = 0x66;
 const O_ARR_INDEX: u16 = 0x6b;
 const O_RESIZE_ARRAY: u16 = 0x71;
 const O_RESIZE_LOCAL: u16 = 0x6a;
+const O_VIEW_ARRAY: u16 = 0x72;
 const O_GET_SET_VIEW: u16 = 0x73;
 const O_SET_VIEW: u16 = 0x74;
 const O_GET_VIEW: u16 = 0x75;
@@ -1220,6 +1221,26 @@ fn gen_indices(g: &mut Gen, e: &Expr) -> Result<(Ty, usize), CompileError> {
                 g.emit(O_ARR_INDEX + idxs.len() as u16 - 1);
                 return Ok((ty, idxs.len()));
             }
+            // `View(h%).[i]` and `View(h%, c%).[i]`: an element of a result view channel's data
+            Expr::Member(view, name) if name.is_empty() && idxs.len() == 1 => {
+                let Expr::Call(callee, vargs) = &**view else { return Err(CompileError("bad index base".into())) };
+                if !matches!(&**callee, Expr::Name(n) if n == "View") || vargs.is_empty() || vargs.len() > 2 {
+                    return Err(CompileError("bad index base".into()));
+                }
+                gen_expr(g, &vargs[0])?;
+                match vargs.get(1) {
+                    Some(c) => {
+                        gen_expr(g, c)?;
+                    }
+                    None => {
+                        g.emit_const(&Const::Int(1));
+                    }
+                }
+                g.emit(O_VIEW_ARRAY);
+                gen_expr(g, idxs[0])?;
+                g.emit(O_ARR_INDEX);
+                return Ok((Ty::Float, 1));
+            }
             other => return Err(CompileError(format!("bad index base {other:?}"))),
         }
     }
@@ -1472,7 +1493,7 @@ fn is_lvalue(g: &Gen, e: &Expr) -> bool {
                 }
                 cur = base;
             }
-            matches!(cur, Expr::Name(_))
+            matches!(cur, Expr::Name(_)) || matches!(cur, Expr::Member(_, n) if n.is_empty())
         }
         _ => false,
     }

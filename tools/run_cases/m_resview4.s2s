@@ -1,0 +1,37 @@
+var res[300], r%, k%, s$, q%;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+k% := 0;
+r% := SetResult(5, 1.0, 0.0, "t", "xu");
+s$ := WindowTitle$(); Enc(s$, 10);
+s$ := ChanTitle$(1); Enc(s$, 20);
+s$ := ChanUnits$(1); Enc(s$, 30);
+s$ := XTitle$(); Enc(s$, 40);
+s$ := XUnits$(); Enc(s$, 50);
+r% := SetResult(5, 1.0, 0.0, "t", "xu", "yu");
+s$ := ChanTitle$(1); Enc(s$, 60);
+s$ := ChanUnits$(1); Enc(s$, 70);
+s$ := XTitle$(); Enc(s$, 80);
+r% := SetResult(5, 1.0, 0.0, "t", "xu", "yu", "xt");
+s$ := ChanTitle$(1); Enc(s$, 90);
+s$ := XTitle$(); Enc(s$, 100);
+r% := SetResult(2, 5, 1.0, 0.0, "t", "xu", "yu", "xt", "yt");
+s$ := ChanTitle$(1); Enc(s$, 110);
+s$ := ChanTitle$(2); Enc(s$, 120);
+s$ := ChanUnits$(2); Enc(s$, 130);
+s$ := Chan$(2); Enc(s$, 140);
+s$ := ChanComment$(2); Enc(s$, 150);
+res[k%] := ChanKind(2); k% += 1;
+res[k%] := ChanKind(3); k% += 1;
+res[k%] := MaxTime(); k% += 1;
+res[k%] := Sweeps(3); k% += 1;
+res[k%] := Sweeps(); k% += 1;
+res[k%] := Sweeps(-1); k% += 1;
+res[k%] := Sweeps(); k% += 1;
+res[k%] := Sweeps(0); k% += 1;
+res[k%] := Sweeps(); k% += 1;
+res[k%] := Sweeps(2.7); k% += 1;
+res[k%] := Sweeps(); k% += 1;

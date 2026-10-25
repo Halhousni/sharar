@@ -1,0 +1,24 @@
+var res[300], r%, k%, s$, q%, i%;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+k% := 0;
+r% := SetResult(5, 1.0, 0.0, "a", "b");
+s$ := WindowTitle$(); Enc(s$, 10);
+r% := SetResult(5, 1.0, 0.0, "abc", "");
+s$ := WindowTitle$(); Enc(s$, 30);
+r% := SetResult(5, 1.0, 0.0, "t", "xu");
+s$ := WindowTitle$(); Enc(s$, 40);
+s$ := WindowTitle$("zz"); Enc(s$, 50);
+s$ := WindowTitle$(); Enc(s$, 60);
+res[100] := Sweeps(3);
+res[101] := Sweeps();
+res[102] := Sweeps(-1);
+res[103] := Sweeps();
+res[104] := Sweeps(5);
+res[105] := Sweeps(0);
+res[106] := Sweeps();
+res[107] := Sweeps(2.7);
+res[108] := Sweeps();

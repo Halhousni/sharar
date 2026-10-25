@@ -572,6 +572,11 @@ impl Parser {
         let mut e = self.primary()?;
         loop {
             if self.eat(&Tok::Dot) {
+                // `View(h%).[i]`: the data array of a result view channel; the bracket follows
+                if *self.peek() == Tok::LBracket {
+                    e = Expr::Member(Box::new(e), String::new());
+                    continue;
+                }
                 let name = self.name()?;
                 e = Expr::Member(Box::new(e), name);
                 continue;
