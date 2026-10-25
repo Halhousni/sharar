@@ -373,6 +373,57 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 // drawing: nothing is drawn
                 m.r[0] = 1;
             }
+            "_vswprintf_c_l" | "_vswprintf_l" | "vswprintf_s" | "_vsnwprintf_s" => {
+                // (buffer, count, format, locale, va_list): the arguments follow one after the other
+                let (buf, count, fmt) = (m.r[1], m.r[2], m.r[8]);
+                let valist = m.ld(m.r[4] + 0x20, 8);
+                let mut f = Vec::new();
+                while m.ld(fmt + 2 * f.len() as u64, 2) != 0 {
+                    f.push(m.ld(fmt + 2 * f.len() as u64, 2) as u32);
+                }
+                let mut next = 0u64;
+                let mut arg = |mm: &M| -> u64 {
+                    let v = mm.ld(valist + 8 * next, 8);
+                    next += 1;
+                    v
+                };
+                let out = cstring::format_wide(m, &f, &mut arg);
+                let n = out.len().min(count.saturating_sub(1) as usize);
+                for (i, u) in out.iter().take(n).enumerate() {
+                    m.st(buf + 2 * i as u64, 2, *u as u64);
+                }
+                m.st(buf + 2 * n as u64, 2, 0);
+                m.r[0] = n as u64;
+            }
+            "wcscpy_s" => {
+                let (dst, size, src) = (m.r[1], m.r[2], m.r[8]);
+                let mut i = 0u64;
+                while i + 1 < size {
+                    let c = m.ld(src + 2 * i, 2);
+                    m.st(dst + 2 * i, 2, c);
+                    if c == 0 {
+                        break;
+                    }
+                    i += 1;
+                }
+                m.st(dst + 2 * i, 2, 0);
+                m.r[0] = 0;
+            }
+            "memcpy_s" | "memmove_s" => {
+                let (dst, _size, src, n) = (m.r[1], m.r[2], m.r[8], m.r[9]);
+                let bytes: Vec<u64> = (0..n).map(|k| m.ld(src + k, 1)).collect();
+                for (k, b) in bytes.iter().enumerate() {
+                    m.st(dst + k as u64, 1, *b);
+                }
+                m.r[0] = 0;
+            }
+            "modf" => {
+                let x = f64::from_bits(m.xl(0));
+                let ip = x.trunc();
+                m.st(m.r[2], 8, ip.to_bits());
+                m.set_xl(0, (x - ip).to_bits());
+            }
+            "?GetFirstViewPosition@CDocument@@UEBAPEAU__POSITION@@XZ" | "?GetStatus@CFile@@SAHPEB_WAEAUCFileStatus@@PEAVCAtlTransactionManager@ATL@@@Z" | "?OnFilePrint@CView@@IEAAXXZ" => m.r[0] = 0,
             n if n.starts_with("?GetThisClass@") => m.r[0] = 0x7777_0000,
             "?IsKindOf@CObject@@QEBAHPEBUCRuntimeClass@@@Z" => m.r[0] = 0,
             "GetParent" => m.r[0] = if m.r[1] != 0 { 0x30001 } else { 0 },

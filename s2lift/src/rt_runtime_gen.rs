@@ -81316,6 +81316,21 @@ pub(super) fn f_18001dea0(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_18001dec0(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x18001dec0);
+    let mut pc: u64 = 0x18001dec0;
+    loop {
+        match pc {
+            0x18001dec0 => {
+                m.block(0x18001dec0);
+                // 18001dec0 jmp qword ptr [rip + 0x3cb61]
+                s.import(m, 32); m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_18001ded0(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x18001ded0);
     let mut pc: u64 = 0x18001ded0;
@@ -232051,6 +232066,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x18001dc70 => f_18001dc70(m, s),
         0x18001dca0 => f_18001dca0(m, s),
         0x18001dea0 => f_18001dea0(m, s),
+        0x18001dec0 => f_18001dec0(m, s),
         0x18001ded0 => f_18001ded0(m, s),
         0x18001df00 => f_18001df00(m, s),
         0x18001e100 => f_18001e100(m, s),
@@ -233518,6 +233534,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x18001dc70 => f_18001dc70(m, s),
         0x18001dca0 => f_18001dca0(m, s),
         0x18001dea0 => f_18001dea0(m, s),
+        0x18001dec0 => f_18001dec0(m, s),
         0x18001ded0 => f_18001ded0(m, s),
         0x18001df00 => f_18001df00(m, s),
         0x18001e100 => f_18001e100(m, s),
@@ -235502,6 +235519,13 @@ pub(crate) fn tail_18001dca0(m: &mut M, s: &mut dyn Svc) {
 /// Run the routine at 0x18001dca0 with the machine's registers as the caller set them.
 pub(crate) fn enter_18001dca0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_18001dca0(m, s); });
+}
+pub(crate) fn tail_18001dec0(m: &mut M, s: &mut dyn Svc) {
+    f_18001dec0(m, s)
+}
+/// Run the routine at 0x18001dec0 with the machine's registers as the caller set them.
+pub(crate) fn enter_18001dec0(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_18001dec0(m, s); });
 }
 pub(crate) fn tail_18001df00(m: &mut M, s: &mut dyn Svc) {
     f_18001df00(m, s)

@@ -228,6 +228,11 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
             let v: Vec<u32> = (0..len).map(|i| m.ld(p + i as u64 * w, w as u32) as u32).collect();
             st.write(m, rcx, &v, wide);
         }
+        ("?ReverseFind@", _) => {
+            let v = cs(m, st, rcx);
+            let ch = rdx as u32 & 0xffff;
+            m.r[0] = v.iter().rposition(|&c| c == ch).map(|i| i as u64).unwrap_or(u64::MAX);
+        }
         ("?LoadStringW@", _) => {
             // a message from the application's string table (SONVIEW.exe's resources)
             match s2lift::strings_gen::STRINGS.binary_search_by_key(&(rdx as u32), |e| e.0) {
@@ -375,7 +380,7 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
 
 /// A wide `printf`: `%d %i %u %x %X %o %c %s (wide) %hs/%S (narrow) %f %e %g %p %%` with flags,
 /// width and precision. `arg` hands out the next argument slot.
-fn format_wide(m: &M, fmt: &[u32], arg: &mut dyn FnMut(&M) -> u64) -> Vec<u32> {
+pub(super) fn format_wide(m: &M, fmt: &[u32], arg: &mut dyn FnMut(&M) -> u64) -> Vec<u32> {
     let mut out: Vec<u32> = Vec::new();
     let mut i = 0;
     while i < fmt.len() {
