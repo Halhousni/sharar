@@ -1491,6 +1491,8 @@ impl Host for Session {
                 }
                 some(V::Str(old))
             }
+            // a data file opened from disk is read only: Spike2 will not save it under another name
+            "FileSaveAs" if self.view().is_some() => some(V::Int(-1548)),
             "FileNew" if matches!(args.first().map(|a| int(mem, a)), Some(Ok(1))) => {
                 let handle = self.next;
                 self.next += 1;

@@ -1,0 +1,15 @@
+var res[300], k%, h%, s$, q$, r%;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+q$ := "C:\\Users\\Hilal\\Documents\\Spike8\\out\\d_saveas__b.smr";
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+r% := FileSaveAs(q$); res[k%] := r%; k% += 1;
+s$ := FileName$(0); Enc(s$, 100);
+res[k%] := (View() = h%); k% += 1;
+res[k%] := FileSize(); k% += 1;
+res[k%] := MaxTime(); k% += 1;
+res[k%] := FileClose(0, -1); k% += 1;
