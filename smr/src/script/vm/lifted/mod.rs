@@ -290,6 +290,9 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 && ["@CClientDC@@", "@CFileDialog@@", "@CWaitCursor@@", "@CPen@@", "@CBrush@@", "@CFont@@", "@CDC@@", "@CBitmap@@", "@CPaintDC@@"].iter().any(|c| n.contains(c)) => {
                 m.r[0] = m.r[1];
             }
+            "GetParent" | "GetFocus" | "GetCapture" | "GetDlgItem" | "GetActiveWindow" | "GetForegroundWindow" | "GetDC" | "ReleaseDC" | "GetWindow" | "GetAncestor" => {
+                m.r[0] = 0;
+            }
             "IsIconic" | "IsZoomed" | "GdiplusStartup" | "?BeginWaitCursor@CCmdTarget@@QEAAXXZ" | "?EndWaitCursor@CCmdTarget@@QEAAXXZ" | "?GetParentFrame@CWnd@@QEBAPEAVCFrameWnd@@XZ" => {
                 m.r[0] = 0;
             }
@@ -468,7 +471,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 };
                 m.r[0] = o;
             }
-            "?FromHandlePermanent@CWnd@@SAPEAV1@PEAUHWND__@@@Z" => {
+            "?FromHandlePermanent@CWnd@@SAPEAV1@PEAUHWND__@@@Z" | "?FromHandle@CWnd@@SAPEAV1@PEAUHWND__@@@Z" => {
                 // the window object behind a handle: a data view's window stand-in
                 let hwnd = m.r[1];
                 let h = view_of(hwnd);
@@ -767,6 +770,28 @@ impl<'v, 'w> Run<'v, 'w> {
         }
         m.st(doc + 0x270, 8, file);
         m.st(win + 0xd8, 8, doc);
+        // the window's manager of cursors, which the window makes when it is created
+        {
+            self.world.lenient = true;
+            let sp = m.r[4];
+            let saved = m.r;
+            m.r[1] = win;
+            m.r[2] = 0;
+            m.r[8] = 0;
+            m.r[9] = 0;
+            m.push(0);
+            let r = catch_unwind(AssertUnwindSafe(|| commands::call_at(m, self, 0x1_400c_cbb0 + (7u64 << 32))));
+            self.world.lenient = false;
+            m.r[4] = sp;
+            m.r = saved;
+            if r.is_err() && std::env::var_os("S2LIFT_SERVICES").is_some() {
+                let why = match &r {
+                    Err(p) => p.downcast_ref::<String>().cloned().or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default(),
+                    Ok(()) => String::new(),
+                };
+                eprintln!("  (the cursor manager's constructor did not finish: {why})");
+            }
+        }
         m.st(win + 0x880, 8, tf.to_bits());
         self.world.measure_file = file;
         self.world.measure_tf = tf;

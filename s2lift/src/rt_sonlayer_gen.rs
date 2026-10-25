@@ -3794,7 +3794,7 @@ pub(super) fn f_580002a20(m: &mut M, s: &mut dyn Svc) {
                 // 180002a5f lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 180002a64 call qword ptr [rip + 0x82af6]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180002a6a movzx ecx, word ptr [rdi + 0xc]
                 { let v = m.ld(m.ea(7, -1, 1, 12), 2); m.sr(1, 4, false, v); }
                 // 180002a6e test cx, cx
@@ -8958,11 +8958,11 @@ pub(super) fn f_580005f60(m: &mut M, s: &mut dyn Svc) {
             0x580005f93 => {
                 m.block(0x580005f93);
                 // 180005f93 call qword ptr [rip + 0x7f087]
-                s.import(m, 443);
+                s.import(m, 444);
                 // 180005f99 mov rcx, qword ptr [rbx + 0x3960]
                 { let v = m.ld(m.ea(3, -1, 1, 14688), 8); m.sr(1, 8, false, v); }
                 // 180005fa0 call qword ptr [rip + 0x7f082]
-                s.import(m, 445);
+                s.import(m, 446);
                 // 180005fa6 mov qword ptr [rbx + 0x3960], rdi
                 { let v = m.gr(7, 8, false); let a = m.ea(3, -1, 1, 14688); m.st(a, 8, v); }
                 // 180005fad mov qword ptr [rbx + 0x3968], rdi
@@ -9423,7 +9423,7 @@ pub(super) fn f_580007cd0(m: &mut M, s: &mut dyn Svc) {
                 // 180007d61 mov dword ptr [rsp + 0x20], edi
                 { let v = m.gr(7, 4, false); let a = m.ea(4, -1, 1, 32); m.st(a, 4, v); }
                 // 180007d65 call qword ptr [rip + 0x7d2e5]
-                s.import(m, 679);
+                s.import(m, 681);
                 // 180007d6b mov qword ptr [rbx + 0x3860], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(3, -1, 1, 14432); m.st(a, 8, v); }
                 // 180007d72 mov rax, qword ptr [rbx + 0x3860]
@@ -9470,11 +9470,11 @@ pub(super) fn f_580007cd0(m: &mut M, s: &mut dyn Svc) {
                 // 180007dad mov edx, 0xf
                 { let v = 0xfu64; m.sr(2, 4, false, v); }
                 // 180007db2 call qword ptr [rip + 0x7d2a0]
-                s.import(m, 680);
+                s.import(m, 682);
                 // 180007db8 lea rcx, [rbx + 0x3940]
                 { let v = m.ea(3, -1, 1, 14656); m.sr(1, 8, false, v); }
                 // 180007dbf call qword ptr [rip + 0x7d27b]
-                s.import(m, 681);
+                s.import(m, 683);
                 // 180007dc5 mov qword ptr [rbx + 0x3948], rdi
                 { let v = m.gr(7, 8, false); let a = m.ea(3, -1, 1, 14664); m.st(a, 8, v); }
                 pc = 0x580007dcc; continue;
@@ -9877,7 +9877,7 @@ pub(super) fn f_580007f50(m: &mut M, s: &mut dyn Svc) {
                 // 180007fe0 lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 180007fe5 call qword ptr [rip + 0x7d575]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180007feb nop 
                 // 180007fec lea rcx, [rsp + 0x20]
                 { let v = m.ea(4, -1, 1, 32); m.sr(1, 8, false, v); }
@@ -9998,7 +9998,7 @@ pub(super) fn f_580008060(m: &mut M, s: &mut dyn Svc) {
                 // 180008097 lea rdx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(2, 8, false, v); }
                 // 18000809c call qword ptr [rip + 0x7cfc6]
-                s.import(m, 682);
+                s.import(m, 684);
                 // 1800080a2 cmp dword ptr [rsp + 0x30], 0x103
                 m.sub(m.ld(m.ea(4, -1, 1, 48), 4), 0x103u64, 4);
                 // 1800080aa jne 0x1800080ba
@@ -10068,7 +10068,7 @@ pub(super) fn f_580008060(m: &mut M, s: &mut dyn Svc) {
                 // 1800080f9 or edx, 0xffffffff
                 { let v = m.or(m.gr(2, 4, false), 0xffffffffu64, 4); m.sr(2, 4, false, v); }
                 // 1800080fc call qword ptr [rip + 0x7cf6e]
-                s.import(m, 683);
+                s.import(m, 685);
                 // 180008102 lea rcx, [rip + 0x7fc37]
                 { let v = 0x580087d40u64; m.sr(1, 8, false, v); }
                 // 180008109 xor r8d, r8d
@@ -10076,7 +10076,7 @@ pub(super) fn f_580008060(m: &mut M, s: &mut dyn Svc) {
                 // 18000810c xor edx, edx
                 { let v = m.xor(m.gr(2, 4, false), m.gr(2, 4, false), 4); m.sr(2, 4, false, v); }
                 // 18000810e call qword ptr [rip + 0x7d4bc]
-                s.import(m, 430);
+                s.import(m, 431);
                 pc = 0x580008114; continue;
             }
             0x580008114 => {
@@ -11113,7 +11113,7 @@ pub(super) fn f_5800085c0(m: &mut M, s: &mut dyn Svc) {
                 // 1800087c9 lea rcx, [rsp + 0x88]
                 { let v = m.ea(4, -1, 1, 136); m.sr(1, 8, false, v); }
                 // 1800087d1 call qword ptr [rip + 0x7cd89]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800087d7 nop 
                 // 1800087d8 lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
@@ -13425,7 +13425,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 1800094d5 lea rcx, [rbp - 0x39]
                 { let v = m.ea(5, -1, 1, -57); m.sr(1, 8, false, v); }
                 // 1800094d9 call qword ptr [rip + 0x7c081]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800094df mov rdx, qword ptr [rbp - 0x39]
                 { let v = m.ld(m.ea(5, -1, 1, -57), 8); m.sr(2, 8, false, v); }
                 // 1800094e3 mov rcx, qword ptr [rdi + 0x38b8]
@@ -13471,7 +13471,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 180009529 lea rcx, [rbp - 0x39]
                 { let v = m.ea(5, -1, 1, -57); m.sr(1, 8, false, v); }
                 // 18000952d call qword ptr [rip + 0x7c02d]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009533 mov rdx, qword ptr [rbp - 0x39]
                 { let v = m.ld(m.ea(5, -1, 1, -57), 8); m.sr(2, 8, false, v); }
                 // 180009537 mov rcx, qword ptr [rdi + 0x38b8]
@@ -13571,7 +13571,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 1800095d5 lea rcx, [rbp - 0x39]
                 { let v = m.ea(5, -1, 1, -57); m.sr(1, 8, false, v); }
                 // 1800095d9 call qword ptr [rip + 0x7bf81]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800095df lea rdx, [rip + 0x7e882]
                 { let v = 0x580087e68u64; m.sr(2, 8, false, v); }
                 // 1800095e6 lea rcx, [rbp - 0x29]
@@ -13700,7 +13700,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 180009688 lea rcx, [rbp - 0x29]
                 { let v = m.ea(5, -1, 1, -41); m.sr(1, 8, false, v); }
                 // 18000968c call qword ptr [rip + 0x7bece]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009692 jmp 0x1800097ff
                 pc = 0x5800097ff; continue;
             }
@@ -13872,7 +13872,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 18000979a lea rcx, [rbp - 0x39]
                 { let v = m.ea(5, -1, 1, -57); m.sr(1, 8, false, v); }
                 // 18000979e call qword ptr [rip + 0x7be34]
-                s.import(m, 684);
+                s.import(m, 686);
                 // 1800097a4 inc ebx
                 { let v = m.inc(m.gr(3, 4, false), 4); m.sr(3, 4, false, v); }
                 // 1800097a6 lea rsi, [rsi + 4]
@@ -13936,7 +13936,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 1800097e3 lea rdx, [rip + 0x7e6b6]
                 { let v = 0x580087ea0u64; m.sr(2, 8, false, v); }
                 // 1800097ea call qword ptr [rip + 0x7bd70]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800097f0 jmp 0x1800097ff
                 pc = 0x5800097ff; continue;
             }
@@ -13945,7 +13945,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 1800097f2 lea rdx, [rip + 0x7e6b7]
                 { let v = 0x580087eb0u64; m.sr(2, 8, false, v); }
                 // 1800097f9 call qword ptr [rip + 0x7bd61]
-                s.import(m, 678);
+                s.import(m, 680);
                 pc = 0x5800097ff; continue;
             }
             0x5800097ff => {
@@ -13974,7 +13974,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 18000982b lea rcx, [rbp - 1]
                 { let v = m.ea(5, -1, 1, -1); m.sr(1, 8, false, v); }
                 // 18000982f call qword ptr [rip + 0x7bd2b]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009835 mov rax, qword ptr [rbp - 0x29]
                 { let v = m.ld(m.ea(5, -1, 1, -41), 8); m.sr(0, 8, false, v); }
                 // 180009839 mov qword ptr [rsp + 0x28], rax
@@ -13992,7 +13992,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 180009856 lea rcx, [rbp - 0x11]
                 { let v = m.ea(5, -1, 1, -17); m.sr(1, 8, false, v); }
                 // 18000985a call qword ptr [rip + 0x7bd00]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009860 mov rdx, qword ptr [rbp - 0x11]
                 { let v = m.ld(m.ea(5, -1, 1, -17), 8); m.sr(2, 8, false, v); }
                 // 180009864 mov rcx, qword ptr [rdi + 0x38b8]
@@ -14106,7 +14106,7 @@ pub(super) fn f_580009390(m: &mut M, s: &mut dyn Svc) {
                 // 180009903 lea rcx, [rbp + 0x67]
                 { let v = m.ea(5, -1, 1, 103); m.sr(1, 8, false, v); }
                 // 180009907 call qword ptr [rip + 0x7bc53]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000990d mov rax, qword ptr [rdi + 0x38b8]
                 { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 180009914 movzx ecx, word ptr [rax + 0xc]
@@ -14328,7 +14328,7 @@ pub(super) fn f_5800099e0(m: &mut M, s: &mut dyn Svc) {
                 // 180009a7b lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 180009a80 call qword ptr [rip + 0x7bada]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009a86 nop 
                 // 180009a87 lea rcx, [rsp + 0x60]
                 { let v = m.ea(4, -1, 1, 96); m.sr(1, 8, false, v); }
@@ -14630,7 +14630,7 @@ pub(super) fn f_580009c10(m: &mut M, s: &mut dyn Svc) {
                 // 180009c59 mov rcx, rsi
                 { let v = m.gr(6, 8, false); m.sr(1, 8, false, v); }
                 // 180009c5c call qword ptr [rip + 0x7b8fe]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009c62 mov rax, rsi
                 { let v = m.gr(6, 8, false); m.sr(0, 8, false, v); }
                 // 180009c65 mov rbx, qword ptr [rsp + 0x48]
@@ -14733,7 +14733,7 @@ pub(super) fn f_580009c80(m: &mut M, s: &mut dyn Svc) {
                 // 180009ced lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 180009cf2 call qword ptr [rip + 0x7b868]
-                s.import(m, 678);
+                s.import(m, 680);
                 pc = 0x580009cf8; continue;
             }
             0x580009cf8 => {
@@ -14901,7 +14901,7 @@ pub(super) fn f_580009d90(m: &mut M, s: &mut dyn Svc) {
                 // 180009dfb lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 180009e00 call qword ptr [rip + 0x7b75a]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009e06 nop 
                 // 180009e07 lea rcx, [rsp + 0x58]
                 { let v = m.ea(4, -1, 1, 88); m.sr(1, 8, false, v); }
@@ -15022,7 +15022,7 @@ pub(super) fn f_580009e50(m: &mut M, s: &mut dyn Svc) {
                 // 180009ebb lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 180009ec0 call qword ptr [rip + 0x7b69a]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009ec6 nop 
                 // 180009ec7 lea rcx, [rsp + 0x58]
                 { let v = m.ea(4, -1, 1, 88); m.sr(1, 8, false, v); }
@@ -15143,7 +15143,7 @@ pub(super) fn f_580009f10(m: &mut M, s: &mut dyn Svc) {
                 // 180009f7b lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 180009f80 call qword ptr [rip + 0x7b5da]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180009f86 nop 
                 // 180009f87 lea rcx, [rsp + 0x58]
                 { let v = m.ea(4, -1, 1, 88); m.sr(1, 8, false, v); }
@@ -15304,7 +15304,7 @@ pub(super) fn f_580009fd0(m: &mut M, s: &mut dyn Svc) {
                 // 18000a093 lea rcx, [rsp + 0x60]
                 { let v = m.ea(4, -1, 1, 96); m.sr(1, 8, false, v); }
                 // 18000a098 call qword ptr [rip + 0x7b4c2]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000a09e nop 
                 // 18000a09f lea rcx, [rsp + 0x70]
                 { let v = m.ea(4, -1, 1, 112); m.sr(1, 8, false, v); }
@@ -15408,7 +15408,7 @@ pub(super) fn f_58000a0e0(m: &mut M, s: &mut dyn Svc) {
                 // 18000a14e lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18000a153 call qword ptr [rip + 0x7b407]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000a159 nop 
                 // 18000a15a lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
@@ -15998,7 +15998,7 @@ pub(super) fn f_58000a3b0(m: &mut M, s: &mut dyn Svc) {
                 // 18000a4e9 lea rcx, [rsp + 0xa8]
                 { let v = m.ea(4, -1, 1, 168); m.sr(1, 8, false, v); }
                 // 18000a4f1 call qword ptr [rip + 0x7b069]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000a4f7 nop 
                 // 18000a4f8 lea rcx, [rsp + 0xb8]
                 { let v = m.ea(4, -1, 1, 184); m.sr(1, 8, false, v); }
@@ -16029,7 +16029,7 @@ pub(super) fn f_58000a3b0(m: &mut M, s: &mut dyn Svc) {
                 // 18000a51c lea rcx, [rsp + 0xa8]
                 { let v = m.ea(4, -1, 1, 168); m.sr(1, 8, false, v); }
                 // 18000a524 call qword ptr [rip + 0x7b0b6]
-                s.import(m, 685);
+                s.import(m, 687);
                 pc = 0x58000a52a; continue;
             }
             0x58000a52a => {
@@ -16039,7 +16039,7 @@ pub(super) fn f_58000a3b0(m: &mut M, s: &mut dyn Svc) {
                 // 18000a52e lea rcx, [rsp + 0xa8]
                 { let v = m.ea(4, -1, 1, 168); m.sr(1, 8, false, v); }
                 // 18000a536 call qword ptr [rip + 0x7b0a4]
-                s.import(m, 685);
+                s.import(m, 687);
                 // 18000a53c inc rbx
                 { let v = m.inc(m.gr(3, 8, false), 8); m.sr(3, 8, false, v); }
                 // 18000a53f cmp rbx, rdi
@@ -16552,7 +16552,7 @@ pub(super) fn f_58000a7e0(m: &mut M, s: &mut dyn Svc) {
                 // 18000a858 mov ecx, 2
                 { let v = 0x2u64; m.sr(1, 4, false, v); }
                 // 18000a85d call qword ptr [rip + 0x7a87d]
-                s.import(m, 441);
+                s.import(m, 442);
                 // 18000a863 mov qword ptr [rdi + 0x3960], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(7, -1, 1, 14688); m.st(a, 8, v); }
                 // 18000a86a test rax, rax
@@ -16566,7 +16566,7 @@ pub(super) fn f_58000a7e0(m: &mut M, s: &mut dyn Svc) {
                 // 18000a86f mov rcx, rax
                 { let v = m.gr(0, 8, false); m.sr(1, 8, false, v); }
                 // 18000a872 call qword ptr [rip + 0x7a870]
-                s.import(m, 442);
+                s.import(m, 443);
                 // 18000a878 mov qword ptr [rdi + 0x3970], 0x40000
                 { let v = 0x40000u64; let a = m.ea(7, -1, 1, 14704); m.st(a, 8, v); }
                 // 18000a883 mov qword ptr [rdi + 0x3968], rax
@@ -17306,7 +17306,7 @@ pub(super) fn f_58000acc0(m: &mut M, s: &mut dyn Svc) {
                 // 18000ad45 lea rcx, [rsp + 0x68]
                 { let v = m.ea(4, -1, 1, 104); m.sr(1, 8, false, v); }
                 // 18000ad4a call qword ptr [rip + 0x7a810]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000ad50 mov rdx, qword ptr [rsp + 0x68]
                 { let v = m.ld(m.ea(4, -1, 1, 104), 8); m.sr(2, 8, false, v); }
                 // 18000ad55 mov rcx, qword ptr [rdi + 0x38b8]
@@ -17374,7 +17374,7 @@ pub(super) fn f_58000acc0(m: &mut M, s: &mut dyn Svc) {
                 // 18000adba lea rcx, [rsp + 0x68]
                 { let v = m.ea(4, -1, 1, 104); m.sr(1, 8, false, v); }
                 // 18000adbf call qword ptr [rip + 0x7a79b]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000adc5 mov rdx, qword ptr [rsp + 0x68]
                 { let v = m.ld(m.ea(4, -1, 1, 104), 8); m.sr(2, 8, false, v); }
                 // 18000adca mov rcx, qword ptr [rdi + 0x38b8]
@@ -18161,7 +18161,7 @@ pub(super) fn f_58000ae60(m: &mut M, s: &mut dyn Svc) {
                 // 18000b162 lea rcx, [rsp + 0x90]
                 { let v = m.ea(4, -1, 1, 144); m.sr(1, 8, false, v); }
                 // 18000b16a call qword ptr [rip + 0x7a3f0]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000b170 mov rax, qword ptr [r13 + 0x38b8]
                 { let v = m.ld(m.ea(13, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000b177 movzx ecx, word ptr [rax + 0xc]
@@ -18441,7 +18441,7 @@ pub(super) fn f_58000b240(m: &mut M, s: &mut dyn Svc) {
                 // 18000b356 lea rcx, [rsp + 0x78]
                 { let v = m.ea(4, -1, 1, 120); m.sr(1, 8, false, v); }
                 // 18000b35b call qword ptr [rip + 0x7a1ff]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000b361 mov rdx, qword ptr [rsp + 0x78]
                 { let v = m.ld(m.ea(4, -1, 1, 120), 8); m.sr(2, 8, false, v); }
                 // 18000b366 mov rcx, qword ptr [r13 + 0x38b8]
@@ -18612,7 +18612,7 @@ pub(super) fn f_58000b3f0(m: &mut M, s: &mut dyn Svc) {
                 // 18000b435 lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 18000b43a call qword ptr [rip + 0x7a120]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000b440 mov rax, qword ptr [rbx + 0x38b8]
                 { let v = m.ld(m.ea(3, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000b447 movzx ecx, word ptr [rax + 0xc]
@@ -18701,7 +18701,7 @@ pub(super) fn f_58000b630(m: &mut M, s: &mut dyn Svc) {
                 // 18000b673 lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 18000b678 call qword ptr [rip + 0x79ee2]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000b67e mov rax, qword ptr [rbx + 0x38b8]
                 { let v = m.ld(m.ea(3, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000b685 movzx ecx, word ptr [rax + 0xc]
@@ -18813,7 +18813,7 @@ pub(super) fn f_58000b6c0(m: &mut M, s: &mut dyn Svc) {
                 // 18000b71a lea rcx, [rsp + 0x58]
                 { let v = m.ea(4, -1, 1, 88); m.sr(1, 8, false, v); }
                 // 18000b71f call qword ptr [rip + 0x79e3b]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000b725 mov rax, qword ptr [rbp + 0x38b8]
                 { let v = m.ld(m.ea(5, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000b72c movzx ecx, word ptr [rax + 0xc]
@@ -19428,7 +19428,7 @@ pub(super) fn f_58000bc60(m: &mut M, s: &mut dyn Svc) {
                 // 18000bd7c lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000bd81 call qword ptr [rip + 0x797d9]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000bd87 mov rdx, qword ptr [rsp + 0x30]
                 { let v = m.ld(m.ea(4, -1, 1, 48), 8); m.sr(2, 8, false, v); }
                 // 18000bd8c mov rcx, qword ptr [rdi + 0x38b8]
@@ -19593,7 +19593,7 @@ pub(super) fn f_58000bc60(m: &mut M, s: &mut dyn Svc) {
                 // 18000be96 lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000be9b call qword ptr [rip + 0x796bf]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000bea1 mov rax, qword ptr [rdi + 0x38b8]
                 { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000bea8 movzx ecx, word ptr [rax + 0xc]
@@ -19631,7 +19631,7 @@ pub(super) fn f_58000bc60(m: &mut M, s: &mut dyn Svc) {
                 // 18000bed8 lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000bedd call qword ptr [rip + 0x7967d]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000bee3 mov rax, qword ptr [rdi + 0x38b8]
                 { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000beea movzx ecx, word ptr [rax + 0xc]
@@ -19661,7 +19661,7 @@ pub(super) fn f_58000bc60(m: &mut M, s: &mut dyn Svc) {
                 // 18000bf0d lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000bf12 call qword ptr [rip + 0x79648]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000bf18 mov rax, qword ptr [rdi + 0x38b8]
                 { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000bf1f movzx ecx, word ptr [rax + 0xc]
@@ -19717,7 +19717,7 @@ pub(super) fn f_58000bc60(m: &mut M, s: &mut dyn Svc) {
                 // 18000bf6f lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000bf74 call qword ptr [rip + 0x795e6]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000bf7a mov rax, qword ptr [rdi + 0x38b8]
                 { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000bf81 movzx ecx, word ptr [rax + 0xc]
@@ -19787,7 +19787,7 @@ pub(super) fn f_58000bc60(m: &mut M, s: &mut dyn Svc) {
                 // 18000bfe6 lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000bfeb call qword ptr [rip + 0x7956f]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000bff1 mov rax, qword ptr [rdi + 0x38b8]
                 { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000bff8 movzx ecx, word ptr [rax + 0xc]
@@ -19851,7 +19851,7 @@ pub(super) fn f_58000bc60(m: &mut M, s: &mut dyn Svc) {
                 // 18000c038 lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000c03d call qword ptr [rip + 0x7951d]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000c043 mov rax, qword ptr [rdi + 0x38b8]
                 { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 18000c04a movzx ecx, word ptr [rax + 0xc]
@@ -19976,7 +19976,7 @@ pub(super) fn f_58000bc60(m: &mut M, s: &mut dyn Svc) {
                 // 18000c0f4 lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000c0f9 call qword ptr [rip + 0x79461]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000c0ff mov rdx, qword ptr [rsp + 0x30]
                 { let v = m.ld(m.ea(4, -1, 1, 48), 8); m.sr(2, 8, false, v); }
                 // 18000c104 mov rcx, qword ptr [rdi + 0x38b8]
@@ -20136,7 +20136,7 @@ pub(super) fn f_58000c170(m: &mut M, s: &mut dyn Svc) {
                 // 18000c1ed lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000c1f2 call qword ptr [rip + 0x79368]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000c1f8 nop 
                 // 18000c1f9 lea rcx, [rsp + 0x38]
                 { let v = m.ea(4, -1, 1, 56); m.sr(1, 8, false, v); }
@@ -20298,7 +20298,7 @@ pub(super) fn f_58000c250(m: &mut M, s: &mut dyn Svc) {
                 // 18000c2dc lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18000c2e1 call qword ptr [rip + 0x79279]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000c2e7 nop 
                 // 18000c2e8 lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
@@ -21519,7 +21519,7 @@ pub(super) fn f_58000c950(m: &mut M, s: &mut dyn Svc) {
                 // 18000ca51 lea rcx, [rsp + 0x20]
                 { let v = m.ea(4, -1, 1, 32); m.sr(1, 8, false, v); }
                 // 18000ca56 call qword ptr [rip + 0x78694]
-                s.import(m, 686);
+                s.import(m, 688);
                 // 18000ca5c movzx ecx, word ptr [rsp + 0x2e]
                 { let v = m.ld(m.ea(4, -1, 1, 46), 2); m.sr(1, 4, false, v); }
                 // 18000ca61 mov eax, 0x66666667
@@ -27755,7 +27755,7 @@ pub(super) fn f_58000f7f0(m: &mut M, s: &mut dyn Svc) {
                 // 18000f859 lea rcx, [rsp + 0x30]
                 { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
                 // 18000f85e call qword ptr [rip + 0x75cfc]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000f864 mov rax, qword ptr [rbp + 0x70]
                 { let v = m.ld(m.ea(5, -1, 1, 112), 8); m.sr(0, 8, false, v); }
                 // 18000f868 movzx ecx, word ptr [rax + 0xc]
@@ -27908,7 +27908,7 @@ pub(super) fn f_58000f8b0(m: &mut M, s: &mut dyn Svc) {
                 // 18000f920 lea rcx, [rsp + 0x60]
                 { let v = m.ea(4, -1, 1, 96); m.sr(1, 8, false, v); }
                 // 18000f925 call qword ptr [rip + 0x75c35]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000f92b mov rax, qword ptr [rbx + 0x70]
                 { let v = m.ld(m.ea(3, -1, 1, 112), 8); m.sr(0, 8, false, v); }
                 // 18000f92f movzx ecx, word ptr [rax + 0xc]
@@ -27981,7 +27981,7 @@ pub(super) fn f_58000f8b0(m: &mut M, s: &mut dyn Svc) {
                 // 18000f98f lea rcx, [rsp + 0x70]
                 { let v = m.ea(4, -1, 1, 112); m.sr(1, 8, false, v); }
                 // 18000f994 call qword ptr [rip + 0x75bc6]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18000f99a mov rax, qword ptr [rbx + 0x70]
                 { let v = m.ld(m.ea(3, -1, 1, 112), 8); m.sr(0, 8, false, v); }
                 // 18000f99e movzx ecx, word ptr [rax + 0xc]
@@ -31448,7 +31448,7 @@ pub(super) fn f_580010820(m: &mut M, s: &mut dyn Svc) {
                 // 18001083b mov edx, 0x32
                 { let v = 0x32u64; m.sr(2, 4, false, v); }
                 // 180010840 call qword ptr [rip + 0x74bca]
-                s.import(m, 481);
+                s.import(m, 482);
                 // 180010846 add rsp, 0x28
                 { let v = m.add(m.gr(4, 8, false), 0x28u64, 8); m.sr(4, 8, false, v); }
                 // 18001084a ret 
@@ -31481,7 +31481,7 @@ pub(super) fn f_580010850(m: &mut M, s: &mut dyn Svc) {
                 // 18001086b mov edx, 0x28
                 { let v = 0x28u64; m.sr(2, 4, false, v); }
                 // 180010870 call qword ptr [rip + 0x74b9a]
-                s.import(m, 481);
+                s.import(m, 482);
                 // 180010876 add rsp, 0x28
                 { let v = m.add(m.gr(4, 8, false), 0x28u64, 8); m.sr(4, 8, false, v); }
                 // 18001087a ret 
@@ -42912,7 +42912,7 @@ pub(super) fn f_5800151b0(m: &mut M, s: &mut dyn Svc) {
                 // 180015264 mov ecx, 0x2710
                 { let v = 0x2710u64; m.sr(1, 4, false, v); }
                 // 180015269 call qword ptr [rip + 0x70381]
-                s.import(m, 296);
+                s.import(m, 298);
                 // 18001526f mov qword ptr [rbx + 0x90], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(3, -1, 1, 144); m.st(a, 8, v); }
                 // 180015276 test rax, rax
@@ -47109,7 +47109,7 @@ pub(super) fn f_580016b10(m: &mut M, s: &mut dyn Svc) {
                 // 180016d81 mov ecx, 0x4e20
                 { let v = 0x4e20u64; m.sr(1, 4, false, v); }
                 // 180016d86 call qword ptr [rip + 0x6e864]
-                s.import(m, 296);
+                s.import(m, 298);
                 // 180016d8c mov qword ptr [rdi - 0x78], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(7, -1, 1, -120); m.st(a, 8, v); }
                 // 180016d90 test rax, rax
@@ -47250,7 +47250,7 @@ pub(super) fn f_580016b10(m: &mut M, s: &mut dyn Svc) {
                 // 180016e74 mov ecx, 0x31c4
                 { let v = 0x31c4u64; m.sr(1, 4, false, v); }
                 // 180016e79 call qword ptr [rip + 0x6e781]
-                s.import(m, 687);
+                s.import(m, 689);
                 // 180016e7f cmp eax, 7
                 m.sub(m.gr(0, 4, false), 0x7u64, 4);
                 // 180016e82 jne 0x180016eae
@@ -47281,7 +47281,7 @@ pub(super) fn f_580016b10(m: &mut M, s: &mut dyn Svc) {
                 // 180016e9e mov ecx, 0x31c5
                 { let v = 0x31c5u64; m.sr(1, 4, false, v); }
                 // 180016ea3 call qword ptr [rip + 0x6e757]
-                s.import(m, 687);
+                s.import(m, 689);
                 // 180016ea9 cmp eax, 7
                 m.sub(m.gr(0, 4, false), 0x7u64, 4);
                 // 180016eac jne 0x180016eba
@@ -50660,7 +50660,7 @@ pub(super) fn f_5800181e0(m: &mut M, s: &mut dyn Svc) {
                 // 180018296 mov rdx, rbx
                 { let v = m.gr(3, 8, false); m.sr(2, 8, false, v); }
                 // 180018299 call qword ptr [rip + 0x6d161]
-                s.import(m, 688);
+                s.import(m, 690);
                 // 18001829f cmp word ptr [rbx], 0
                 m.sub(m.ld(m.ea(3, -1, 1, 0), 2), 0x0u64, 2);
                 // 1800182a3 je 0x1800182da
@@ -51736,7 +51736,7 @@ pub(super) fn f_580018690(m: &mut M, s: &mut dyn Svc) {
             0x5800187ae => {
                 m.block(0x5800187ae);
                 // 1800187ae call qword ptr [rip + 0x6ce3c]
-                s.import(m, 296);
+                s.import(m, 298);
                 // 1800187b4 mov r13, rax
                 { let v = m.gr(0, 8, false); m.sr(13, 8, false, v); }
                 // 1800187b7 test rax, rax
@@ -77045,7 +77045,7 @@ pub(super) fn f_580024db0(m: &mut M, s: &mut dyn Svc) {
                 // 180024ec6 lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 180024ecb call qword ptr [rip + 0x6068f]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180024ed1 xor r8d, r8d
                 { let v = m.xor(m.gr(8, 4, false), m.gr(8, 4, false), 4); m.sr(8, 4, false, v); }
                 // 180024ed4 mov rdx, qword ptr [rsp + 0x40]
@@ -78067,7 +78067,7 @@ pub(super) fn f_580025520(m: &mut M, s: &mut dyn Svc) {
                 // 1800255ea lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 1800255ef call qword ptr [rip + 0x5ff6b]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800255f5 movsx r8d, byte ptr [rdi]
                 { let v = crate::mach::sx(m.ld(m.ea(7, -1, 1, 0), 1), 1); m.sr(8, 4, false, v); }
                 // 1800255f9 xor r9d, r9d
@@ -79523,7 +79523,7 @@ pub(super) fn f_580026910(m: &mut M, s: &mut dyn Svc) {
                 // 180026976 mov dword ptr [rbx], eax
                 { let v = m.gr(0, 4, false); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); }
                 // 180026978 call qword ptr [rip + 0x5ea7a]
-                s.import(m, 242);
+                s.import(m, 244);
                 // 18002697e movss xmm0, dword ptr [rdi + 0x10]
                 m.set_xl_zero(0, m.ld(m.ea(7, -1, 1, 16), 4));
                 // 180026983 cvtps2pd xmm0, xmm0
@@ -80077,7 +80077,7 @@ pub(super) fn f_580026bc0(m: &mut M, s: &mut dyn Svc) {
                 // 180026d00 mov rcx, rax
                 { let v = m.gr(0, 8, false); m.sr(1, 8, false, v); }
                 // 180026d03 call qword ptr [rip + 0x5e8e7]
-                s.import(m, 296);
+                s.import(m, 298);
                 // 180026d09 mov rbx, rax
                 { let v = m.gr(0, 8, false); m.sr(3, 8, false, v); }
                 // 180026d0c mov qword ptr [rsp + 0x30], rax
@@ -80178,7 +80178,7 @@ pub(super) fn f_580026bc0(m: &mut M, s: &mut dyn Svc) {
                 // 180026d8d mov rcx, rax
                 { let v = m.gr(0, 8, false); m.sr(1, 8, false, v); }
                 // 180026d90 call qword ptr [rip + 0x5e85a]
-                s.import(m, 296);
+                s.import(m, 298);
                 // 180026d96 mov r13, rax
                 { let v = m.gr(0, 8, false); m.sr(13, 8, false, v); }
                 // 180026d99 test rax, rax
@@ -80397,7 +80397,7 @@ pub(super) fn f_580026bc0(m: &mut M, s: &mut dyn Svc) {
                 // 180026efc mov rcx, rax
                 { let v = m.gr(0, 8, false); m.sr(1, 8, false, v); }
                 // 180026eff call qword ptr [rip + 0x5e6eb]
-                s.import(m, 296);
+                s.import(m, 298);
                 // 180026f05 mov rbx, rax
                 { let v = m.gr(0, 8, false); m.sr(3, 8, false, v); }
                 // 180026f08 mov qword ptr [rsp + 0x30], rax
@@ -85955,7 +85955,7 @@ pub(super) fn f_580029330(m: &mut M, s: &mut dyn Svc) {
                 // 180029448 lea rcx, [r15 + 8]
                 { let v = m.ea(15, -1, 1, 8); m.sr(1, 8, false, v); }
                 // 18002944c call qword ptr [rip + 0x5c066]
-                s.import(m, 440);
+                s.import(m, 441);
                 // 180029452 nop 
                 pc = 0x580029453; continue;
             }
@@ -88442,7 +88442,7 @@ pub(super) fn f_58002a940(m: &mut M, s: &mut dyn Svc) {
                 // 18002a9b2 lea rcx, [rsp + 0x58]
                 { let v = m.ea(4, -1, 1, 88); m.sr(1, 8, false, v); }
                 // 18002a9b7 call qword ptr [rip + 0x5ab2b]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002a9bd mov rax, qword ptr [rsp + 0x58]
                 { let v = m.ld(m.ea(4, -1, 1, 88), 8); m.sr(0, 8, false, v); }
                 // 18002a9c2 cmp dword ptr [rax - 0x10], 0xc
@@ -88489,7 +88489,7 @@ pub(super) fn f_58002a940(m: &mut M, s: &mut dyn Svc) {
                 // 18002a9f2 lea rcx, [rsp + 0x58]
                 { let v = m.ea(4, -1, 1, 88); m.sr(1, 8, false, v); }
                 // 18002a9f7 call qword ptr [rip + 0x5aaeb]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002a9fd mov rax, qword ptr [rsp + 0x58]
                 { let v = m.ld(m.ea(4, -1, 1, 88), 8); m.sr(0, 8, false, v); }
                 // 18002aa02 cmp dword ptr [rax - 0x10], 0x23
@@ -88725,7 +88725,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002ab9e mov rcx, rax
                 { let v = m.gr(0, 8, false); m.sr(1, 8, false, v); }
                 // 18002aba1 call qword ptr [rip + 0x5a901]
-                s.import(m, 689);
+                s.import(m, 691);
                 // 18002aba7 movzx r15d, ax
                 { let v = m.gr(0, 2, false); m.sr(15, 4, false, v); }
                 // 18002abab lea rcx, [rbp + 0x10]
@@ -89405,7 +89405,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b0b2 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18002b0b7 call qword ptr [rip + 0x5a42b]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002b0bd mov rax, qword ptr [rsp + 0x50]
                 { let v = m.ld(m.ea(4, -1, 1, 80), 8); m.sr(0, 8, false, v); }
                 // 18002b0c2 cmp dword ptr [rax - 0x10], 0xc
@@ -89452,7 +89452,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b0f2 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18002b0f7 call qword ptr [rip + 0x5a3eb]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002b0fd mov rax, qword ptr [rsp + 0x50]
                 { let v = m.ld(m.ea(4, -1, 1, 80), 8); m.sr(0, 8, false, v); }
                 // 18002b102 cmp dword ptr [rax - 0x10], 0x23
@@ -89641,7 +89641,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b232 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18002b237 call qword ptr [rip + 0x5a2ab]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002b23d mov rax, qword ptr [rsp + 0x50]
                 { let v = m.ld(m.ea(4, -1, 1, 80), 8); m.sr(0, 8, false, v); }
                 // 18002b242 cmp dword ptr [rax - 0x10], 0xc
@@ -89688,7 +89688,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b272 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18002b277 call qword ptr [rip + 0x5a26b]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002b27d mov rax, qword ptr [rsp + 0x50]
                 { let v = m.ld(m.ea(4, -1, 1, 80), 8); m.sr(0, 8, false, v); }
                 // 18002b282 cmp dword ptr [rax - 0x10], 0x23
@@ -89975,7 +89975,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b472 lea rcx, [rbp - 0x70]
                 { let v = m.ea(5, -1, 1, -112); m.sr(1, 8, false, v); }
                 // 18002b476 call qword ptr [rip + 0x5a06c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002b47c mov rax, qword ptr [rbp - 0x70]
                 { let v = m.ld(m.ea(5, -1, 1, -112), 8); m.sr(0, 8, false, v); }
                 // 18002b480 cmp dword ptr [rax - 0x10], 0xc
@@ -90022,7 +90022,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b4b2 lea rcx, [rbp - 0x70]
                 { let v = m.ea(5, -1, 1, -112); m.sr(1, 8, false, v); }
                 // 18002b4b6 call qword ptr [rip + 0x5a02c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002b4bc mov rax, qword ptr [rbp - 0x70]
                 { let v = m.ld(m.ea(5, -1, 1, -112), 8); m.sr(0, 8, false, v); }
                 // 18002b4c0 cmp dword ptr [rax - 0x10], 0x23
@@ -90385,7 +90385,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b666 lea rcx, [rbp - 0x10]
                 { let v = m.ea(5, -1, 1, -16); m.sr(1, 8, false, v); }
                 // 18002b66a call qword ptr [rip + 0x59e78]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002b670 mov rax, qword ptr [rbp - 0x10]
                 { let v = m.ld(m.ea(5, -1, 1, -16), 8); m.sr(0, 8, false, v); }
                 // 18002b674 cmp dword ptr [rax - 0x10], 0xc
@@ -90432,7 +90432,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b6a2 lea rcx, [rbp - 0x10]
                 { let v = m.ea(5, -1, 1, -16); m.sr(1, 8, false, v); }
                 // 18002b6a6 call qword ptr [rip + 0x59e3c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002b6ac mov rax, qword ptr [rbp - 0x10]
                 { let v = m.ld(m.ea(5, -1, 1, -16), 8); m.sr(0, 8, false, v); }
                 // 18002b6b0 cmp dword ptr [rax - 0x10], 0x23
@@ -90599,7 +90599,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002b7ac lea rcx, [rbp + 0x1c8]
                 { let v = m.ea(5, -1, 1, 456); m.sr(1, 8, false, v); }
                 // 18002b7b3 call qword ptr [rip + 0x59d0f]
-                s.import(m, 690);
+                s.import(m, 692);
                 // 18002b7b9 nop 
                 // 18002b7ba mov r8, rax
                 { let v = m.gr(0, 8, false); m.sr(8, 8, false, v); }
@@ -90996,7 +90996,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002ba72 lea rcx, [rbp - 0x60]
                 { let v = m.ea(5, -1, 1, -96); m.sr(1, 8, false, v); }
                 // 18002ba76 call qword ptr [rip + 0x59a6c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002ba7c mov rax, qword ptr [rbp - 0x60]
                 { let v = m.ld(m.ea(5, -1, 1, -96), 8); m.sr(0, 8, false, v); }
                 // 18002ba80 cmp dword ptr [rax - 0x10], 0xc
@@ -91043,7 +91043,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002bab2 lea rcx, [rbp - 0x60]
                 { let v = m.ea(5, -1, 1, -96); m.sr(1, 8, false, v); }
                 // 18002bab6 call qword ptr [rip + 0x59a2c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002babc mov rax, qword ptr [rbp - 0x60]
                 { let v = m.ld(m.ea(5, -1, 1, -96), 8); m.sr(0, 8, false, v); }
                 // 18002bac0 cmp dword ptr [rax - 0x10], 0x23
@@ -91214,7 +91214,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002bbd2 lea rcx, [rbp - 0x80]
                 { let v = m.ea(5, -1, 1, -128); m.sr(1, 8, false, v); }
                 // 18002bbd6 call qword ptr [rip + 0x5990c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002bbdc mov rax, qword ptr [rbp - 0x80]
                 { let v = m.ld(m.ea(5, -1, 1, -128), 8); m.sr(0, 8, false, v); }
                 // 18002bbe0 cmp dword ptr [rax - 0x10], 0xc
@@ -91261,7 +91261,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002bc12 lea rcx, [rbp - 0x80]
                 { let v = m.ea(5, -1, 1, -128); m.sr(1, 8, false, v); }
                 // 18002bc16 call qword ptr [rip + 0x598cc]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002bc1c mov rax, qword ptr [rbp - 0x80]
                 { let v = m.ld(m.ea(5, -1, 1, -128), 8); m.sr(0, 8, false, v); }
                 // 18002bc20 cmp dword ptr [rax - 0x10], 0x23
@@ -91341,7 +91341,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002bca6 lea rcx, [rbp + 0x218]
                 { let v = m.ea(5, -1, 1, 536); m.sr(1, 8, false, v); }
                 // 18002bcad call qword ptr [rip + 0x59815]
-                s.import(m, 690);
+                s.import(m, 692);
                 // 18002bcb3 nop 
                 // 18002bcb4 mov r8, rax
                 { let v = m.gr(0, 8, false); m.sr(8, 8, false, v); }
@@ -91580,7 +91580,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002be51 lea rcx, [rbp + 0xe8]
                 { let v = m.ea(5, -1, 1, 232); m.sr(1, 8, false, v); }
                 // 18002be58 call qword ptr [rip + 0x59662]
-                s.import(m, 691);
+                s.import(m, 693);
                 // 18002be5e mov r9, qword ptr [rsp + 0x50]
                 { let v = m.ld(m.ea(4, -1, 1, 80), 8); m.sr(9, 8, false, v); }
                 // 18002be63 mov r8, qword ptr [rbp + 0xe8]
@@ -92506,7 +92506,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002c622 lea rcx, [rbp - 0x50]
                 { let v = m.ea(5, -1, 1, -80); m.sr(1, 8, false, v); }
                 // 18002c626 call qword ptr [rip + 0x58ebc]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002c62c mov rax, qword ptr [rbp - 0x50]
                 { let v = m.ld(m.ea(5, -1, 1, -80), 8); m.sr(0, 8, false, v); }
                 // 18002c630 cmp dword ptr [rax - 0x10], 0xc
@@ -92553,7 +92553,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002c662 lea rcx, [rbp - 0x50]
                 { let v = m.ea(5, -1, 1, -80); m.sr(1, 8, false, v); }
                 // 18002c666 call qword ptr [rip + 0x58e7c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002c66c mov rax, qword ptr [rbp - 0x50]
                 { let v = m.ld(m.ea(5, -1, 1, -80), 8); m.sr(0, 8, false, v); }
                 // 18002c670 cmp dword ptr [rax - 0x10], 0x23
@@ -93152,7 +93152,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002caee lea rcx, [rbp + 0xd8]
                 { let v = m.ea(5, -1, 1, 216); m.sr(1, 8, false, v); }
                 // 18002caf5 call qword ptr [rip + 0x589c5]
-                s.import(m, 691);
+                s.import(m, 693);
                 // 18002cafb mov r8, qword ptr [rbp + 0xd8]
                 { let v = m.ld(m.ea(5, -1, 1, 216), 8); m.sr(8, 8, false, v); }
                 // 18002cb02 lea rdx, [rip + 0x5d23f]
@@ -95059,7 +95059,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002dc82 lea rcx, [rbp - 0x20]
                 { let v = m.ea(5, -1, 1, -32); m.sr(1, 8, false, v); }
                 // 18002dc86 call qword ptr [rip + 0x5785c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002dc8c mov rax, qword ptr [rbp - 0x20]
                 { let v = m.ld(m.ea(5, -1, 1, -32), 8); m.sr(0, 8, false, v); }
                 // 18002dc90 cmp dword ptr [rax - 0x10], 0xc
@@ -95106,7 +95106,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002dcc2 lea rcx, [rbp - 0x20]
                 { let v = m.ea(5, -1, 1, -32); m.sr(1, 8, false, v); }
                 // 18002dcc6 call qword ptr [rip + 0x5781c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002dccc mov rax, qword ptr [rbp - 0x20]
                 { let v = m.ld(m.ea(5, -1, 1, -32), 8); m.sr(0, 8, false, v); }
                 // 18002dcd0 cmp dword ptr [rax - 0x10], 0x23
@@ -95410,7 +95410,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002df02 lea rcx, [rbp - 0x40]
                 { let v = m.ea(5, -1, 1, -64); m.sr(1, 8, false, v); }
                 // 18002df06 call qword ptr [rip + 0x575dc]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002df0c mov rax, qword ptr [rbp - 0x40]
                 { let v = m.ld(m.ea(5, -1, 1, -64), 8); m.sr(0, 8, false, v); }
                 // 18002df10 cmp dword ptr [rax - 0x10], 0xc
@@ -95457,7 +95457,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002df42 lea rcx, [rbp - 0x40]
                 { let v = m.ea(5, -1, 1, -64); m.sr(1, 8, false, v); }
                 // 18002df46 call qword ptr [rip + 0x5759c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002df4c mov rax, qword ptr [rbp - 0x40]
                 { let v = m.ld(m.ea(5, -1, 1, -64), 8); m.sr(0, 8, false, v); }
                 // 18002df50 cmp dword ptr [rax - 0x10], 0x23
@@ -95613,7 +95613,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e052 lea rcx, [rbp - 0x18]
                 { let v = m.ea(5, -1, 1, -24); m.sr(1, 8, false, v); }
                 // 18002e056 call qword ptr [rip + 0x5748c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002e05c mov rax, qword ptr [rbp - 0x18]
                 { let v = m.ld(m.ea(5, -1, 1, -24), 8); m.sr(0, 8, false, v); }
                 // 18002e060 cmp dword ptr [rax - 0x10], 0xc
@@ -95660,7 +95660,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e092 lea rcx, [rbp - 0x18]
                 { let v = m.ea(5, -1, 1, -24); m.sr(1, 8, false, v); }
                 // 18002e096 call qword ptr [rip + 0x5744c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002e09c mov rax, qword ptr [rbp - 0x18]
                 { let v = m.ld(m.ea(5, -1, 1, -24), 8); m.sr(0, 8, false, v); }
                 // 18002e0a0 cmp dword ptr [rax - 0x10], 0x23
@@ -95825,7 +95825,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e19b lea rcx, [rbp + 0x1d0]
                 { let v = m.ea(5, -1, 1, 464); m.sr(1, 8, false, v); }
                 // 18002e1a2 call qword ptr [rip + 0x57320]
-                s.import(m, 690);
+                s.import(m, 692);
                 // 18002e1a8 nop 
                 // 18002e1a9 mov r8, rax
                 { let v = m.gr(0, 8, false); m.sr(8, 8, false, v); }
@@ -96047,7 +96047,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e342 lea rcx, [rbp - 0x30]
                 { let v = m.ea(5, -1, 1, -48); m.sr(1, 8, false, v); }
                 // 18002e346 call qword ptr [rip + 0x5719c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002e34c mov rax, qword ptr [rbp - 0x30]
                 { let v = m.ld(m.ea(5, -1, 1, -48), 8); m.sr(0, 8, false, v); }
                 // 18002e350 cmp dword ptr [rax - 0x10], 0xc
@@ -96094,7 +96094,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e382 lea rcx, [rbp - 0x30]
                 { let v = m.ea(5, -1, 1, -48); m.sr(1, 8, false, v); }
                 // 18002e386 call qword ptr [rip + 0x5715c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002e38c mov rax, qword ptr [rbp - 0x30]
                 { let v = m.ld(m.ea(5, -1, 1, -48), 8); m.sr(0, 8, false, v); }
                 // 18002e390 cmp dword ptr [rax - 0x10], 0x23
@@ -96296,7 +96296,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e4d2 lea rcx, [rbp - 0x78]
                 { let v = m.ea(5, -1, 1, -120); m.sr(1, 8, false, v); }
                 // 18002e4d6 call qword ptr [rip + 0x5700c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002e4dc mov rax, qword ptr [rbp - 0x78]
                 { let v = m.ld(m.ea(5, -1, 1, -120), 8); m.sr(0, 8, false, v); }
                 // 18002e4e0 cmp dword ptr [rax - 0x10], 0xc
@@ -96343,7 +96343,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e512 lea rcx, [rbp - 0x78]
                 { let v = m.ea(5, -1, 1, -120); m.sr(1, 8, false, v); }
                 // 18002e516 call qword ptr [rip + 0x56fcc]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002e51c mov rax, qword ptr [rbp - 0x78]
                 { let v = m.ld(m.ea(5, -1, 1, -120), 8); m.sr(0, 8, false, v); }
                 // 18002e520 cmp dword ptr [rax - 0x10], 0x23
@@ -96491,7 +96491,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e5fc lea rcx, [rbp + 0xf0]
                 { let v = m.ea(5, -1, 1, 240); m.sr(1, 8, false, v); }
                 // 18002e603 call qword ptr [rip + 0x56ebf]
-                s.import(m, 690);
+                s.import(m, 692);
                 // 18002e609 nop 
                 // 18002e60a mov r8, rax
                 { let v = m.gr(0, 8, false); m.sr(8, 8, false, v); }
@@ -96683,7 +96683,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e762 lea rcx, [rbp - 0x68]
                 { let v = m.ea(5, -1, 1, -104); m.sr(1, 8, false, v); }
                 // 18002e766 call qword ptr [rip + 0x56d7c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002e76c mov rax, qword ptr [rbp - 0x68]
                 { let v = m.ld(m.ea(5, -1, 1, -104), 8); m.sr(0, 8, false, v); }
                 // 18002e770 cmp dword ptr [rax - 0x10], 0xc
@@ -96730,7 +96730,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002e7a2 lea rcx, [rbp - 0x68]
                 { let v = m.ea(5, -1, 1, -104); m.sr(1, 8, false, v); }
                 // 18002e7a6 call qword ptr [rip + 0x56d3c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002e7ac mov rax, qword ptr [rbp - 0x68]
                 { let v = m.ld(m.ea(5, -1, 1, -104), 8); m.sr(0, 8, false, v); }
                 // 18002e7b0 cmp dword ptr [rax - 0x10], 0x23
@@ -97081,7 +97081,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002ea52 lea rcx, [rbp - 0x58]
                 { let v = m.ea(5, -1, 1, -88); m.sr(1, 8, false, v); }
                 // 18002ea56 call qword ptr [rip + 0x56a8c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002ea5c mov rax, qword ptr [rbp - 0x58]
                 { let v = m.ld(m.ea(5, -1, 1, -88), 8); m.sr(0, 8, false, v); }
                 // 18002ea60 cmp dword ptr [rax - 0x10], 0xc
@@ -97128,7 +97128,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002ea92 lea rcx, [rbp - 0x58]
                 { let v = m.ea(5, -1, 1, -88); m.sr(1, 8, false, v); }
                 // 18002ea96 call qword ptr [rip + 0x56a4c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002ea9c mov rax, qword ptr [rbp - 0x58]
                 { let v = m.ld(m.ea(5, -1, 1, -88), 8); m.sr(0, 8, false, v); }
                 // 18002eaa0 cmp dword ptr [rax - 0x10], 0x23
@@ -97658,7 +97658,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002edc4 lea rcx, [rbp - 0x48]
                 { let v = m.ea(5, -1, 1, -72); m.sr(1, 8, false, v); }
                 // 18002edc8 call qword ptr [rip + 0x5671a]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002edce mov rax, qword ptr [rbp - 0x48]
                 { let v = m.ld(m.ea(5, -1, 1, -72), 8); m.sr(0, 8, false, v); }
                 // 18002edd2 cmp dword ptr [rax - 0x10], 0xc
@@ -97705,7 +97705,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002ee02 lea rcx, [rbp - 0x48]
                 { let v = m.ea(5, -1, 1, -72); m.sr(1, 8, false, v); }
                 // 18002ee06 call qword ptr [rip + 0x566dc]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002ee0c mov rax, qword ptr [rbp - 0x48]
                 { let v = m.ld(m.ea(5, -1, 1, -72), 8); m.sr(0, 8, false, v); }
                 // 18002ee10 cmp dword ptr [rax - 0x10], 0x23
@@ -97889,7 +97889,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002ef52 lea rcx, [rbp - 0x38]
                 { let v = m.ea(5, -1, 1, -56); m.sr(1, 8, false, v); }
                 // 18002ef56 call qword ptr [rip + 0x5658c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002ef5c mov rax, qword ptr [rbp - 0x38]
                 { let v = m.ld(m.ea(5, -1, 1, -56), 8); m.sr(0, 8, false, v); }
                 // 18002ef60 cmp dword ptr [rax - 0x10], 0xc
@@ -97936,7 +97936,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002ef92 lea rcx, [rbp - 0x38]
                 { let v = m.ea(5, -1, 1, -56); m.sr(1, 8, false, v); }
                 // 18002ef96 call qword ptr [rip + 0x5654c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002ef9c mov rax, qword ptr [rbp - 0x38]
                 { let v = m.ld(m.ea(5, -1, 1, -56), 8); m.sr(0, 8, false, v); }
                 // 18002efa0 cmp dword ptr [rax - 0x10], 0x23
@@ -98098,7 +98098,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002f0c4 lea rcx, [rbp - 0x28]
                 { let v = m.ea(5, -1, 1, -40); m.sr(1, 8, false, v); }
                 // 18002f0c8 call qword ptr [rip + 0x5641a]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002f0ce mov rax, qword ptr [rbp - 0x28]
                 { let v = m.ld(m.ea(5, -1, 1, -40), 8); m.sr(0, 8, false, v); }
                 // 18002f0d2 cmp dword ptr [rax - 0x10], 0xc
@@ -98145,7 +98145,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002f102 lea rcx, [rbp - 0x28]
                 { let v = m.ea(5, -1, 1, -40); m.sr(1, 8, false, v); }
                 // 18002f106 call qword ptr [rip + 0x563dc]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002f10c mov rax, qword ptr [rbp - 0x28]
                 { let v = m.ld(m.ea(5, -1, 1, -40), 8); m.sr(0, 8, false, v); }
                 // 18002f110 cmp dword ptr [rax - 0x10], 0x23
@@ -98288,7 +98288,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002f202 lea rcx, [rbp]
                 { let v = m.ea(5, -1, 1, 0); m.sr(1, 8, false, v); }
                 // 18002f206 call qword ptr [rip + 0x562dc]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002f20c mov rax, qword ptr [rbp]
                 { let v = m.ld(m.ea(5, -1, 1, 0), 8); m.sr(0, 8, false, v); }
                 // 18002f210 cmp dword ptr [rax - 0x10], 0xc
@@ -98335,7 +98335,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002f242 lea rcx, [rbp]
                 { let v = m.ea(5, -1, 1, 0); m.sr(1, 8, false, v); }
                 // 18002f246 call qword ptr [rip + 0x5629c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002f24c mov rax, qword ptr [rbp]
                 { let v = m.ld(m.ea(5, -1, 1, 0), 8); m.sr(0, 8, false, v); }
                 // 18002f250 cmp dword ptr [rax - 0x10], 0x23
@@ -98526,7 +98526,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002f382 lea rcx, [rbp - 8]
                 { let v = m.ea(5, -1, 1, -8); m.sr(1, 8, false, v); }
                 // 18002f386 call qword ptr [rip + 0x5615c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002f38c mov rax, qword ptr [rbp - 8]
                 { let v = m.ld(m.ea(5, -1, 1, -8), 8); m.sr(0, 8, false, v); }
                 // 18002f390 cmp dword ptr [rax - 0x10], 0xc
@@ -98573,7 +98573,7 @@ pub(super) fn f_58002aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18002f3c2 lea rcx, [rbp - 8]
                 { let v = m.ea(5, -1, 1, -8); m.sr(1, 8, false, v); }
                 // 18002f3c6 call qword ptr [rip + 0x5611c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002f3cc mov rax, qword ptr [rbp - 8]
                 { let v = m.ld(m.ea(5, -1, 1, -8), 8); m.sr(0, 8, false, v); }
                 // 18002f3d0 cmp dword ptr [rax - 0x10], 0x23
@@ -99865,7 +99865,7 @@ pub(super) fn f_58002f770(m: &mut M, s: &mut dyn Svc) {
                 // 18002fb62 lea rcx, [rbp + 0x70]
                 { let v = m.ea(5, -1, 1, 112); m.sr(1, 8, false, v); }
                 // 18002fb66 call qword ptr [rip + 0x5597c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002fb6c mov rax, qword ptr [rbp + 0x70]
                 { let v = m.ld(m.ea(5, -1, 1, 112), 8); m.sr(0, 8, false, v); }
                 // 18002fb70 cmp dword ptr [rax - 0x10], 0xc
@@ -99912,7 +99912,7 @@ pub(super) fn f_58002f770(m: &mut M, s: &mut dyn Svc) {
                 // 18002fba2 lea rcx, [rbp + 0x70]
                 { let v = m.ea(5, -1, 1, 112); m.sr(1, 8, false, v); }
                 // 18002fba6 call qword ptr [rip + 0x5593c]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 18002fbac mov rax, qword ptr [rbp + 0x70]
                 { let v = m.ld(m.ea(5, -1, 1, 112), 8); m.sr(0, 8, false, v); }
                 // 18002fbb0 cmp dword ptr [rax - 0x10], 0x23
@@ -100200,7 +100200,7 @@ pub(super) fn f_58002fd40(m: &mut M, s: &mut dyn Svc) {
                 // 18002fd86 lea r8d, [r9 + 1]
                 { let v = m.ea(9, -1, 1, 1); m.sr(8, 4, false, v); }
                 // 18002fd8a call qword ptr [rip + 0x55368]
-                s.import(m, 692);
+                s.import(m, 694);
                 // 18002fd90 mov rdi, rax
                 { let v = m.gr(0, 8, false); m.sr(7, 8, false, v); }
                 // 18002fd93 cmp rax, -1
@@ -100238,7 +100238,7 @@ pub(super) fn f_58002fd40(m: &mut M, s: &mut dyn Svc) {
                 // 18002fdcf lea rcx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(1, 8, false, v); }
                 // 18002fdd4 call qword ptr [rip + 0x556be]
-                s.import(m, 451);
+                s.import(m, 452);
                 // 18002fdda mov rdx, rax
                 { let v = m.gr(0, 8, false); m.sr(2, 8, false, v); }
                 // 18002fddd mov qword ptr [rsp + 0x20], 0
@@ -100250,7 +100250,7 @@ pub(super) fn f_58002fd40(m: &mut M, s: &mut dyn Svc) {
                 // 18002fdee mov rcx, rdi
                 { let v = m.gr(7, 8, false); m.sr(1, 8, false, v); }
                 // 18002fdf1 call qword ptr [rip + 0x55309]
-                s.import(m, 693);
+                s.import(m, 695);
                 // 18002fdf7 or edx, 0xffffffff
                 { let v = m.or(m.gr(2, 4, false), 0xffffffffu64, 4); m.sr(2, 4, false, v); }
                 // 18002fdfa lea rcx, [rsp + 0x40]
@@ -105436,6 +105436,465 @@ pub(super) fn f_580031d50(m: &mut M, s: &mut dyn Svc) {
                 // 180031e71 pop rbx
                 { let v = m.pop(); m.sr(3, 8, false, v); }
                 // 180031e72 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_580031e80(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x580031e80);
+    let mut pc: u64 = 0x580031e80;
+    loop {
+        match pc {
+            0x580031e80 => {
+                m.block(0x580031e80);
+                // 180031e80 mov r11, rsp
+                { let v = m.gr(4, 8, false); m.sr(11, 8, false, v); }
+                // 180031e83 push rdi
+                m.push(m.gr(7, 8, false));
+                // 180031e84 push r12
+                m.push(m.gr(12, 8, false));
+                // 180031e86 push r13
+                m.push(m.gr(13, 8, false));
+                // 180031e88 push r14
+                m.push(m.gr(14, 8, false));
+                // 180031e8a push r15
+                m.push(m.gr(15, 8, false));
+                // 180031e8c sub rsp, 0x50
+                { let v = m.sub(m.gr(4, 8, false), 0x50u64, 8); m.sr(4, 8, false, v); }
+                // 180031e90 mov qword ptr [r11 - 0x58], 0xfffffffffffffffe
+                { let v = 0xfffffffffffffffeu64; let a = m.ea(11, -1, 1, -88); m.st(a, 8, v); }
+                // 180031e98 mov qword ptr [r11 + 8], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(11, -1, 1, 8); m.st(a, 8, v); }
+                // 180031e9c mov qword ptr [r11 + 0x10], rbp
+                { let v = m.gr(5, 8, false); let a = m.ea(11, -1, 1, 16); m.st(a, 8, v); }
+                // 180031ea0 mov qword ptr [r11 + 0x20], rsi
+                { let v = m.gr(6, 8, false); let a = m.ea(11, -1, 1, 32); m.st(a, 8, v); }
+                // 180031ea4 mov r13, r9
+                { let v = m.gr(9, 8, false); m.sr(13, 8, false, v); }
+                // 180031ea7 movzx edi, r8b
+                { let v = m.gr(8, 1, false); m.sr(7, 4, false, v); }
+                // 180031eab mov r15, rcx
+                { let v = m.gr(1, 8, false); m.sr(15, 8, false, v); }
+                // 180031eae lea rax, [rip + 0x5bc2b]
+                { let v = 0x58008dae0u64; m.sr(0, 8, false, v); }
+                // 180031eb5 mov qword ptr [r11 - 0x50], rax
+                { let v = m.gr(0, 8, false); let a = m.ea(11, -1, 1, -80); m.st(a, 8, v); }
+                // 180031eb9 xor r12d, r12d
+                { let v = m.xor(m.gr(12, 4, false), m.gr(12, 4, false), 4); m.sr(12, 4, false, v); }
+                // 180031ebc mov r14d, r12d
+                { let v = m.gr(12, 4, false); m.sr(14, 4, false, v); }
+                // 180031ebf mov qword ptr [r11 - 0x48], r12
+                { let v = m.gr(12, 8, false); let a = m.ea(11, -1, 1, -72); m.st(a, 8, v); }
+                // 180031ec3 mov ebp, r12d
+                { let v = m.gr(12, 4, false); m.sr(5, 4, false, v); }
+                // 180031ec6 mov qword ptr [r11 - 0x40], r12
+                { let v = m.gr(12, 8, false); let a = m.ea(11, -1, 1, -64); m.st(a, 8, v); }
+                // 180031eca mov qword ptr [r11 - 0x38], r12
+                { let v = m.gr(12, 8, false); let a = m.ea(11, -1, 1, -56); m.st(a, 8, v); }
+                // 180031ece test rdx, rdx
+                m.and(m.gr(2, 8, false), m.gr(2, 8, false), 8);
+                // 180031ed1 je 0x180031eeb
+                if m.cc("e") { pc = 0x580031eeb; continue; }
+                pc = 0x580031ed3; continue;
+            }
+            0x580031ed3 => {
+                m.block(0x580031ed3);
+                // 180031ed3 lea rcx, [r11 - 0x50]
+                { let v = m.ea(11, -1, 1, -80); m.sr(1, 8, false, v); }
+                // 180031ed7 call 0x180050f30
+                m.push(0); f_580050f30(m, s);
+                // 180031edc mov rbp, qword ptr [rsp + 0x38]
+                { let v = m.ld(m.ea(4, -1, 1, 56), 8); m.sr(5, 8, false, v); }
+                // 180031ee1 mov r14, qword ptr [rsp + 0x30]
+                { let v = m.ld(m.ea(4, -1, 1, 48), 8); m.sr(14, 8, false, v); }
+                // 180031ee6 jmp 0x180031f93
+                pc = 0x580031f93; continue;
+            }
+            0x580031eeb => {
+                m.block(0x580031eeb);
+                // 180031eeb movzx ebx, r12w
+                { let v = m.gr(12, 2, false); m.sr(3, 4, false, v); }
+                // 180031eef mov esi, 0x64
+                { let v = 0x64u64; m.sr(6, 4, false, v); }
+                // 180031ef4 nop word ptr [rax + rax]
+                pc = 0x580031f00; continue;
+            }
+            0x580031f00 => {
+                m.block(0x580031f00);
+                // 180031f00 mov rcx, qword ptr [r15 + 0x90]
+                { let v = m.ld(m.ea(15, -1, 1, 144), 8); m.sr(1, 8, false, v); }
+                // 180031f07 mov rax, qword ptr [rcx]
+                { let v = m.ld(m.ea(1, -1, 1, 0), 8); m.sr(0, 8, false, v); }
+                // 180031f0a call qword ptr [rax + 0x98]
+                { let t = m.ld(m.ea(0, -1, 1, 152), 8); m.push(0); call_ptr(m, s, t); }
+                // 180031f10 cmp ax, si
+                m.sub(m.gr(0, 2, false), m.gr(6, 2, false), 2);
+                // 180031f13 jbe 0x180031f18
+                if m.cc("be") { pc = 0x580031f18; continue; }
+                pc = 0x580031f15; continue;
+            }
+            0x580031f15 => {
+                m.block(0x580031f15);
+                // 180031f15 movzx eax, si
+                { let v = m.gr(6, 2, false); m.sr(0, 4, false, v); }
+                pc = 0x580031f18; continue;
+            }
+            0x580031f18 => {
+                m.block(0x580031f18);
+                // 180031f18 movsx rcx, bx
+                { let v = crate::mach::sx(m.gr(3, 2, false), 2); m.sr(1, 8, false, v); }
+                // 180031f1c movzx eax, ax
+                { let v = m.gr(0, 2, false); m.sr(0, 4, false, v); }
+                // 180031f1f cmp ecx, eax
+                m.sub(m.gr(1, 4, false), m.gr(0, 4, false), 4);
+                // 180031f21 jge 0x180031f93
+                if m.cc("ge") { pc = 0x580031f93; continue; }
+                pc = 0x580031f23; continue;
+            }
+            0x580031f23 => {
+                m.block(0x580031f23);
+                // 180031f23 mov rdx, qword ptr [r15 + 0x88]
+                { let v = m.ld(m.ea(15, -1, 1, 136), 8); m.sr(2, 8, false, v); }
+                // 180031f2a test rdx, rdx
+                m.and(m.gr(2, 8, false), m.gr(2, 8, false), 8);
+                // 180031f2d je 0x180031f8b
+                if m.cc("e") { pc = 0x580031f8b; continue; }
+                pc = 0x580031f2f; continue;
+            }
+            0x580031f2f => {
+                m.block(0x580031f2f);
+                // 180031f2f cmp ecx, esi
+                m.sub(m.gr(1, 4, false), m.gr(6, 4, false), 4);
+                // 180031f31 jae 0x180031f8b
+                if m.cc("ae") { pc = 0x580031f8b; continue; }
+                pc = 0x580031f33; continue;
+            }
+            0x580031f33 => {
+                m.block(0x580031f33);
+                // 180031f33 mov rax, rcx
+                { let v = m.gr(1, 8, false); m.sr(0, 8, false, v); }
+                // 180031f36 shl rax, 7
+                { let v = m.shl(m.gr(0, 8, false), 0x7u64, 8); m.sr(0, 8, false, v); }
+                // 180031f3a cmp dword ptr [rax + rdx + 0x58], 0
+                m.sub(m.ld(m.ea(0, 2, 1, 88), 4), 0x0u64, 4);
+                // 180031f3f jl 0x180031f8b
+                if m.cc("l") { pc = 0x580031f8b; continue; }
+                pc = 0x580031f41; continue;
+            }
+            0x580031f41 => {
+                m.block(0x580031f41);
+                // 180031f41 cmp byte ptr [rax + rdx + 0x68], 0
+                m.sub(m.ld(m.ea(0, 2, 1, 104), 1), 0x0u64, 1);
+                // 180031f46 je 0x180031f8b
+                if m.cc("e") { pc = 0x580031f8b; continue; }
+                pc = 0x580031f48; continue;
+            }
+            0x580031f48 => {
+                m.block(0x580031f48);
+                // 180031f48 mov word ptr [rsp + 0x90], bx
+                { let v = m.gr(3, 2, false); let a = m.ea(4, -1, 1, 144); m.st(a, 2, v); }
+                // 180031f50 mov rax, r14
+                { let v = m.gr(14, 8, false); m.sr(0, 8, false, v); }
+                // 180031f53 cmp r14, rbp
+                m.sub(m.gr(14, 8, false), m.gr(5, 8, false), 8);
+                // 180031f56 je 0x180031f6f
+                if m.cc("e") { pc = 0x580031f6f; continue; }
+                pc = 0x580031f58; continue;
+            }
+            0x580031f58 => {
+                m.block(0x580031f58);
+                // 180031f58 movzx ecx, word ptr [rax]
+                { let v = m.ld(m.ea(0, -1, 1, 0), 2); m.sr(1, 4, false, v); }
+                // 180031f5b cmp cx, bx
+                m.sub(m.gr(1, 2, false), m.gr(3, 2, false), 2);
+                // 180031f5e je 0x180031f8b
+                if m.cc("e") { pc = 0x580031f8b; continue; }
+                pc = 0x580031f60; continue;
+            }
+            0x580031f60 => {
+                m.block(0x580031f60);
+                // 180031f60 cmp cx, -0x66
+                m.sub(m.gr(1, 2, false), 0xff9au64, 2);
+                // 180031f64 je 0x180031f8b
+                if m.cc("e") { pc = 0x580031f8b; continue; }
+                pc = 0x580031f66; continue;
+            }
+            0x580031f66 => {
+                m.block(0x580031f66);
+                // 180031f66 add rax, 2
+                { let v = m.add(m.gr(0, 8, false), 0x2u64, 8); m.sr(0, 8, false, v); }
+                // 180031f6a cmp rax, rbp
+                m.sub(m.gr(0, 8, false), m.gr(5, 8, false), 8);
+                // 180031f6d jne 0x180031f58
+                if m.cc("ne") { pc = 0x580031f58; continue; }
+                pc = 0x580031f6f; continue;
+            }
+            0x580031f6f => {
+                m.block(0x580031f6f);
+                // 180031f6f lea rdx, [rsp + 0x90]
+                { let v = m.ea(4, -1, 1, 144); m.sr(2, 8, false, v); }
+                // 180031f77 lea rcx, [rsp + 0x30]
+                { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
+                // 180031f7c call 0x180056c50
+                m.push(0); f_580056c50(m, s);
+                // 180031f81 mov rbp, qword ptr [rsp + 0x38]
+                { let v = m.ld(m.ea(4, -1, 1, 56), 8); m.sr(5, 8, false, v); }
+                // 180031f86 mov r14, qword ptr [rsp + 0x30]
+                { let v = m.ld(m.ea(4, -1, 1, 48), 8); m.sr(14, 8, false, v); }
+                pc = 0x580031f8b; continue;
+            }
+            0x580031f8b => {
+                m.block(0x580031f8b);
+                // 180031f8b inc bx
+                { let v = m.inc(m.gr(3, 2, false), 2); m.sr(3, 2, false, v); }
+                // 180031f8e jmp 0x180031f00
+                pc = 0x580031f00; continue;
+            }
+            0x580031f93 => {
+                m.block(0x580031f93);
+                // 180031f93 test dil, dil
+                m.and(m.gr(7, 1, false), m.gr(7, 1, false), 1);
+                // 180031f96 jne 0x18003202c
+                if m.cc("ne") { pc = 0x58003202c; continue; }
+                pc = 0x580031f9c; continue;
+            }
+            0x580031f9c => {
+                m.block(0x580031f9c);
+                // 180031f9c mov rdi, qword ptr [r15 + 0x468]
+                { let v = m.ld(m.ea(15, -1, 1, 1128), 8); m.sr(7, 8, false, v); }
+                // 180031fa3 mov rsi, qword ptr [r15 + 0x470]
+                { let v = m.ld(m.ea(15, -1, 1, 1136), 8); m.sr(6, 8, false, v); }
+                // 180031faa cmp rdi, rsi
+                m.sub(m.gr(7, 8, false), m.gr(6, 8, false), 8);
+                // 180031fad je 0x18003202c
+                if m.cc("e") { pc = 0x58003202c; continue; }
+                pc = 0x580031fb3; continue;
+            }
+            0x580031fb3 => {
+                m.block(0x580031fb3);
+                // 180031fb3 movzx edx, word ptr [rdi]
+                { let v = m.ld(m.ea(7, -1, 1, 0), 2); m.sr(2, 4, false, v); }
+                // 180031fb6 mov rbx, r14
+                { let v = m.gr(14, 8, false); m.sr(3, 8, false, v); }
+                // 180031fb9 cmp r14, rbp
+                m.sub(m.gr(14, 8, false), m.gr(5, 8, false), 8);
+                // 180031fbc je 0x180031ff8
+                if m.cc("e") { pc = 0x580031ff8; continue; }
+                pc = 0x580031fbe; continue;
+            }
+            0x580031fbe => {
+                m.block(0x580031fbe);
+                // 180031fbe nop 
+                pc = 0x580031fc0; continue;
+            }
+            0x580031fc0 => {
+                m.block(0x580031fc0);
+                // 180031fc0 cmp word ptr [rbx], dx
+                m.sub(m.ld(m.ea(3, -1, 1, 0), 2), m.gr(2, 2, false), 2);
+                // 180031fc3 je 0x180031fd0
+                if m.cc("e") { pc = 0x580031fd0; continue; }
+                pc = 0x580031fc5; continue;
+            }
+            0x580031fc5 => {
+                m.block(0x580031fc5);
+                // 180031fc5 add rbx, 2
+                { let v = m.add(m.gr(3, 8, false), 0x2u64, 8); m.sr(3, 8, false, v); }
+                // 180031fc9 cmp rbx, rbp
+                m.sub(m.gr(3, 8, false), m.gr(5, 8, false), 8);
+                // 180031fcc jne 0x180031fc0
+                if m.cc("ne") { pc = 0x580031fc0; continue; }
+                pc = 0x580031fce; continue;
+            }
+            0x580031fce => {
+                m.block(0x580031fce);
+                // 180031fce jmp 0x180031ff8
+                pc = 0x580031ff8; continue;
+            }
+            0x580031fd0 => {
+                m.block(0x580031fd0);
+                // 180031fd0 cmp rbx, rbp
+                m.sub(m.gr(3, 8, false), m.gr(5, 8, false), 8);
+                // 180031fd3 je 0x180031ff8
+                if m.cc("e") { pc = 0x580031ff8; continue; }
+                pc = 0x580031fd5; continue;
+            }
+            0x580031fd5 => {
+                m.block(0x580031fd5);
+                // 180031fd5 lea rax, [rbx + 2]
+                { let v = m.ea(3, -1, 1, 2); m.sr(0, 8, false, v); }
+                // 180031fd9 cmp rax, rbp
+                m.sub(m.gr(0, 8, false), m.gr(5, 8, false), 8);
+                // 180031fdc je 0x180031ff8
+                if m.cc("e") { pc = 0x580031ff8; continue; }
+                pc = 0x580031fde; continue;
+            }
+            0x580031fde => {
+                m.block(0x580031fde);
+                // 180031fde nop 
+                pc = 0x580031fe0; continue;
+            }
+            0x580031fe0 => {
+                m.block(0x580031fe0);
+                // 180031fe0 movzx ecx, word ptr [rax]
+                { let v = m.ld(m.ea(0, -1, 1, 0), 2); m.sr(1, 4, false, v); }
+                // 180031fe3 cmp cx, dx
+                m.sub(m.gr(1, 2, false), m.gr(2, 2, false), 2);
+                // 180031fe6 je 0x180031fef
+                if m.cc("e") { pc = 0x580031fef; continue; }
+                pc = 0x580031fe8; continue;
+            }
+            0x580031fe8 => {
+                m.block(0x580031fe8);
+                // 180031fe8 mov word ptr [rbx], cx
+                { let v = m.gr(1, 2, false); let a = m.ea(3, -1, 1, 0); m.st(a, 2, v); }
+                // 180031feb add rbx, 2
+                { let v = m.add(m.gr(3, 8, false), 0x2u64, 8); m.sr(3, 8, false, v); }
+                pc = 0x580031fef; continue;
+            }
+            0x580031fef => {
+                m.block(0x580031fef);
+                // 180031fef add rax, 2
+                { let v = m.add(m.gr(0, 8, false), 0x2u64, 8); m.sr(0, 8, false, v); }
+                // 180031ff3 cmp rax, rbp
+                m.sub(m.gr(0, 8, false), m.gr(5, 8, false), 8);
+                // 180031ff6 jne 0x180031fe0
+                if m.cc("ne") { pc = 0x580031fe0; continue; }
+                pc = 0x580031ff8; continue;
+            }
+            0x580031ff8 => {
+                m.block(0x580031ff8);
+                // 180031ff8 cmp rbx, r14
+                m.sub(m.gr(3, 8, false), m.gr(14, 8, false), 8);
+                // 180031ffb jne 0x180032007
+                if m.cc("ne") { pc = 0x580032007; continue; }
+                pc = 0x580031ffd; continue;
+            }
+            0x580031ffd => {
+                m.block(0x580031ffd);
+                // 180031ffd mov rbp, r14
+                { let v = m.gr(14, 8, false); m.sr(5, 8, false, v); }
+                // 180032000 mov qword ptr [rsp + 0x38], r14
+                { let v = m.gr(14, 8, false); let a = m.ea(4, -1, 1, 56); m.st(a, 8, v); }
+                // 180032005 jmp 0x180032023
+                pc = 0x580032023; continue;
+            }
+            0x580032007 => {
+                m.block(0x580032007);
+                // 180032007 cmp rbx, rbp
+                m.sub(m.gr(3, 8, false), m.gr(5, 8, false), 8);
+                // 18003200a je 0x180032023
+                if m.cc("e") { pc = 0x580032023; continue; }
+                pc = 0x58003200c; continue;
+            }
+            0x58003200c => {
+                m.block(0x58003200c);
+                // 18003200c xor r8d, r8d
+                { let v = m.xor(m.gr(8, 4, false), m.gr(8, 4, false), 4); m.sr(8, 4, false, v); }
+                // 18003200f mov rdx, rbp
+                { let v = m.gr(5, 8, false); m.sr(2, 8, false, v); }
+                // 180032012 mov rcx, rbx
+                { let v = m.gr(3, 8, false); m.sr(1, 8, false, v); }
+                // 180032015 call qword ptr [rip + 0x53235]
+                m.memcpy();
+                // 18003201b mov rbp, rbx
+                { let v = m.gr(3, 8, false); m.sr(5, 8, false, v); }
+                // 18003201e mov qword ptr [rsp + 0x38], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(4, -1, 1, 56); m.st(a, 8, v); }
+                pc = 0x580032023; continue;
+            }
+            0x580032023 => {
+                m.block(0x580032023);
+                // 180032023 add rdi, 2
+                { let v = m.add(m.gr(7, 8, false), 0x2u64, 8); m.sr(7, 8, false, v); }
+                // 180032027 cmp rdi, rsi
+                m.sub(m.gr(7, 8, false), m.gr(6, 8, false), 8);
+                // 18003202a jne 0x180031fb3
+                if m.cc("ne") { pc = 0x580031fb3; continue; }
+                pc = 0x58003202c; continue;
+            }
+            0x58003202c => {
+                m.block(0x58003202c);
+                // 18003202c mov rbx, r14
+                { let v = m.gr(14, 8, false); m.sr(3, 8, false, v); }
+                // 18003202f cmp r14, rbp
+                m.sub(m.gr(14, 8, false), m.gr(5, 8, false), 8);
+                // 180032032 je 0x180032063
+                if m.cc("e") { pc = 0x580032063; continue; }
+                pc = 0x580032034; continue;
+            }
+            0x580032034 => {
+                m.block(0x580032034);
+                // 180032034 mov rdi, qword ptr [rsp + 0xa0]
+                { let v = m.ld(m.ea(4, -1, 1, 160), 8); m.sr(7, 8, false, v); }
+                // 18003203c nop dword ptr [rax]
+                pc = 0x580032040; continue;
+            }
+            0x580032040 => {
+                m.block(0x580032040);
+                // 180032040 mov rcx, qword ptr [r15 + 0x90]
+                { let v = m.ld(m.ea(15, -1, 1, 144), 8); m.sr(1, 8, false, v); }
+                // 180032047 mov r10, qword ptr [rcx]
+                { let v = m.ld(m.ea(1, -1, 1, 0), 8); m.sr(10, 8, false, v); }
+                // 18003204a movsx edx, word ptr [rbx]
+                { let v = crate::mach::sx(m.ld(m.ea(3, -1, 1, 0), 2), 2); m.sr(2, 4, false, v); }
+                // 18003204d mov r9, rdi
+                { let v = m.gr(7, 8, false); m.sr(9, 8, false, v); }
+                // 180032050 mov r8, r13
+                { let v = m.gr(13, 8, false); m.sr(8, 8, false, v); }
+                // 180032053 call qword ptr [r10 + 0x188]
+                { let t = m.ld(m.ea(10, -1, 1, 392), 8); m.push(0); call_ptr(m, s, t); }
+                // 18003205a add rbx, 2
+                { let v = m.add(m.gr(3, 8, false), 0x2u64, 8); m.sr(3, 8, false, v); }
+                // 18003205e cmp rbx, rbp
+                m.sub(m.gr(3, 8, false), m.gr(5, 8, false), 8);
+                // 180032061 jne 0x180032040
+                if m.cc("ne") { pc = 0x580032040; continue; }
+                pc = 0x580032063; continue;
+            }
+            0x580032063 => {
+                m.block(0x580032063);
+                // 180032063 test r14, r14
+                m.and(m.gr(14, 8, false), m.gr(14, 8, false), 8);
+                // 180032066 je 0x180032071
+                if m.cc("e") { pc = 0x580032071; continue; }
+                pc = 0x580032068; continue;
+            }
+            0x580032068 => {
+                m.block(0x580032068);
+                // 180032068 mov rcx, r14
+                { let v = m.gr(14, 8, false); m.sr(1, 8, false, v); }
+                // 18003206b call qword ptr [rip + 0x534a7]
+                s.import(m, 6);
+                pc = 0x580032071; continue;
+            }
+            0x580032071 => {
+                m.block(0x580032071);
+                // 180032071 movzx eax, r12w
+                { let v = m.gr(12, 2, false); m.sr(0, 4, false, v); }
+                // 180032075 lea r11, [rsp + 0x50]
+                { let v = m.ea(4, -1, 1, 80); m.sr(11, 8, false, v); }
+                // 18003207a mov rbx, qword ptr [r11 + 0x30]
+                { let v = m.ld(m.ea(11, -1, 1, 48), 8); m.sr(3, 8, false, v); }
+                // 18003207e mov rbp, qword ptr [r11 + 0x38]
+                { let v = m.ld(m.ea(11, -1, 1, 56), 8); m.sr(5, 8, false, v); }
+                // 180032082 mov rsi, qword ptr [r11 + 0x48]
+                { let v = m.ld(m.ea(11, -1, 1, 72), 8); m.sr(6, 8, false, v); }
+                // 180032086 mov rsp, r11
+                { let v = m.gr(11, 8, false); m.sr(4, 8, false, v); }
+                // 180032089 pop r15
+                { let v = m.pop(); m.sr(15, 8, false, v); }
+                // 18003208b pop r14
+                { let v = m.pop(); m.sr(14, 8, false, v); }
+                // 18003208d pop r13
+                { let v = m.pop(); m.sr(13, 8, false, v); }
+                // 18003208f pop r12
+                { let v = m.pop(); m.sr(12, 8, false, v); }
+                // 180032091 pop rdi
+                { let v = m.pop(); m.sr(7, 8, false, v); }
+                // 180032092 ret 
                 m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
@@ -114271,7 +114730,7 @@ pub(super) fn f_5800354d0(m: &mut M, s: &mut dyn Svc) {
                 // 180035518 cmove r8, rax
                 { let s = m.gr(0, 8, false); let d = m.gr(8, 8, false); m.sr(8, 8, false, if m.cc("e") { s } else { d }); }
                 // 18003551c call qword ptr [rip + 0x4fed6]
-                s.import(m, 242);
+                s.import(m, 244);
                 // 180035522 xor ebp, ebp
                 { let v = m.xor(m.gr(5, 4, false), m.gr(5, 4, false), 4); m.sr(5, 4, false, v); }
                 // 180035524 cmp esi, 0x1e
@@ -114295,7 +114754,7 @@ pub(super) fn f_5800354d0(m: &mut M, s: &mut dyn Svc) {
                 // 180035543 mov word ptr [rbx], ax
                 { let v = m.gr(0, 2, false); let a = m.ea(3, -1, 1, 0); m.st(a, 2, v); }
                 // 180035546 call qword ptr [rip + 0x4feac]
-                s.import(m, 242);
+                s.import(m, 244);
                 // 18003554c jmp 0x18003557a
                 pc = 0x58003557a; continue;
             }
@@ -114318,7 +114777,7 @@ pub(super) fn f_5800354d0(m: &mut M, s: &mut dyn Svc) {
                 // 180035561 mov dword ptr [rbx + 0x10], 0x3f800000
                 { let v = 0x3f800000u64; let a = m.ea(3, -1, 1, 16); m.st(a, 4, v); }
                 // 180035568 call qword ptr [rip + 0x4fe8a]
-                s.import(m, 242);
+                s.import(m, 244);
                 // 18003556e jmp 0x180035577
                 pc = 0x580035577; continue;
             }
@@ -114347,7 +114806,7 @@ pub(super) fn f_5800354d0(m: &mut M, s: &mut dyn Svc) {
                 // 18003558e mov dword ptr [rbx + 0x14], 0x42c80000
                 { let v = 0x42c80000u64; let a = m.ea(3, -1, 1, 20); m.st(a, 4, v); }
                 // 180035595 call qword ptr [rip + 0x4fe5d]
-                s.import(m, 242);
+                s.import(m, 244);
                 // 18003559b lea rcx, [rbx + 0x5f]
                 { let v = m.ea(3, -1, 1, 95); m.sr(1, 8, false, v); }
                 // 18003559f lea r8, [rip + 0x53ece]
@@ -114355,7 +114814,7 @@ pub(super) fn f_5800354d0(m: &mut M, s: &mut dyn Svc) {
                 // 1800355a6 mov edx, 6
                 { let v = 0x6u64; m.sr(2, 4, false, v); }
                 // 1800355ab call qword ptr [rip + 0x4fe47]
-                s.import(m, 242);
+                s.import(m, 244);
                 // 1800355b1 mov rsi, qword ptr [rsp + 0x50]
                 { let v = m.ld(m.ea(4, -1, 1, 80), 8); m.sr(6, 8, false, v); }
                 // 1800355b6 mov dword ptr [rbx + 0x6c], ebp
@@ -114516,7 +114975,7 @@ pub(super) fn f_580035610(m: &mut M, s: &mut dyn Svc) {
                 // 1800356ea lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 1800356ef call qword ptr [rip + 0x4fe6b]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800356f5 movsx r9d, word ptr [rbx + 0xc]
                 { let v = crate::mach::sx(m.ld(m.ea(3, -1, 1, 12), 2), 2); m.sr(9, 4, false, v); }
                 // 1800356fa inc r9d
@@ -114929,7 +115388,7 @@ pub(super) fn f_580035990(m: &mut M, s: &mut dyn Svc) {
                 // 180035a7a lea rcx, [rsp + 0x60]
                 { let v = m.ea(4, -1, 1, 96); m.sr(1, 8, false, v); }
                 // 180035a7f call qword ptr [rip + 0x4fadb]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180035a85 movsx r8d, word ptr [rbx + 0xc]
                 { let v = crate::mach::sx(m.ld(m.ea(3, -1, 1, 12), 2), 2); m.sr(8, 4, false, v); }
                 // 180035a8a add r8d, edi
@@ -116823,7 +117282,7 @@ pub(super) fn f_580036690(m: &mut M, s: &mut dyn Svc) {
                 // 180036756 mov rcx, qword ptr [rsp + 0x280]
                 { let v = m.ld(m.ea(4, -1, 1, 640), 8); m.sr(1, 8, false, v); }
                 // 18003675e call qword ptr [rip + 0x4ec84]
-                s.import(m, 694);
+                s.import(m, 696);
                 // 180036764 movsd xmm0, qword ptr [rdi + 0x58]
                 m.set_xl_zero(0, m.ld(m.ea(7, -1, 1, 88), 8));
                 // 180036769 movsd qword ptr [rsp + 0x20], xmm0
@@ -118948,7 +119407,7 @@ pub(super) fn f_580037380(m: &mut M, s: &mut dyn Svc) {
                 // 180037406 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18003740b call qword ptr [rip + 0x4e14f]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180037411 movsx r8d, byte ptr [r14]
                 { let v = crate::mach::sx(m.ld(m.ea(14, -1, 1, 0), 1), 1); m.sr(8, 4, false, v); }
                 // 180037415 xor r9d, r9d
@@ -119115,7 +119574,7 @@ pub(super) fn f_580037380(m: &mut M, s: &mut dyn Svc) {
                 // 180037536 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18003753b call qword ptr [rip + 0x4e01f]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180037541 movsx r8d, word ptr [rsi]
                 { let v = crate::mach::sx(m.ld(m.ea(6, -1, 1, 0), 2), 2); m.sr(8, 4, false, v); }
                 // 180037545 xor r9d, r9d
@@ -119353,7 +119812,7 @@ pub(super) fn f_580037610(m: &mut M, s: &mut dyn Svc) {
                 // 1800376f6 lea rcx, [rsp + 0x70]
                 { let v = m.ea(4, -1, 1, 112); m.sr(1, 8, false, v); }
                 // 1800376fb call qword ptr [rip + 0x4de5f]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180037701 xor r8d, r8d
                 { let v = m.xor(m.gr(8, 4, false), m.gr(8, 4, false), 4); m.sr(8, 4, false, v); }
                 // 180037704 mov rdx, qword ptr [rsp + 0x70]
@@ -119557,7 +120016,7 @@ pub(super) fn f_580037610(m: &mut M, s: &mut dyn Svc) {
                 // 180037876 lea rcx, [rsp + 0x70]
                 { let v = m.ea(4, -1, 1, 112); m.sr(1, 8, false, v); }
                 // 18003787b call qword ptr [rip + 0x4dcdf]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180037881 xor r8d, r8d
                 { let v = m.xor(m.gr(8, 4, false), m.gr(8, 4, false), 4); m.sr(8, 4, false, v); }
                 // 180037884 mov rdx, qword ptr [rsp + 0x70]
@@ -130531,7 +130990,7 @@ pub(super) fn f_58003b7d0(m: &mut M, s: &mut dyn Svc) {
                 // 18003b82a mov rcx, rdi
                 { let v = m.gr(7, 8, false); m.sr(1, 8, false, v); }
                 // 18003b82d call qword ptr [rip + 0x49c45]
-                s.import(m, 695);
+                s.import(m, 697);
                 // 18003b833 movzx eax, word ptr [rbx + 0x2e]
                 { let v = m.ld(m.ea(3, -1, 1, 46), 2); m.sr(0, 4, false, v); }
                 // 18003b837 movd xmm2, eax
@@ -145503,7 +145962,7 @@ pub(super) fn f_580041330(m: &mut M, s: &mut dyn Svc) {
                 // 180041350 mov qword ptr [rsp + 0x20], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(4, -1, 1, 32); m.st(a, 8, v); }
                 // 180041355 call qword ptr [rip + 0x4406d]
-                s.import(m, 696);
+                s.import(m, 698);
                 // 18004135b lea rdx, [rsp + 0x40]
                 { let v = m.ea(4, -1, 1, 64); m.sr(2, 8, false, v); }
                 // 180041360 mov rcx, rbx
@@ -152805,7 +153264,7 @@ pub(super) fn f_580043540(m: &mut M, s: &mut dyn Svc) {
                 // 18004375a mov dword ptr [rbx + 0x288], 3
                 { let v = 0x3u64; let a = m.ea(3, -1, 1, 648); m.st(a, 4, v); }
                 // 180043764 call qword ptr [rip + 0x41c8e]
-                s.import(m, 242);
+                s.import(m, 244);
                 pc = 0x58004376a; continue;
             }
             0x58004376a => {
@@ -157113,7 +157572,7 @@ pub(super) fn f_580044bb0(m: &mut M, s: &mut dyn Svc) {
                 // 180044d45 mov edx, 8
                 { let v = 0x8u64; m.sr(2, 4, false, v); }
                 // 180044d4a call qword ptr [rip + 0x406a8]
-                s.import(m, 242);
+                s.import(m, 244);
                 // 180044d50 mov qword ptr [rsi + 0x294], rbp
                 { let v = m.gr(5, 8, false); let a = m.ea(6, -1, 1, 660); m.st(a, 8, v); }
                 // 180044d57 mov qword ptr [rsi + 0x29c], rbp
@@ -161455,7 +161914,7 @@ pub(super) fn f_580046480(m: &mut M, s: &mut dyn Svc) {
                 // 1800464c6 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 1800464cb call qword ptr [rip + 0x3f08f]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800464d1 xor r9d, r9d
                 { let v = m.xor(m.gr(9, 4, false), m.gr(9, 4, false), 4); m.sr(9, 4, false, v); }
                 // 1800464d4 movzx r8d, byte ptr [rdi]
@@ -161473,7 +161932,7 @@ pub(super) fn f_580046480(m: &mut M, s: &mut dyn Svc) {
                 // 1800464f0 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 1800464f5 call qword ptr [rip + 0x3f065]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800464fb xorps xmm3, xmm3
                 m.x[3] = m.x[3] ^ m.x[3];
                 // 1800464fe movsd xmm2, qword ptr [rsi]
@@ -161666,7 +162125,7 @@ pub(super) fn f_5800465d0(m: &mut M, s: &mut dyn Svc) {
                 // 180046646 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18004664b call qword ptr [rip + 0x3ef0f]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180046651 xor r8d, r8d
                 { let v = m.xor(m.gr(8, 4, false), m.gr(8, 4, false), 4); m.sr(8, 4, false, v); }
                 // 180046654 mov rdx, qword ptr [rsp + 0x50]
@@ -161684,7 +162143,7 @@ pub(super) fn f_5800465d0(m: &mut M, s: &mut dyn Svc) {
                 // 18004666e lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 180046673 call qword ptr [rip + 0x3eee7]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180046679 xorps xmm2, xmm2
                 m.x[2] = m.x[2] ^ m.x[2];
                 // 18004667c mov rdx, qword ptr [rsp + 0x50]
@@ -166702,7 +167161,7 @@ pub(super) fn f_580047f50(m: &mut M, s: &mut dyn Svc) {
                 // 180047f96 mov edx, 0x80
                 { let v = 0x80u64; m.sr(2, 4, false, v); }
                 // 180047f9b call qword ptr [rip + 0x3d437]
-                s.import(m, 697);
+                s.import(m, 699);
                 // 180047fa1 test rax, rax
                 m.and(m.gr(0, 8, false), m.gr(0, 8, false), 8);
                 // 180047fa4 jne 0x180047fab
@@ -173295,7 +173754,7 @@ pub(super) fn f_580049eb0(m: &mut M, s: &mut dyn Svc) {
                 // 180049f13 movzx edx, bl
                 { let v = m.gr(3, 1, false); m.sr(2, 4, false, v); }
                 // 180049f16 call qword ptr [rip + 0x3b5cc]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 180049f1c mov al, 1
                 { let v = 0x1u64; m.sr(0, 1, false, v); }
                 // 180049f1e jmp 0x180049f7a
@@ -173310,7 +173769,7 @@ pub(super) fn f_580049eb0(m: &mut M, s: &mut dyn Svc) {
                 // 180049f26 movzx edx, bl
                 { let v = m.gr(3, 1, false); m.sr(2, 4, false, v); }
                 // 180049f29 call qword ptr [rip + 0x3b5b9]
-                s.import(m, 239);
+                s.import(m, 241);
                 // 180049f2f mov al, 1
                 { let v = 0x1u64; m.sr(0, 1, false, v); }
                 // 180049f31 jmp 0x180049f7a
@@ -197620,7 +198079,7 @@ pub(super) fn f_580051410(m: &mut M, s: &mut dyn Svc) {
                 // 1800514b6 lea rdx, [rip + 0x3bb4b]
                 { let v = 0x58008d008u64; m.sr(2, 8, false, v); }
                 // 1800514bd call qword ptr [rip + 0x33efd]
-                s.import(m, 424);
+                s.import(m, 425);
                 // 1800514c3 test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 1800514c5 jne 0x180051541
@@ -198071,7 +198530,7 @@ pub(super) fn f_580051620(m: &mut M, s: &mut dyn Svc) {
                 // 1800516eb lea rdx, [rip + 0x3b916]
                 { let v = 0x58008d008u64; m.sr(2, 8, false, v); }
                 // 1800516f2 call qword ptr [rip + 0x33cc8]
-                s.import(m, 424);
+                s.import(m, 425);
                 // 1800516f8 test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 1800516fa jne 0x180051786
@@ -198320,7 +198779,7 @@ pub(super) fn f_580051620(m: &mut M, s: &mut dyn Svc) {
                 // 180051802 lea rcx, [rbp - 0x18]
                 { let v = m.ea(5, -1, 1, -24); m.sr(1, 8, false, v); }
                 // 180051806 call qword ptr [rip + 0x338e4]
-                s.import(m, 686);
+                s.import(m, 688);
                 // 18005180c movzx ecx, word ptr [rbp - 0xa]
                 { let v = m.ld(m.ea(5, -1, 1, -10), 2); m.sr(1, 4, false, v); }
                 // 180051810 mov eax, 0x66666667
@@ -198390,7 +198849,7 @@ pub(super) fn f_580051620(m: &mut M, s: &mut dyn Svc) {
                 // 180051883 mov edx, 0xc
                 { let v = 0xcu64; m.sr(2, 4, false, v); }
                 // 180051888 call qword ptr [rip + 0x33b6a]
-                s.import(m, 242);
+                s.import(m, 244);
                 // 18005188e jmp 0x18005189c
                 pc = 0x58005189c; continue;
             }
@@ -200385,7 +200844,7 @@ pub(super) fn f_580052140(m: &mut M, s: &mut dyn Svc) {
                 // 18005217e xor ebx, ebx
                 { let v = m.xor(m.gr(3, 4, false), m.gr(3, 4, false), 4); m.sr(3, 4, false, v); }
                 // 180052180 call qword ptr [rip + 0x32f82]
-                s.import(m, 698);
+                s.import(m, 700);
                 // 180052186 test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 180052188 je 0x180052199
@@ -215595,7 +216054,7 @@ pub(super) fn f_580056ce0(m: &mut M, s: &mut dyn Svc) {
                 // 180056cfb mov edx, 0xc
                 { let v = 0xcu64; m.sr(2, 4, false, v); }
                 // 180056d00 call qword ptr [rip + 0x2e70a]
-                s.import(m, 481);
+                s.import(m, 482);
                 // 180056d06 add rsp, 0x28
                 { let v = m.add(m.gr(4, 8, false), 0x28u64, 8); m.sr(4, 8, false, v); }
                 // 180056d0a ret 
@@ -220381,6 +220840,123 @@ pub(super) fn f_5800582a0(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_5800582d0(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x5800582d0);
+    let mut pc: u64 = 0x5800582d0;
+    loop {
+        match pc {
+            0x5800582d0 => {
+                m.block(0x5800582d0);
+                // 1800582d0 mov qword ptr [rsp + 0x10], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(4, -1, 1, 16); m.st(a, 8, v); }
+                // 1800582d5 push rsi
+                m.push(m.gr(6, 8, false));
+                // 1800582d6 sub rsp, 0x50
+                { let v = m.sub(m.gr(4, 8, false), 0x50u64, 8); m.sr(4, 8, false, v); }
+                // 1800582da movaps xmmword ptr [rsp + 0x40], xmm6
+                { let v = m.x[6]; let a = m.ea(4, -1, 1, 64); m.st128(a, v); }
+                // 1800582df movaps xmmword ptr [rsp + 0x30], xmm7
+                { let v = m.x[7]; let a = m.ea(4, -1, 1, 48); m.st128(a, v); }
+                // 1800582e4 xorps xmm7, xmm7
+                m.x[7] = m.x[7] ^ m.x[7];
+                // 1800582e7 movaps xmm6, xmm3
+                m.x[6] = m.x[3];
+                // 1800582ea movzx esi, dl
+                { let v = m.gr(2, 1, false); m.sr(6, 4, false, v); }
+                // 1800582ed mov rbx, rcx
+                { let v = m.gr(1, 8, false); m.sr(3, 8, false, v); }
+                // 1800582f0 comisd xmm3, xmm7
+                m.comisd(m.xl(3), m.xl(7));
+                // 1800582f4 jbe 0x180058300
+                if m.cc("be") { pc = 0x580058300; continue; }
+                pc = 0x5800582f6; continue;
+            }
+            0x5800582f6 => {
+                m.block(0x5800582f6);
+                // 1800582f6 comisd xmm3, xmm2
+                m.comisd(m.xl(3), m.xl(2));
+                // 1800582fa ja 0x180058300
+                if m.cc("a") { pc = 0x580058300; continue; }
+                pc = 0x5800582fc; continue;
+            }
+            0x5800582fc => {
+                m.block(0x5800582fc);
+                // 1800582fc xor eax, eax
+                { let v = m.xor(m.gr(0, 4, false), m.gr(0, 4, false), 4); m.sr(0, 4, false, v); }
+                // 1800582fe jmp 0x180058352
+                pc = 0x580058352; continue;
+            }
+            0x580058300 => {
+                m.block(0x580058300);
+                // 180058300 movaps xmm1, xmm2
+                m.x[1] = m.x[2];
+                // 180058303 mov qword ptr [rsp + 0x60], rdi
+                { let v = m.gr(7, 8, false); let a = m.ea(4, -1, 1, 96); m.st(a, 8, v); }
+                // 180058308 call 0x1800525e0
+                m.push(0); f_5800525e0(m, s);
+                // 18005830d mov rdi, rax
+                { let v = m.gr(0, 8, false); m.sr(7, 8, false, v); }
+                // 180058310 comisd xmm6, xmm7
+                m.comisd(m.xl(6), m.xl(7));
+                // 180058314 jb 0x180058323
+                if m.cc("b") { pc = 0x580058323; continue; }
+                pc = 0x580058316; continue;
+            }
+            0x580058316 => {
+                m.block(0x580058316);
+                // 180058316 movaps xmm1, xmm6
+                m.x[1] = m.x[6];
+                // 180058319 mov rcx, rbx
+                { let v = m.gr(3, 8, false); m.sr(1, 8, false, v); }
+                // 18005831c call 0x1800525e0
+                m.push(0); f_5800525e0(m, s);
+                // 180058321 jmp 0x18005832d
+                pc = 0x58005832d; continue;
+            }
+            0x580058323 => {
+                m.block(0x580058323);
+                // 180058323 movabs rax, 0x7000000000000000
+                { let v = 0x7000000000000000u64; m.sr(0, 8, false, v); }
+                pc = 0x58005832d; continue;
+            }
+            0x58005832d => {
+                m.block(0x58005832d);
+                // 18005832d mov rdx, qword ptr [rsp + 0x80]
+                { let v = m.ld(m.ea(4, -1, 1, 128), 8); m.sr(2, 8, false, v); }
+                // 180058335 lea rcx, [rip + 0x76794]
+                { let v = 0x5800cead0u64; m.sr(1, 8, false, v); }
+                // 18005833c mov r9, rdi
+                { let v = m.gr(7, 8, false); m.sr(9, 8, false, v); }
+                // 18005833f movzx r8d, sil
+                { let v = m.gr(6, 1, false); m.sr(8, 4, false, v); }
+                // 180058343 mov qword ptr [rsp + 0x20], rax
+                { let v = m.gr(0, 8, false); let a = m.ea(4, -1, 1, 32); m.st(a, 8, v); }
+                // 180058348 call 0x180031e80
+                m.push(0); f_580031e80(m, s);
+                // 18005834d mov rdi, qword ptr [rsp + 0x60]
+                { let v = m.ld(m.ea(4, -1, 1, 96), 8); m.sr(7, 8, false, v); }
+                pc = 0x580058352; continue;
+            }
+            0x580058352 => {
+                m.block(0x580058352);
+                // 180058352 mov rbx, qword ptr [rsp + 0x68]
+                { let v = m.ld(m.ea(4, -1, 1, 104), 8); m.sr(3, 8, false, v); }
+                // 180058357 movaps xmm6, xmmword ptr [rsp + 0x40]
+                m.x[6] = m.ld128(m.ea(4, -1, 1, 64));
+                // 18005835c movaps xmm7, xmmword ptr [rsp + 0x30]
+                m.x[7] = m.ld128(m.ea(4, -1, 1, 48));
+                // 180058361 add rsp, 0x50
+                { let v = m.add(m.gr(4, 8, false), 0x50u64, 8); m.sr(4, 8, false, v); }
+                // 180058365 pop rsi
+                { let v = m.pop(); m.sr(6, 8, false, v); }
+                // 180058366 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_5800583d0(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x5800583d0);
     let mut pc: u64 = 0x5800583d0;
@@ -220841,6 +221417,476 @@ pub(super) fn f_580058510(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_580058610(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x580058610);
+    let mut pc: u64 = 0x580058610;
+    loop {
+        match pc {
+            0x580058610 => {
+                m.block(0x580058610);
+                // 180058610 mov rcx, qword ptr [rip + 0x76541]
+                { let v = m.ld(0x5800ceb58u64, 8); m.sr(1, 8, false, v); }
+                // 180058617 test rcx, rcx
+                m.and(m.gr(1, 8, false), m.gr(1, 8, false), 8);
+                // 18005861a je 0x18005862a
+                if m.cc("e") { pc = 0x58005862a; continue; }
+                pc = 0x58005861c; continue;
+            }
+            0x58005861c => {
+                m.block(0x58005861c);
+                // 18005861c movzx eax, byte ptr [rsp + 0x28]
+                { let v = m.ld(m.ea(4, -1, 1, 40), 1); m.sr(0, 4, false, v); }
+                // 180058621 mov byte ptr [rsp + 0x28], al
+                { let v = m.gr(0, 1, false); let a = m.ea(4, -1, 1, 40); m.st(a, 1, v); }
+                // 180058625 jmp 0x18000b240
+                f_58000b240(m, s); return;
+            }
+            0x58005862a => {
+                m.block(0x58005862a);
+                // 18005862a mov eax, 0xfffffdbb
+                { let v = 0xfffffdbbu64; m.sr(0, 4, false, v); }
+                // 18005862f ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_580058630(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x580058630);
+    let mut pc: u64 = 0x580058630;
+    loop {
+        match pc {
+            0x580058630 => {
+                m.block(0x580058630);
+                // 180058630 sub rsp, 0x38
+                { let v = m.sub(m.gr(4, 8, false), 0x38u64, 8); m.sr(4, 8, false, v); }
+                // 180058634 mov rcx, qword ptr [rip + 0x7651d]
+                { let v = m.ld(0x5800ceb58u64, 8); m.sr(1, 8, false, v); }
+                // 18005863b test rcx, rcx
+                m.and(m.gr(1, 8, false), m.gr(1, 8, false), 8);
+                // 18005863e je 0x180058689
+                if m.cc("e") { pc = 0x580058689; continue; }
+                pc = 0x580058640; continue;
+            }
+            0x580058640 => {
+                m.block(0x580058640);
+                // 180058640 xorps xmm0, xmm0
+                m.x[0] = m.x[0] ^ m.x[0];
+                // 180058643 movaps xmmword ptr [rsp + 0x20], xmm6
+                { let v = m.x[6]; let a = m.ea(4, -1, 1, 32); m.st128(a, v); }
+                // 180058648 movsd xmm6, qword ptr [rcx + 0x40b0]
+                m.set_xl_zero(6, m.ld(m.ea(1, -1, 1, 16560), 8));
+                // 180058650 comisd xmm1, xmm0
+                m.comisd(m.xl(1), m.xl(0));
+                // 180058654 jbe 0x18005867c
+                if m.cc("be") { pc = 0x58005867c; continue; }
+                pc = 0x580058656; continue;
+            }
+            0x580058656 => {
+                m.block(0x580058656);
+                // 180058656 comisd xmm1, xmmword ptr [rip + 0x3795a]
+                m.comisd(m.xl(1), m.ld(0x58008ffb8u64, 8));
+                // 18005865e jae 0x18005867c
+                if m.cc("ae") { pc = 0x58005867c; continue; }
+                pc = 0x580058660; continue;
+            }
+            0x580058660 => {
+                m.block(0x580058660);
+                // 180058660 mulsd xmm1, qword ptr [rip + 0x378c8]
+                m.mulsd(1, m.ld(0x58008ff30u64, 8));
+                // 180058668 xor r8d, r8d
+                { let v = m.xor(m.gr(8, 4, false), m.gr(8, 4, false), 4); m.sr(8, 4, false, v); }
+                // 18005866b addsd xmm1, qword ptr [rip + 0x377c5]
+                m.addsd(1, m.ld(0x58008fe38u64, 8));
+                // 180058673 cvttsd2si edx, xmm1
+                { let v = m.cvttsd2si(m.xl(1), 4); m.sr(2, 4, false, v); }
+                // 180058677 call 0x18000ae60
+                m.push(0); f_58000ae60(m, s);
+                pc = 0x58005867c; continue;
+            }
+            0x58005867c => {
+                m.block(0x58005867c);
+                // 18005867c movaps xmm0, xmm6
+                m.x[0] = m.x[6];
+                // 18005867f movaps xmm6, xmmword ptr [rsp + 0x20]
+                m.x[6] = m.ld128(m.ea(4, -1, 1, 32));
+                // 180058684 add rsp, 0x38
+                { let v = m.add(m.gr(4, 8, false), 0x38u64, 8); m.sr(4, 8, false, v); }
+                // 180058688 ret 
+                m.pop(); return;
+            }
+            0x580058689 => {
+                m.block(0x580058689);
+                // 180058689 movsd xmm0, qword ptr [rip + 0x377c7]
+                m.set_xl_zero(0, m.ld(0x58008fe58u64, 8));
+                // 180058691 add rsp, 0x38
+                { let v = m.add(m.gr(4, 8, false), 0x38u64, 8); m.sr(4, 8, false, v); }
+                // 180058695 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_5800586a0(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x5800586a0);
+    let mut pc: u64 = 0x5800586a0;
+    loop {
+        match pc {
+            0x5800586a0 => {
+                m.block(0x5800586a0);
+                // 1800586a0 mov qword ptr [rsp + 8], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(4, -1, 1, 8); m.st(a, 8, v); }
+                // 1800586a5 mov qword ptr [rsp + 0x10], rsi
+                { let v = m.gr(6, 8, false); let a = m.ea(4, -1, 1, 16); m.st(a, 8, v); }
+                // 1800586aa push rdi
+                m.push(m.gr(7, 8, false));
+                // 1800586ab sub rsp, 0x20
+                { let v = m.sub(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 1800586af mov rbx, qword ptr [rip + 0x764a2]
+                { let v = m.ld(0x5800ceb58u64, 8); m.sr(3, 8, false, v); }
+                // 1800586b6 mov esi, r8d
+                { let v = m.gr(8, 4, false); m.sr(6, 4, false, v); }
+                // 1800586b9 movsxd rdi, edx
+                { let v = crate::mach::sx(m.gr(2, 4, false), 4); m.sr(7, 8, false, v); }
+                // 1800586bc test rbx, rbx
+                m.and(m.gr(3, 8, false), m.gr(3, 8, false), 8);
+                // 1800586bf je 0x1800586ed
+                if m.cc("e") { pc = 0x5800586ed; continue; }
+                pc = 0x5800586c1; continue;
+            }
+            0x5800586c1 => {
+                m.block(0x5800586c1);
+                // 1800586c1 cmp edi, 0xff
+                m.sub(m.gr(7, 4, false), 0xffu64, 4);
+                // 1800586c7 ja 0x1800586ed
+                if m.cc("a") { pc = 0x5800586ed; continue; }
+                pc = 0x5800586c9; continue;
+            }
+            0x5800586c9 => {
+                m.block(0x5800586c9);
+                // 1800586c9 cmp dword ptr [rbx + 0x3954], 2
+                m.sub(m.ld(m.ea(3, -1, 1, 14676), 4), 0x2u64, 4);
+                // 1800586d0 jl 0x1800586de
+                if m.cc("l") { pc = 0x5800586de; continue; }
+                pc = 0x5800586d2; continue;
+            }
+            0x5800586d2 => {
+                m.block(0x5800586d2);
+                // 1800586d2 mov edx, edi
+                { let v = m.gr(7, 4, false); m.sr(2, 4, false, v); }
+                // 1800586d4 mov rcx, rbx
+                { let v = m.gr(3, 8, false); m.sr(1, 8, false, v); }
+                // 1800586d7 call 0x18000b630
+                m.push(0); f_58000b630(m, s);
+                // 1800586dc jmp 0x1800586e6
+                pc = 0x5800586e6; continue;
+            }
+            0x5800586de => {
+                m.block(0x5800586de);
+                // 1800586de mov byte ptr [rdi + rbx + 0x3baa], 1
+                { let v = 0x1u64; let a = m.ea(7, 3, 1, 15274); m.st(a, 1, v); }
+                pc = 0x5800586e6; continue;
+            }
+            0x5800586e6 => {
+                m.block(0x5800586e6);
+                // 1800586e6 mov dword ptr [rbx + rdi*4 + 0x3cac], esi
+                { let v = m.gr(6, 4, false); let a = m.ea(3, 7, 4, 15532); m.st(a, 4, v); }
+                pc = 0x5800586ed; continue;
+            }
+            0x5800586ed => {
+                m.block(0x5800586ed);
+                // 1800586ed mov rbx, qword ptr [rsp + 0x30]
+                { let v = m.ld(m.ea(4, -1, 1, 48), 8); m.sr(3, 8, false, v); }
+                // 1800586f2 mov rsi, qword ptr [rsp + 0x38]
+                { let v = m.ld(m.ea(4, -1, 1, 56), 8); m.sr(6, 8, false, v); }
+                // 1800586f7 add rsp, 0x20
+                { let v = m.add(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 1800586fb pop rdi
+                { let v = m.pop(); m.sr(7, 8, false, v); }
+                // 1800586fc ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_580058700(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x580058700);
+    let mut pc: u64 = 0x580058700;
+    loop {
+        match pc {
+            0x58000b4e0 => {
+                m.block(0x58000b4e0);
+                // 18000b4e0 push rbp
+                m.push(m.gr(5, 8, false));
+                // 18000b4e2 push rsi
+                m.push(m.gr(6, 8, false));
+                // 18000b4e3 push rdi
+                m.push(m.gr(7, 8, false));
+                // 18000b4e4 sub rsp, 0x30
+                { let v = m.sub(m.gr(4, 8, false), 0x30u64, 8); m.sr(4, 8, false, v); }
+                // 18000b4e8 mov qword ptr [rsp + 0x20], 0xfffffffffffffffe
+                { let v = 0xfffffffffffffffeu64; let a = m.ea(4, -1, 1, 32); m.st(a, 8, v); }
+                // 18000b4f1 mov qword ptr [rsp + 0x50], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(4, -1, 1, 80); m.st(a, 8, v); }
+                // 18000b4f6 movsxd rdi, edx
+                { let v = crate::mach::sx(m.gr(2, 4, false), 4); m.sr(7, 8, false, v); }
+                // 18000b4f9 mov rbx, rcx
+                { let v = m.gr(1, 8, false); m.sr(3, 8, false, v); }
+                // 18000b4fc xor ebp, ebp
+                { let v = m.xor(m.gr(5, 4, false), m.gr(5, 4, false), 4); m.sr(5, 4, false, v); }
+                // 18000b4fe cmp edi, 0xff
+                m.sub(m.gr(7, 4, false), 0xffu64, 4);
+                // 18000b504 ja 0x18000b621
+                if m.cc("a") { pc = 0x58000b621; continue; }
+                pc = 0x58000b50a; continue;
+            }
+            0x58000b50a => {
+                m.block(0x58000b50a);
+                // 18000b50a mov eax, dword ptr [rcx + rdi*4 + 0x3cac]
+                { let v = m.ld(m.ea(1, 7, 4, 15532), 4); m.sr(0, 4, false, v); }
+                // 18000b511 mov dword ptr [rsp + 0x58], eax
+                { let v = m.gr(0, 4, false); let a = m.ea(4, -1, 1, 88); m.st(a, 4, v); }
+                // 18000b515 cmp dword ptr [rcx + 0x3954], 2
+                m.sub(m.ld(m.ea(1, -1, 1, 14676), 4), 0x2u64, 4);
+                // 18000b51c jne 0x18000b623
+                if m.cc("ne") { pc = 0x58000b623; continue; }
+                pc = 0x58000b522; continue;
+            }
+            0x58000b522 => {
+                m.block(0x58000b522);
+                // 18000b522 cmp byte ptr [rcx + 0x3ba8], bpl
+                m.sub(m.ld(m.ea(1, -1, 1, 15272), 1), m.gr(5, 1, false), 1);
+                // 18000b529 je 0x18000b623
+                if m.cc("e") { pc = 0x58000b623; continue; }
+                pc = 0x58000b52f; continue;
+            }
+            0x58000b52f => {
+                m.block(0x58000b52f);
+                // 18000b52f lea rcx, [rsp + 0x60]
+                { let v = m.ea(4, -1, 1, 96); m.sr(1, 8, false, v); }
+                // 18000b534 call qword ptr [rip + 0x7a086]
+                s.import(m, 98);
+                // 18000b53a nop 
+                // 18000b53b mov r8d, edi
+                { let v = m.gr(7, 4, false); m.sr(8, 4, false, v); }
+                // 18000b53e lea rdx, [rip + 0x7cafb]
+                { let v = 0x580088040u64; m.sr(2, 8, false, v); }
+                // 18000b545 lea rcx, [rsp + 0x60]
+                { let v = m.ea(4, -1, 1, 96); m.sr(1, 8, false, v); }
+                // 18000b54a call qword ptr [rip + 0x7a010]
+                s.import(m, 680);
+                // 18000b550 mov rax, qword ptr [rbx + 0x38b8]
+                { let v = m.ld(m.ea(3, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
+                // 18000b557 movzx ecx, word ptr [rax + 0xc]
+                { let v = m.ld(m.ea(0, -1, 1, 12), 2); m.sr(1, 4, false, v); }
+                // 18000b55b test cx, cx
+                m.and(m.gr(1, 2, false), m.gr(1, 2, false), 2);
+                // 18000b55e js 0x18000b56b
+                if m.cc("s") { pc = 0x58000b56b; continue; }
+                pc = 0x58000b560; continue;
+            }
+            0x58000b560 => {
+                m.block(0x58000b560);
+                // 18000b560 mov rdx, qword ptr [rsp + 0x60]
+                { let v = m.ld(m.ea(4, -1, 1, 96), 8); m.sr(2, 8, false, v); }
+                // 18000b565 call qword ptr [rip + 0x7a695]
+                crate::rt_use1432_gen::enter_980003110(m, s);
+                pc = 0x58000b56b; continue;
+            }
+            0x58000b56b => {
+                m.block(0x58000b56b);
+                // 18000b56b mov rax, qword ptr [rbx + 0x38b8]
+                { let v = m.ld(m.ea(3, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
+                // 18000b572 movzx ecx, word ptr [rax + 0xc]
+                { let v = m.ld(m.ea(0, -1, 1, 12), 2); m.sr(1, 4, false, v); }
+                // 18000b576 test cx, cx
+                m.and(m.gr(1, 2, false), m.gr(1, 2, false), 2);
+                // 18000b579 js 0x18000b590
+                if m.cc("s") { pc = 0x58000b590; continue; }
+                pc = 0x58000b57b; continue;
+            }
+            0x58000b57b => {
+                m.block(0x58000b57b);
+                // 18000b57b call qword ptr [rip + 0x7a66f]
+                crate::rt_use1432_gen::enter_9800010f0(m, s);
+                // 18000b581 mov ebp, eax
+                { let v = m.gr(0, 4, false); m.sr(5, 4, false, v); }
+                // 18000b583 nop word ptr [rax + rax]
+                pc = 0x58000b590; continue;
+            }
+            0x58000b590 => {
+                m.block(0x58000b590);
+                // 18000b590 mov rax, qword ptr [rbx + 0x38b8]
+                { let v = m.ld(m.ea(3, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
+                // 18000b597 movzx ecx, word ptr [rax + 0xc]
+                { let v = m.ld(m.ea(0, -1, 1, 12), 2); m.sr(1, 4, false, v); }
+                // 18000b59b test cx, cx
+                m.and(m.gr(1, 2, false), m.gr(1, 2, false), 2);
+                // 18000b59e js 0x18000b5ab
+                if m.cc("s") { pc = 0x58000b5ab; continue; }
+                pc = 0x58000b5a0; continue;
+            }
+            0x58000b5a0 => {
+                m.block(0x58000b5a0);
+                // 18000b5a0 call qword ptr [rip + 0x7a632]
+                crate::rt_use1432_gen::enter_980003580(m, s);
+                // 18000b5a6 movsx edi, ax
+                { let v = crate::mach::sx(m.gr(0, 2, false), 2); m.sr(7, 4, false, v); }
+                // 18000b5a9 jmp 0x18000b5b0
+                pc = 0x58000b5b0; continue;
+            }
+            0x58000b5ab => {
+                m.block(0x58000b5ab);
+                // 18000b5ab mov edi, 0xfffffe0b
+                { let v = 0xfffffe0bu64; m.sr(7, 4, false, v); }
+                pc = 0x58000b5b0; continue;
+            }
+            0x58000b5b0 => {
+                m.block(0x58000b5b0);
+                // 18000b5b0 mov rsi, qword ptr [rbx + 0x38a0]
+                { let v = m.ld(m.ea(3, -1, 1, 14496), 8); m.sr(6, 8, false, v); }
+                // 18000b5b7 mov rcx, qword ptr [rsi + 0x88]
+                { let v = m.ld(m.ea(6, -1, 1, 136), 8); m.sr(1, 8, false, v); }
+                // 18000b5be test rcx, rcx
+                m.and(m.gr(1, 8, false), m.gr(1, 8, false), 8);
+                // 18000b5c1 je 0x18000b5d5
+                if m.cc("e") { pc = 0x58000b5d5; continue; }
+                pc = 0x58000b5c3; continue;
+            }
+            0x58000b5c3 => {
+                m.block(0x58000b5c3);
+                // 18000b5c3 call 0x18000aa90
+                m.push(0); f_58000aa90(m, s);
+                // 18000b5c8 cmp eax, 2
+                m.sub(m.gr(0, 4, false), 0x2u64, 4);
+                // 18000b5cb jne 0x18000b5d5
+                if m.cc("ne") { pc = 0x58000b5d5; continue; }
+                pc = 0x58000b5cd; continue;
+            }
+            0x58000b5cd => {
+                m.block(0x58000b5cd);
+                // 18000b5cd mov rcx, rsi
+                { let v = m.gr(6, 8, false); m.sr(1, 8, false, v); }
+                // 18000b5d0 call 0x180031700
+                m.push(0); f_580031700(m, s);
+                pc = 0x58000b5d5; continue;
+            }
+            0x58000b5d5 => {
+                m.block(0x58000b5d5);
+                // 18000b5d5 mov rax, qword ptr [rbx + 0x38b8]
+                { let v = m.ld(m.ea(3, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
+                // 18000b5dc test edi, edi
+                m.and(m.gr(7, 4, false), m.gr(7, 4, false), 4);
+                // 18000b5de jne 0x18000b5f5
+                if m.cc("ne") { pc = 0x58000b5f5; continue; }
+                pc = 0x58000b5e0; continue;
+            }
+            0x58000b5e0 => {
+                m.block(0x58000b5e0);
+                // 18000b5e0 cmp word ptr [rax + 0xc], di
+                m.sub(m.ld(m.ea(0, -1, 1, 12), 2), m.gr(7, 2, false), 2);
+                // 18000b5e4 jl 0x18000b610
+                if m.cc("l") { pc = 0x58000b610; continue; }
+                pc = 0x58000b5e6; continue;
+            }
+            0x58000b5e6 => {
+                m.block(0x58000b5e6);
+                // 18000b5e6 mov ecx, ebp
+                { let v = m.gr(5, 4, false); m.sr(1, 4, false, v); }
+                // 18000b5e8 call qword ptr [rip + 0x7a60a]
+                crate::rt_use1432_gen::enter_980001120(m, s);
+                // 18000b5ee test ax, ax
+                m.and(m.gr(0, 2, false), m.gr(0, 2, false), 2);
+                // 18000b5f1 jne 0x18000b610
+                if m.cc("ne") { pc = 0x58000b610; continue; }
+                pc = 0x58000b5f3; continue;
+            }
+            0x58000b5f3 => {
+                m.block(0x58000b5f3);
+                // 18000b5f3 jmp 0x18000b590
+                pc = 0x58000b590; continue;
+            }
+            0x58000b5f5 => {
+                m.block(0x58000b5f5);
+                // 18000b5f5 movzx ecx, word ptr [rax + 0xc]
+                { let v = m.ld(m.ea(0, -1, 1, 12), 2); m.sr(1, 4, false, v); }
+                // 18000b5f9 test cx, cx
+                m.and(m.gr(1, 2, false), m.gr(1, 2, false), 2);
+                // 18000b5fc js 0x18000b610
+                if m.cc("s") { pc = 0x58000b610; continue; }
+                pc = 0x58000b5fe; continue;
+            }
+            0x58000b5fe => {
+                m.block(0x58000b5fe);
+                // 18000b5fe mov r8d, 1
+                { let v = 0x1u64; m.sr(8, 4, false, v); }
+                // 18000b604 lea rdx, [rsp + 0x58]
+                { let v = m.ea(4, -1, 1, 88); m.sr(2, 8, false, v); }
+                // 18000b609 call qword ptr [rip + 0x7a601]
+                crate::rt_use1432_gen::enter_980001220(m, s);
+                // 18000b60f nop 
+                pc = 0x58000b610; continue;
+            }
+            0x58000b610 => {
+                m.block(0x58000b610);
+                // 18000b610 lea rcx, [rsp + 0x60]
+                { let v = m.ea(4, -1, 1, 96); m.sr(1, 8, false, v); }
+                // 18000b615 call qword ptr [rip + 0x79f95]
+                s.import(m, 100);
+                // 18000b61b mov eax, dword ptr [rsp + 0x58]
+                { let v = m.ld(m.ea(4, -1, 1, 88), 4); m.sr(0, 4, false, v); }
+                // 18000b61f jmp 0x18000b623
+                pc = 0x58000b623; continue;
+            }
+            0x58000b621 => {
+                m.block(0x58000b621);
+                // 18000b621 mov eax, ebp
+                { let v = m.gr(5, 4, false); m.sr(0, 4, false, v); }
+                pc = 0x58000b623; continue;
+            }
+            0x58000b623 => {
+                m.block(0x58000b623);
+                // 18000b623 mov rbx, qword ptr [rsp + 0x50]
+                { let v = m.ld(m.ea(4, -1, 1, 80), 8); m.sr(3, 8, false, v); }
+                // 18000b628 add rsp, 0x30
+                { let v = m.add(m.gr(4, 8, false), 0x30u64, 8); m.sr(4, 8, false, v); }
+                // 18000b62c pop rdi
+                { let v = m.pop(); m.sr(7, 8, false, v); }
+                // 18000b62d pop rsi
+                { let v = m.pop(); m.sr(6, 8, false, v); }
+                // 18000b62e pop rbp
+                { let v = m.pop(); m.sr(5, 8, false, v); }
+                // 18000b62f ret 
+                m.pop(); return;
+            }
+            0x580058700 => {
+                m.block(0x580058700);
+                // 180058700 mov rcx, qword ptr [rip + 0x76451]
+                { let v = m.ld(0x5800ceb58u64, 8); m.sr(1, 8, false, v); }
+                // 180058707 test rcx, rcx
+                m.and(m.gr(1, 8, false), m.gr(1, 8, false), 8);
+                // 18005870a jne 0x18000b4e0
+                if m.cc("ne") { pc = 0x58000b4e0; continue; }
+                pc = 0x580058710; continue;
+            }
+            0x580058710 => {
+                m.block(0x580058710);
+                // 180058710 xor eax, eax
+                { let v = m.xor(m.gr(0, 4, false), m.gr(0, 4, false), 4); m.sr(0, 4, false, v); }
+                // 180058712 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_580058720(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x580058720);
     let mut pc: u64 = 0x580058720;
@@ -220891,6 +221937,269 @@ pub(super) fn f_580058720(m: &mut M, s: &mut dyn Svc) {
                 // 180058749 or eax, 0xffffffff
                 { let v = m.or(m.gr(0, 4, false), 0xffffffffu64, 4); m.sr(0, 4, false, v); }
                 // 18005874c ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_580058750(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x580058750);
+    let mut pc: u64 = 0x580058750;
+    loop {
+        match pc {
+            0x58000b7d0 => {
+                m.block(0x58000b7d0);
+                // 18000b7d0 push rdi
+                m.push(m.gr(7, 8, false));
+                // 18000b7d2 sub rsp, 0x40
+                { let v = m.sub(m.gr(4, 8, false), 0x40u64, 8); m.sr(4, 8, false, v); }
+                // 18000b7d6 mov qword ptr [rsp + 0x20], 0xfffffffffffffffe
+                { let v = 0xfffffffffffffffeu64; let a = m.ea(4, -1, 1, 32); m.st(a, 8, v); }
+                // 18000b7df mov qword ptr [rsp + 0x58], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(4, -1, 1, 88); m.st(a, 8, v); }
+                // 18000b7e4 mov qword ptr [rsp + 0x60], rsi
+                { let v = m.gr(6, 8, false); let a = m.ea(4, -1, 1, 96); m.st(a, 8, v); }
+                // 18000b7e9 movaps xmmword ptr [rsp + 0x30], xmm6
+                { let v = m.x[6]; let a = m.ea(4, -1, 1, 48); m.st128(a, v); }
+                // 18000b7ee mov rsi, r8
+                { let v = m.gr(8, 8, false); m.sr(6, 8, false, v); }
+                // 18000b7f1 movzx ebx, dl
+                { let v = m.gr(2, 1, false); m.sr(3, 4, false, v); }
+                // 18000b7f4 mov rdi, rcx
+                { let v = m.gr(1, 8, false); m.sr(7, 8, false, v); }
+                // 18000b7f7 cmp byte ptr [rcx + 0x3ba8], 0
+                m.sub(m.ld(m.ea(1, -1, 1, 15272), 1), 0x0u64, 1);
+                // 18000b7fe je 0x18000b919
+                if m.cc("e") { pc = 0x58000b919; continue; }
+                pc = 0x58000b804; continue;
+            }
+            0x58000b804 => {
+                m.block(0x58000b804);
+                // 18000b804 cmp dword ptr [rcx + 0x3954], 2
+                m.sub(m.ld(m.ea(1, -1, 1, 14676), 4), 0x2u64, 4);
+                // 18000b80b jne 0x18000b919
+                if m.cc("ne") { pc = 0x58000b919; continue; }
+                pc = 0x58000b811; continue;
+            }
+            0x58000b811 => {
+                m.block(0x58000b811);
+                // 18000b811 lea rcx, [rsp + 0x50]
+                { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
+                // 18000b816 call qword ptr [rip + 0x79da4]
+                s.import(m, 98);
+                // 18000b81c nop 
+                // 18000b81d mov rcx, qword ptr [rdi + 0x38a8]
+                { let v = m.ld(m.ea(7, -1, 1, 14504), 8); m.sr(1, 8, false, v); }
+                // 18000b824 mov rax, qword ptr [rcx]
+                { let v = m.ld(m.ea(1, -1, 1, 0), 8); m.sr(0, 8, false, v); }
+                // 18000b827 call qword ptr [rax + 0x60]
+                { let t = m.ld(m.ea(0, -1, 1, 96), 8); m.push(0); call_ptr(m, s, t); }
+                // 18000b82a movaps xmm6, xmm0
+                m.x[6] = m.x[0];
+                // 18000b82d test bl, bl
+                m.and(m.gr(3, 1, false), m.gr(3, 1, false), 1);
+                // 18000b82f je 0x18000b886
+                if m.cc("e") { pc = 0x58000b886; continue; }
+                pc = 0x58000b831; continue;
+            }
+            0x58000b831 => {
+                m.block(0x58000b831);
+                // 18000b831 movsd xmm1, qword ptr [rsi]
+                m.set_xl_zero(1, m.ld(m.ea(6, -1, 1, 0), 8));
+                // 18000b835 divsd xmm1, xmm0
+                m.divsd(1, m.xl(0));
+                // 18000b839 comisd xmm1, xmmword ptr [rip + 0x8484f]
+                m.comisd(m.xl(1), m.ld(0x580090090u64, 8));
+                // 18000b841 jae 0x18000b84f
+                if m.cc("ae") { pc = 0x58000b84f; continue; }
+                pc = 0x58000b843; continue;
+            }
+            0x58000b843 => {
+                m.block(0x58000b843);
+                // 18000b843 movabs rcx, 0x8000000000000000
+                { let v = 0x8000000000000000u64; m.sr(1, 8, false, v); }
+                // 18000b84d jmp 0x18000b868
+                pc = 0x58000b868; continue;
+            }
+            0x58000b84f => {
+                m.block(0x58000b84f);
+                // 18000b84f comisd xmm1, xmmword ptr [rip + 0x84799]
+                m.comisd(m.xl(1), m.ld(0x58008fff0u64, 8));
+                // 18000b857 movabs rcx, 0x7fffffffffffffff
+                { let v = 0x7fffffffffffffffu64; m.sr(1, 8, false, v); }
+                // 18000b861 ja 0x18000b868
+                if m.cc("a") { pc = 0x58000b868; continue; }
+                pc = 0x58000b863; continue;
+            }
+            0x58000b863 => {
+                m.block(0x58000b863);
+                // 18000b863 cvttsd2si rcx, xmm1
+                { let v = m.cvttsd2si(m.xl(1), 8); m.sr(1, 8, false, v); }
+                pc = 0x58000b868; continue;
+            }
+            0x58000b868 => {
+                m.block(0x58000b868);
+                // 18000b868 mov r9, rcx
+                { let v = m.gr(1, 8, false); m.sr(9, 8, false, v); }
+                // 18000b86b sar r9, 0x20
+                { let v = m.sar(m.gr(9, 8, false), 0x20u64, 8); m.sr(9, 8, false, v); }
+                // 18000b86f mov r8d, ecx
+                { let v = m.gr(1, 4, false); m.sr(8, 4, false, v); }
+                // 18000b872 lea rdx, [rip + 0x7c7ef]
+                { let v = 0x580088068u64; m.sr(2, 8, false, v); }
+                // 18000b879 lea rcx, [rsp + 0x50]
+                { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
+                // 18000b87e call qword ptr [rip + 0x79cdc]
+                s.import(m, 680);
+                // 18000b884 jmp 0x18000b898
+                pc = 0x58000b898; continue;
+            }
+            0x58000b886 => {
+                m.block(0x58000b886);
+                // 18000b886 lea rdx, [rip + 0x7c7eb]
+                { let v = 0x580088078u64; m.sr(2, 8, false, v); }
+                // 18000b88d lea rcx, [rsp + 0x50]
+                { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
+                // 18000b892 call qword ptr [rip + 0x79cc8]
+                s.import(m, 680);
+                pc = 0x58000b898; continue;
+            }
+            0x58000b898 => {
+                m.block(0x58000b898);
+                // 18000b898 mov rax, qword ptr [rdi + 0x38b8]
+                { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
+                // 18000b89f movzx ecx, word ptr [rax + 0xc]
+                { let v = m.ld(m.ea(0, -1, 1, 12), 2); m.sr(1, 4, false, v); }
+                // 18000b8a3 test cx, cx
+                m.and(m.gr(1, 2, false), m.gr(1, 2, false), 2);
+                // 18000b8a6 js 0x18000b905
+                if m.cc("s") { pc = 0x58000b905; continue; }
+                pc = 0x58000b8a8; continue;
+            }
+            0x58000b8a8 => {
+                m.block(0x58000b8a8);
+                // 18000b8a8 mov rdx, qword ptr [rsp + 0x50]
+                { let v = m.ld(m.ea(4, -1, 1, 80), 8); m.sr(2, 8, false, v); }
+                // 18000b8ad call qword ptr [rip + 0x7a34d]
+                crate::rt_use1432_gen::enter_980003110(m, s);
+                // 18000b8b3 movsx ebx, ax
+                { let v = crate::mach::sx(m.gr(0, 2, false), 2); m.sr(3, 4, false, v); }
+                // 18000b8b6 test ebx, ebx
+                m.and(m.gr(3, 4, false), m.gr(3, 4, false), 4);
+                // 18000b8b8 jne 0x18000b90a
+                if m.cc("ne") { pc = 0x58000b90a; continue; }
+                pc = 0x58000b8ba; continue;
+            }
+            0x58000b8ba => {
+                m.block(0x58000b8ba);
+                // 18000b8ba mov rax, qword ptr [rdi + 0x38b8]
+                { let v = m.ld(m.ea(7, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
+                // 18000b8c1 movzx ecx, word ptr [rax + 0xc]
+                { let v = m.ld(m.ea(0, -1, 1, 12), 2); m.sr(1, 4, false, v); }
+                // 18000b8c5 test cx, cx
+                m.and(m.gr(1, 2, false), m.gr(1, 2, false), 2);
+                // 18000b8c8 js 0x18000b905
+                if m.cc("s") { pc = 0x58000b905; continue; }
+                pc = 0x58000b8ca; continue;
+            }
+            0x58000b8ca => {
+                m.block(0x58000b8ca);
+                // 18000b8ca lea r8d, [rbx + 2]
+                { let v = m.ea(3, -1, 1, 2); m.sr(8, 4, false, v); }
+                // 18000b8ce lea rdx, [rsp + 0x68]
+                { let v = m.ea(4, -1, 1, 104); m.sr(2, 8, false, v); }
+                // 18000b8d3 call qword ptr [rip + 0x7a337]
+                crate::rt_use1432_gen::enter_980001220(m, s);
+                // 18000b8d9 movsx ebx, ax
+                { let v = crate::mach::sx(m.gr(0, 2, false), 2); m.sr(3, 4, false, v); }
+                // 18000b8dc cmp ebx, 2
+                m.sub(m.gr(3, 4, false), 0x2u64, 4);
+                // 18000b8df jne 0x18000b90a
+                if m.cc("ne") { pc = 0x58000b90a; continue; }
+                pc = 0x58000b8e1; continue;
+            }
+            0x58000b8e1 => {
+                m.block(0x58000b8e1);
+                // 18000b8e1 movsxd rcx, dword ptr [rsp + 0x6c]
+                { let v = crate::mach::sx(m.ld(m.ea(4, -1, 1, 108), 4), 4); m.sr(1, 8, false, v); }
+                // 18000b8e6 shl rcx, 0x20
+                { let v = m.shl(m.gr(1, 8, false), 0x20u64, 8); m.sr(1, 8, false, v); }
+                // 18000b8ea mov eax, dword ptr [rsp + 0x68]
+                { let v = m.ld(m.ea(4, -1, 1, 104), 4); m.sr(0, 4, false, v); }
+                // 18000b8ee or rcx, rax
+                { let v = m.or(m.gr(1, 8, false), m.gr(0, 8, false), 8); m.sr(1, 8, false, v); }
+                // 18000b8f1 xorps xmm0, xmm0
+                m.x[0] = m.x[0] ^ m.x[0];
+                // 18000b8f4 cvtsi2sd xmm0, rcx
+                m.cvtsi2sd(0, m.gr(1, 8, false), 8);
+                // 18000b8f9 mulsd xmm0, xmm6
+                m.mulsd(0, m.xl(6));
+                // 18000b8fd movsd qword ptr [rsi], xmm0
+                { let v = (m.xl(0) & 0xffffffffffffffff); let a = m.ea(6, -1, 1, 0); m.st(a, 8, v); }
+                // 18000b901 xor ebx, ebx
+                { let v = m.xor(m.gr(3, 4, false), m.gr(3, 4, false), 4); m.sr(3, 4, false, v); }
+                // 18000b903 jmp 0x18000b90a
+                pc = 0x58000b90a; continue;
+            }
+            0x58000b905 => {
+                m.block(0x58000b905);
+                // 18000b905 mov ebx, 0xfffffe0b
+                { let v = 0xfffffe0bu64; m.sr(3, 4, false, v); }
+                pc = 0x58000b90a; continue;
+            }
+            0x58000b90a => {
+                m.block(0x58000b90a);
+                // 18000b90a lea rcx, [rsp + 0x50]
+                { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
+                // 18000b90f call qword ptr [rip + 0x79c9b]
+                s.import(m, 100);
+                // 18000b915 mov eax, ebx
+                { let v = m.gr(3, 4, false); m.sr(0, 4, false, v); }
+                // 18000b917 jmp 0x18000b921
+                pc = 0x58000b921; continue;
+            }
+            0x58000b919 => {
+                m.block(0x58000b919);
+                // 18000b919 xor ebx, ebx
+                { let v = m.xor(m.gr(3, 4, false), m.gr(3, 4, false), 4); m.sr(3, 4, false, v); }
+                // 18000b91b mov qword ptr [r8], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(8, -1, 1, 0); m.st(a, 8, v); }
+                // 18000b91e or eax, 0xffffffff
+                { let v = m.or(m.gr(0, 4, false), 0xffffffffu64, 4); m.sr(0, 4, false, v); }
+                pc = 0x58000b921; continue;
+            }
+            0x58000b921 => {
+                m.block(0x58000b921);
+                // 18000b921 mov rbx, qword ptr [rsp + 0x58]
+                { let v = m.ld(m.ea(4, -1, 1, 88), 8); m.sr(3, 8, false, v); }
+                // 18000b926 mov rsi, qword ptr [rsp + 0x60]
+                { let v = m.ld(m.ea(4, -1, 1, 96), 8); m.sr(6, 8, false, v); }
+                // 18000b92b movaps xmm6, xmmword ptr [rsp + 0x30]
+                m.x[6] = m.ld128(m.ea(4, -1, 1, 48));
+                // 18000b930 add rsp, 0x40
+                { let v = m.add(m.gr(4, 8, false), 0x40u64, 8); m.sr(4, 8, false, v); }
+                // 18000b934 pop rdi
+                { let v = m.pop(); m.sr(7, 8, false, v); }
+                // 18000b935 ret 
+                m.pop(); return;
+            }
+            0x580058750 => {
+                m.block(0x580058750);
+                // 180058750 mov rcx, qword ptr [rip + 0x76401]
+                { let v = m.ld(0x5800ceb58u64, 8); m.sr(1, 8, false, v); }
+                // 180058757 test rcx, rcx
+                m.and(m.gr(1, 8, false), m.gr(1, 8, false), 8);
+                // 18005875a jne 0x18000b7d0
+                if m.cc("ne") { pc = 0x58000b7d0; continue; }
+                pc = 0x580058760; continue;
+            }
+            0x580058760 => {
+                m.block(0x580058760);
+                // 180058760 or eax, 0xffffffff
+                { let v = m.or(m.gr(0, 4, false), 0xffffffffu64, 4); m.sr(0, 4, false, v); }
+                // 180058763 ret 
                 m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
@@ -221131,7 +222440,7 @@ pub(super) fn f_5800587a0(m: &mut M, s: &mut dyn Svc) {
                 // 1800588e8 lea rcx, [rsp + 0x1098]
                 { let v = m.ea(4, -1, 1, 4248); m.sr(1, 8, false, v); }
                 // 1800588f0 call qword ptr [rip + 0x2cc6a]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800588f6 mov rax, qword ptr [rsi + 0x38b8]
                 { let v = m.ld(m.ea(6, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 1800588fd movzx ecx, word ptr [rax + 0xc]
@@ -221171,7 +222480,7 @@ pub(super) fn f_5800587a0(m: &mut M, s: &mut dyn Svc) {
                 // 180058931 lea rcx, [rsp + 0x1098]
                 { let v = m.ea(4, -1, 1, 4248); m.sr(1, 8, false, v); }
                 // 180058939 call qword ptr [rip + 0x2cc21]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18005893f mov rax, qword ptr [rsi + 0x38b8]
                 { let v = m.ld(m.ea(6, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 180058946 movzx ecx, word ptr [rax + 0xc]
@@ -221201,7 +222510,7 @@ pub(super) fn f_5800587a0(m: &mut M, s: &mut dyn Svc) {
                 // 18005896c lea rcx, [rsp + 0x1098]
                 { let v = m.ea(4, -1, 1, 4248); m.sr(1, 8, false, v); }
                 // 180058974 call qword ptr [rip + 0x2cbe6]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 18005897a mov rax, qword ptr [rsi + 0x38b8]
                 { let v = m.ld(m.ea(6, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 180058981 movzx ecx, word ptr [rax + 0xc]
@@ -221257,7 +222566,7 @@ pub(super) fn f_5800587a0(m: &mut M, s: &mut dyn Svc) {
                 // 1800589d4 lea rcx, [rsp + 0x1098]
                 { let v = m.ea(4, -1, 1, 4248); m.sr(1, 8, false, v); }
                 // 1800589dc call qword ptr [rip + 0x2cb7e]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 1800589e2 mov rax, qword ptr [rsi + 0x38b8]
                 { let v = m.ld(m.ea(6, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 1800589e9 movzx ecx, word ptr [rax + 0xc]
@@ -221329,7 +222638,7 @@ pub(super) fn f_5800587a0(m: &mut M, s: &mut dyn Svc) {
                 // 180058a55 lea rcx, [rsp + 0x1098]
                 { let v = m.ea(4, -1, 1, 4248); m.sr(1, 8, false, v); }
                 // 180058a5d call qword ptr [rip + 0x2cafd]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180058a63 mov rax, qword ptr [rsi + 0x38b8]
                 { let v = m.ld(m.ea(6, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 180058a6a movzx ecx, word ptr [rax + 0xc]
@@ -221398,7 +222707,7 @@ pub(super) fn f_5800587a0(m: &mut M, s: &mut dyn Svc) {
                 // 180058ab3 lea rcx, [rsp + 0x1098]
                 { let v = m.ea(4, -1, 1, 4248); m.sr(1, 8, false, v); }
                 // 180058abb call qword ptr [rip + 0x2ca9f]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180058ac1 mov rax, qword ptr [rsi + 0x38b8]
                 { let v = m.ld(m.ea(6, -1, 1, 14520), 8); m.sr(0, 8, false, v); }
                 // 180058ac8 movzx ecx, word ptr [rax + 0xc]
@@ -221528,7 +222837,7 @@ pub(super) fn f_5800587a0(m: &mut M, s: &mut dyn Svc) {
                 // 180058b6f lea rcx, [rsp + 0x1098]
                 { let v = m.ea(4, -1, 1, 4248); m.sr(1, 8, false, v); }
                 // 180058b77 call qword ptr [rip + 0x2c9e3]
-                s.import(m, 678);
+                s.import(m, 680);
                 // 180058b7d mov rdx, qword ptr [rsp + 0x1098]
                 { let v = m.ld(m.ea(4, -1, 1, 4248), 8); m.sr(2, 8, false, v); }
                 // 180058b85 mov rcx, qword ptr [rsi + 0x38b8]
@@ -223208,7 +224517,7 @@ pub(super) fn f_580058d10(m: &mut M, s: &mut dyn Svc) {
                 // 180059560 xor edx, edx
                 { let v = m.xor(m.gr(2, 4, false), m.gr(2, 4, false), 4); m.sr(2, 4, false, v); }
                 // 180059562 call qword ptr [rip + 0x2c068]
-                s.import(m, 430);
+                s.import(m, 431);
                 pc = 0x580059568; continue;
             }
             0x580059568 => {
@@ -227963,7 +229272,7 @@ pub(super) fn f_58005b150(m: &mut M, s: &mut dyn Svc) {
                 // 18005b284 mulsd xmm0, xmm9
                 m.mulsd(0, m.xl(9));
                 // 18005b289 call qword ptr [rip + 0x2a129]
-                s.import(m, 699);
+                s.import(m, 701);
                 // 18005b28f mulsd xmm9, xmm8
                 m.mulsd(9, m.xl(8));
                 // 18005b294 lea rdx, [rsp + 0x90]
@@ -227977,7 +229286,7 @@ pub(super) fn f_58005b150(m: &mut M, s: &mut dyn Svc) {
                 // 18005b2a8 mulsd xmm7, qword ptr [rip + 0x34bf0]
                 m.mulsd(7, m.ld(0x58008fea0u64, 8));
                 // 18005b2b0 call qword ptr [rip + 0x2a102]
-                s.import(m, 699);
+                s.import(m, 701);
                 // 18005b2b6 movaps xmm1, xmm7
                 m.x[1] = m.x[7];
                 // 18005b2b9 mov rcx, rdi
@@ -228225,7 +229534,7 @@ pub(super) fn f_58005b320(m: &mut M, s: &mut dyn Svc) {
                 // 18005b43d movaps xmm0, xmm1
                 m.x[0] = m.x[1];
                 // 18005b440 call qword ptr [rip + 0x29f72]
-                s.import(m, 699);
+                s.import(m, 701);
                 // 18005b446 xorps xmm1, xmm1
                 m.x[1] = m.x[1] ^ m.x[1];
                 // 18005b449 comisd xmm0, xmm1
@@ -271280,7 +272589,7 @@ pub(super) fn f_580069080(m: &mut M, s: &mut dyn Svc) {
                 // 1800690e0 xor r8d, r8d
                 { let v = m.xor(m.gr(8, 4, false), m.gr(8, 4, false), 4); m.sr(8, 4, false, v); }
                 // 1800690e3 call qword ptr [rip + 0x1c2c7]
-                s.import(m, 435);
+                s.import(m, 436);
                 // 1800690e9 mov eax, eax
                 { let v = m.gr(0, 4, false); m.sr(0, 4, false, v); }
                 // 1800690eb xorps xmm0, xmm0
@@ -286943,7 +288252,7 @@ pub(super) fn f_58006e440(m: &mut M, s: &mut dyn Svc) {
                 // 18006e4f6 cvtps2pd xmm0, xmm0
                 { let s = m.xl(0); let lo = f32::from_bits(s as u32) as f64; let hi = f32::from_bits((s >> 32) as u32) as f64; m.x[0] = lo.to_bits() as u128 | (hi.to_bits() as u128) << 64; }
                 // 18006e4f9 call qword ptr [rip + 0x16ea1]
-                s.import(m, 700);
+                s.import(m, 702);
                 // 18006e4ff test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 18006e501 jne 0x18006e50d
@@ -286984,7 +288293,7 @@ pub(super) fn f_58006e440(m: &mut M, s: &mut dyn Svc) {
                 // 18006e526 cvtps2pd xmm0, xmm0
                 { let s = m.xl(0); let lo = f32::from_bits(s as u32) as f64; let hi = f32::from_bits((s >> 32) as u32) as f64; m.x[0] = lo.to_bits() as u128 | (hi.to_bits() as u128) << 64; }
                 // 18006e529 call qword ptr [rip + 0x16e71]
-                s.import(m, 700);
+                s.import(m, 702);
                 // 18006e52f test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 18006e531 je 0x18006e53d
@@ -297166,7 +298475,7 @@ pub(super) fn f_580071c40(m: &mut M, s: &mut dyn Svc) {
                 // 180071cbd mov rcx, rax
                 { let v = m.gr(0, 8, false); m.sr(1, 8, false, v); }
                 // 180071cc0 call qword ptr [rip + 0x1392a]
-                s.import(m, 296);
+                s.import(m, 298);
                 // 180071cc6 mov rsi, rax
                 { let v = m.gr(0, 8, false); m.sr(6, 8, false, v); }
                 // 180071cc9 test rax, rax
@@ -301046,7 +302355,7 @@ pub(super) fn f_580073200(m: &mut M, s: &mut dyn Svc) {
                 // 18007335c mov rcx, rbx
                 { let v = m.gr(3, 8, false); m.sr(1, 8, false, v); }
                 // 18007335f call qword ptr [rip + 0x12033]
-                s.import(m, 297);
+                s.import(m, 299);
                 // 180073365 mov byte ptr [rbx + 0x4f], 0
                 { let v = 0x0u64; let a = m.ea(3, -1, 1, 79); m.st(a, 1, v); }
                 // 180073369 mov rdx, rbx
@@ -304802,7 +306111,7 @@ fn f_580074430_run(m: &mut M, s: &mut dyn Svc, start: u64) {
                 // 1800746f9 movaps xmm0, xmm6
                 m.x[0] = m.x[6];
                 // 1800746fc call qword ptr [rip + 0x10c9e]
-                s.import(m, 700);
+                s.import(m, 702);
                 // 180074702 test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 180074704 jne 0x18007472d
@@ -304814,7 +306123,7 @@ fn f_580074430_run(m: &mut M, s: &mut dyn Svc, start: u64) {
                 // 180074706 movaps xmm0, xmm6
                 m.x[0] = m.x[6];
                 // 180074709 call qword ptr [rip + 0x10c81]
-                s.import(m, 701);
+                s.import(m, 703);
                 // 18007470f cmp eax, 4
                 m.sub(m.gr(0, 4, false), 0x4u64, 4);
                 // 180074712 je 0x180074725
@@ -323337,7 +324646,7 @@ pub(super) fn f_58007b170(m: &mut M, s: &mut dyn Svc) {
                 // 18007b3c9 movaps xmm0, xmm6
                 m.x[0] = m.x[6];
                 // 18007b3cc call qword ptr [rip + 0x9fce]
-                s.import(m, 700);
+                s.import(m, 702);
                 // 18007b3d2 test eax, eax
                 m.and(m.gr(0, 4, false), m.gr(0, 4, false), 4);
                 // 18007b3d4 jne 0x18007b3fd
@@ -323349,7 +324658,7 @@ pub(super) fn f_58007b170(m: &mut M, s: &mut dyn Svc) {
                 // 18007b3d6 movaps xmm0, xmm6
                 m.x[0] = m.x[6];
                 // 18007b3d9 call qword ptr [rip + 0x9fb1]
-                s.import(m, 701);
+                s.import(m, 703);
                 // 18007b3df cmp eax, 4
                 m.sub(m.gr(0, 4, false), 0x4u64, 4);
                 // 18007b3e2 je 0x18007b3f5
@@ -325987,7 +327296,7 @@ pub(super) fn f_58007bd32(m: &mut M, s: &mut dyn Svc) {
             0x58007bd32 => {
                 m.block(0x58007bd32);
                 // 18007bd32 jmp qword ptr [rip + 0x9508]
-                s.import(m, 447); m.pop(); return;
+                s.import(m, 448); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -326764,7 +328073,7 @@ pub(super) fn f_58007c7c0(m: &mut M, s: &mut dyn Svc) {
                 // 18007c81c lea rcx, [rbp - 0x11]
                 { let v = m.ea(5, -1, 1, -17); m.sr(1, 8, false, v); }
                 // 18007c820 call qword ptr [rip + 0x8a3a]
-                s.import(m, 639);
+                s.import(m, 640);
                 // 18007c826 lea r13, [rip + 0x9c73]
                 { let v = 0x5800864a0u64; m.sr(13, 8, false, v); }
                 // 18007c82d mov qword ptr [rbp - 0x39], r13
@@ -326822,7 +328131,7 @@ pub(super) fn f_58007c7c0(m: &mut M, s: &mut dyn Svc) {
                 // 18007c88f lea rcx, [rbp - 0x71]
                 { let v = m.ea(5, -1, 1, -113); m.sr(1, 8, false, v); }
                 // 18007c893 call qword ptr [rip + 0x8b87]
-                s.import(m, 450);
+                s.import(m, 451);
                 // 18007c899 nop 
                 // 18007c89a lea rax, [rip + 0x9cbf]
                 { let v = 0x580086560u64; m.sr(0, 8, false, v); }
@@ -327295,7 +328604,7 @@ pub(super) fn f_58007c7c0(m: &mut M, s: &mut dyn Svc) {
                 // 18007cb4f lea rcx, [rbp - 0x71]
                 { let v = m.ea(5, -1, 1, -113); m.sr(1, 8, false, v); }
                 // 18007cb53 call qword ptr [rip + 0x87b7]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007cb59 mov qword ptr [rsp + 0x40], r12
                 { let v = m.gr(12, 8, false); let a = m.ea(4, -1, 1, 64); m.st(a, 8, v); }
                 // 18007cb5e mov rcx, qword ptr [rsp + 0x48]
@@ -327335,7 +328644,7 @@ pub(super) fn f_58007c7c0(m: &mut M, s: &mut dyn Svc) {
                 // 18007cb91 lea rcx, [rbp - 0x11]
                 { let v = m.ea(5, -1, 1, -17); m.sr(1, 8, false, v); }
                 // 18007cb95 call qword ptr [rip + 0x8775]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007cb9b mov qword ptr [rbp - 0x39], r12
                 { let v = m.gr(12, 8, false); let a = m.ea(5, -1, 1, -57); m.st(a, 8, v); }
                 // 18007cb9f mov rcx, qword ptr [rbp - 0x31]
@@ -327500,7 +328809,7 @@ pub(super) fn f_58007cbd0(m: &mut M, s: &mut dyn Svc) {
                 // 18007cc9b lea rcx, [rbp - 0x71]
                 { let v = m.ea(5, -1, 1, -113); m.sr(1, 8, false, v); }
                 // 18007cc9f call qword ptr [rip + 0x877b]
-                s.import(m, 450);
+                s.import(m, 451);
                 // 18007cca5 nop 
                 // 18007cca6 lea rax, [rip + 0x99bb]
                 { let v = 0x580086668u64; m.sr(0, 8, false, v); }
@@ -327973,7 +329282,7 @@ pub(super) fn f_58007cbd0(m: &mut M, s: &mut dyn Svc) {
                 // 18007cf5b lea rcx, [rbp - 0x71]
                 { let v = m.ea(5, -1, 1, -113); m.sr(1, 8, false, v); }
                 // 18007cf5f call qword ptr [rip + 0x83ab]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007cf65 mov qword ptr [rsp + 0x40], r12
                 { let v = m.gr(12, 8, false); let a = m.ea(4, -1, 1, 64); m.st(a, 8, v); }
                 // 18007cf6a mov rcx, qword ptr [rsp + 0x48]
@@ -328013,7 +329322,7 @@ pub(super) fn f_58007cbd0(m: &mut M, s: &mut dyn Svc) {
                 // 18007cf9d lea rcx, [rbp - 0x11]
                 { let v = m.ea(5, -1, 1, -17); m.sr(1, 8, false, v); }
                 // 18007cfa1 call qword ptr [rip + 0x8369]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007cfa7 mov qword ptr [rbp - 0x39], r12
                 { let v = m.gr(12, 8, false); let a = m.ea(5, -1, 1, -57); m.st(a, 8, v); }
                 // 18007cfab mov rcx, qword ptr [rbp - 0x31]
@@ -328124,7 +329433,7 @@ pub(super) fn f_58007d130(m: &mut M, s: &mut dyn Svc) {
                 // 18007d185 lea rcx, [rdi + 0x28]
                 { let v = m.ea(7, -1, 1, 40); m.sr(1, 8, false, v); }
                 // 18007d189 call qword ptr [rip + 0x8291]
-                s.import(m, 450);
+                s.import(m, 451);
                 // 18007d18f lea rax, [rip + 0x930a]
                 { let v = 0x5800864a0u64; m.sr(0, 8, false, v); }
                 // 18007d196 mov qword ptr [rdi], rax
@@ -328211,7 +329520,7 @@ pub(super) fn f_58007d1f0(m: &mut M, s: &mut dyn Svc) {
                 // 18007d245 lea rcx, [rdi + 0x28]
                 { let v = m.ea(7, -1, 1, 40); m.sr(1, 8, false, v); }
                 // 18007d249 call qword ptr [rip + 0x81d1]
-                s.import(m, 450);
+                s.import(m, 451);
                 // 18007d24f lea rax, [rip + 0x9272]
                 { let v = 0x5800864c8u64; m.sr(0, 8, false, v); }
                 // 18007d256 mov qword ptr [rdi], rax
@@ -328284,7 +329593,7 @@ pub(super) fn f_58007d280(m: &mut M, s: &mut dyn Svc) {
                 // 18007d2d8 mov qword ptr [rcx], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(1, -1, 1, 0); m.st(a, 8, v); }
                 // 18007d2db call qword ptr [rip + 0x802f]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007d2e1 lea rax, [rip + 0x90d8]
                 { let v = 0x5800863c0u64; m.sr(0, 8, false, v); }
                 // 18007d2e8 mov qword ptr [rbx], rax
@@ -328377,7 +329686,7 @@ pub(super) fn f_58007d310(m: &mut M, s: &mut dyn Svc) {
                 // 18007d368 mov qword ptr [rcx], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(1, -1, 1, 0); m.st(a, 8, v); }
                 // 18007d36b call qword ptr [rip + 0x7f9f]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007d371 lea rax, [rip + 0x9048]
                 { let v = 0x5800863c0u64; m.sr(0, 8, false, v); }
                 // 18007d378 mov qword ptr [rbx], rax
@@ -328709,7 +330018,7 @@ pub(super) fn f_58007d640(m: &mut M, s: &mut dyn Svc) {
                 // 18007d656 mov qword ptr [rcx], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(1, -1, 1, 0); m.st(a, 8, v); }
                 // 18007d659 call qword ptr [rip + 0x7cb1]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007d65f test bl, 1
                 m.and(m.gr(3, 1, false), 0x1u64, 1);
                 // 18007d662 je 0x18007d66c
@@ -328770,7 +330079,7 @@ pub(super) fn f_58007d680(m: &mut M, s: &mut dyn Svc) {
                 // 18007d6a5 mov qword ptr [rcx], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(1, -1, 1, 0); m.st(a, 8, v); }
                 // 18007d6a8 call qword ptr [rip + 0x7c62]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007d6ae lea rax, [rip + 0x8d0b]
                 { let v = 0x5800863c0u64; m.sr(0, 8, false, v); }
                 // 18007d6b5 mov qword ptr [rbx], rax
@@ -328857,7 +330166,7 @@ pub(super) fn f_58007d6f0(m: &mut M, s: &mut dyn Svc) {
                 // 18007d706 mov qword ptr [rcx], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(1, -1, 1, 0); m.st(a, 8, v); }
                 // 18007d709 call qword ptr [rip + 0x7c01]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007d70f test bl, 1
                 m.and(m.gr(3, 1, false), 0x1u64, 1);
                 // 18007d712 je 0x18007d71c
@@ -328918,7 +330227,7 @@ pub(super) fn f_58007d730(m: &mut M, s: &mut dyn Svc) {
                 // 18007d755 mov qword ptr [rcx], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(1, -1, 1, 0); m.st(a, 8, v); }
                 // 18007d758 call qword ptr [rip + 0x7bb2]
-                s.import(m, 244);
+                s.import(m, 246);
                 // 18007d75e lea rax, [rip + 0x8c5b]
                 { let v = 0x5800863c0u64; m.sr(0, 8, false, v); }
                 // 18007d765 mov qword ptr [rbx], rax
@@ -329463,7 +330772,7 @@ pub(super) fn f_58007e180(m: &mut M, s: &mut dyn Svc) {
                 // 18007e1f7 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18007e1fc call qword ptr [rip + 0x721e]
-                s.import(m, 450);
+                s.import(m, 451);
                 // 18007e202 nop 
                 // 18007e203 lea rax, [rip + 0x8356]
                 { let v = 0x580086560u64; m.sr(0, 8, false, v); }
@@ -329590,7 +330899,7 @@ pub(super) fn f_58007e260(m: &mut M, s: &mut dyn Svc) {
                 // 18007e2d7 lea rcx, [rsp + 0x50]
                 { let v = m.ea(4, -1, 1, 80); m.sr(1, 8, false, v); }
                 // 18007e2dc call qword ptr [rip + 0x713e]
-                s.import(m, 450);
+                s.import(m, 451);
                 // 18007e2e2 nop 
                 // 18007e2e3 lea rax, [rip + 0x837e]
                 { let v = 0x580086668u64; m.sr(0, 8, false, v); }
@@ -329782,7 +331091,7 @@ pub(super) fn f_58007f36a(m: &mut M, s: &mut dyn Svc) {
             0x58007f36a => {
                 m.block(0x58007f36a);
                 // 18007f36a jmp qword ptr [rip + 0x5f40]
-                s.import(m, 702); m.pop(); return;
+                s.import(m, 704); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -329797,7 +331106,7 @@ pub(super) fn f_58007f370(m: &mut M, s: &mut dyn Svc) {
             0x58007f370 => {
                 m.block(0x58007f370);
                 // 18007f370 jmp qword ptr [rip + 0x5f42]
-                s.import(m, 703); m.pop(); return;
+                s.import(m, 705); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -329827,7 +331136,7 @@ pub(super) fn f_58007f37c(m: &mut M, s: &mut dyn Svc) {
             0x58007f37c => {
                 m.block(0x58007f37c);
                 // 18007f37c jmp qword ptr [rip + 0x5f46]
-                s.import(m, 704); m.pop(); return;
+                s.import(m, 706); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -329917,7 +331226,7 @@ pub(super) fn f_58007f3a0(m: &mut M, s: &mut dyn Svc) {
             0x58007f3a0 => {
                 m.block(0x58007f3a0);
                 // 18007f3a0 jmp qword ptr [rip + 0x5f52]
-                s.import(m, 705); m.pop(); return;
+                s.import(m, 707); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -329932,7 +331241,7 @@ pub(super) fn f_58007f3a6(m: &mut M, s: &mut dyn Svc) {
             0x58007f3a6 => {
                 m.block(0x58007f3a6);
                 // 18007f3a6 jmp qword ptr [rip + 0x5f54]
-                s.import(m, 650); m.pop(); return;
+                s.import(m, 651); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -329962,7 +331271,7 @@ pub(super) fn f_58007f3b2(m: &mut M, s: &mut dyn Svc) {
             0x58007f3b2 => {
                 m.block(0x58007f3b2);
                 // 18007f3b2 jmp qword ptr [rip + 0x5ea0]
-                s.import(m, 706); m.pop(); return;
+                s.import(m, 708); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -333141,6 +334450,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x5800318d0 => f_5800318d0(m, s),
         0x580031bc0 => f_580031bc0(m, s),
         0x580031d50 => f_580031d50(m, s),
+        0x580031e80 => f_580031e80(m, s),
         0x5800320a0 => f_5800320a0(m, s),
         0x580032410 => f_580032410(m, s),
         0x580032610 => f_580032610(m, s),
@@ -333812,11 +335122,17 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x5800580a0 => f_5800580a0(m, s),
         0x5800580d0 => f_5800580d0(m, s),
         0x5800582a0 => f_5800582a0(m, s),
+        0x5800582d0 => f_5800582d0(m, s),
         0x5800583d0 => f_5800583d0(m, s),
         0x580058470 => f_580058470(m, s),
         0x5800584d0 => f_5800584d0(m, s),
         0x580058510 => f_580058510(m, s),
+        0x580058610 => f_580058610(m, s),
+        0x580058630 => f_580058630(m, s),
+        0x5800586a0 => f_5800586a0(m, s),
+        0x580058700 => f_580058700(m, s),
         0x580058720 => f_580058720(m, s),
+        0x580058750 => f_580058750(m, s),
         0x580058770 => f_580058770(m, s),
         0x580058790 => f_580058790(m, s),
         0x5800587a0 => f_5800587a0(m, s),
@@ -334502,7 +335818,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x580084ce0 => f_580084ce0(m, s),
         0x580084d20 => f_580084d20(m, s),
         0x580084d60 => f_580084d60(m, s),
-        0x400000000000 => { s.import(m, 707); m.pop(); }
+        0x400000000000 => { s.import(m, 709); m.pop(); }
         _ => crate::commands::call_other(m, s, t),
     }
 }
@@ -335170,6 +336486,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x5800318d0 => f_5800318d0(m, s),
         0x580031bc0 => f_580031bc0(m, s),
         0x580031d50 => f_580031d50(m, s),
+        0x580031e80 => f_580031e80(m, s),
         0x5800320a0 => f_5800320a0(m, s),
         0x580032410 => f_580032410(m, s),
         0x580032610 => f_580032610(m, s),
@@ -335841,11 +337158,17 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x5800580a0 => f_5800580a0(m, s),
         0x5800580d0 => f_5800580d0(m, s),
         0x5800582a0 => f_5800582a0(m, s),
+        0x5800582d0 => f_5800582d0(m, s),
         0x5800583d0 => f_5800583d0(m, s),
         0x580058470 => f_580058470(m, s),
         0x5800584d0 => f_5800584d0(m, s),
         0x580058510 => f_580058510(m, s),
+        0x580058610 => f_580058610(m, s),
+        0x580058630 => f_580058630(m, s),
+        0x5800586a0 => f_5800586a0(m, s),
+        0x580058700 => f_580058700(m, s),
         0x580058720 => f_580058720(m, s),
+        0x580058750 => f_580058750(m, s),
         0x580058770 => f_580058770(m, s),
         0x580058790 => f_580058790(m, s),
         0x5800587a0 => f_5800587a0(m, s),
@@ -336531,7 +337854,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x580084ce0 => f_580084ce0(m, s),
         0x580084d20 => f_580084d20(m, s),
         0x580084d60 => f_580084d60(m, s),
-        0x400000000000 => { s.import(m, 707); m.pop(); }
+        0x400000000000 => { s.import(m, 709); m.pop(); }
         _ => return false,
     }
     true
@@ -341913,6 +343236,13 @@ pub(crate) fn tail_5800582a0(m: &mut M, s: &mut dyn Svc) {
 pub(crate) fn enter_5800582a0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_5800582a0(m, s); });
 }
+pub(crate) fn tail_5800582d0(m: &mut M, s: &mut dyn Svc) {
+    f_5800582d0(m, s)
+}
+/// Run the routine at 0x1800582d0 with the machine's registers as the caller set them.
+pub(crate) fn enter_5800582d0(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_5800582d0(m, s); });
+}
 pub(crate) fn tail_5800583d0(m: &mut M, s: &mut dyn Svc) {
     f_5800583d0(m, s)
 }
@@ -341941,12 +343271,47 @@ pub(crate) fn tail_580058510(m: &mut M, s: &mut dyn Svc) {
 pub(crate) fn enter_580058510(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_580058510(m, s); });
 }
+pub(crate) fn tail_580058610(m: &mut M, s: &mut dyn Svc) {
+    f_580058610(m, s)
+}
+/// Run the routine at 0x180058610 with the machine's registers as the caller set them.
+pub(crate) fn enter_580058610(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_580058610(m, s); });
+}
+pub(crate) fn tail_580058630(m: &mut M, s: &mut dyn Svc) {
+    f_580058630(m, s)
+}
+/// Run the routine at 0x180058630 with the machine's registers as the caller set them.
+pub(crate) fn enter_580058630(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_580058630(m, s); });
+}
+pub(crate) fn tail_5800586a0(m: &mut M, s: &mut dyn Svc) {
+    f_5800586a0(m, s)
+}
+/// Run the routine at 0x1800586a0 with the machine's registers as the caller set them.
+pub(crate) fn enter_5800586a0(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_5800586a0(m, s); });
+}
+pub(crate) fn tail_580058700(m: &mut M, s: &mut dyn Svc) {
+    f_580058700(m, s)
+}
+/// Run the routine at 0x180058700 with the machine's registers as the caller set them.
+pub(crate) fn enter_580058700(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_580058700(m, s); });
+}
 pub(crate) fn tail_580058720(m: &mut M, s: &mut dyn Svc) {
     f_580058720(m, s)
 }
 /// Run the routine at 0x180058720 with the machine's registers as the caller set them.
 pub(crate) fn enter_580058720(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_580058720(m, s); });
+}
+pub(crate) fn tail_580058750(m: &mut M, s: &mut dyn Svc) {
+    f_580058750(m, s)
+}
+/// Run the routine at 0x180058750 with the machine's registers as the caller set them.
+pub(crate) fn enter_580058750(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_580058750(m, s); });
 }
 pub(crate) fn tail_580058770(m: &mut M, s: &mut dyn Svc) {
     f_580058770(m, s)

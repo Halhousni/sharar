@@ -1,0 +1,24 @@
+var res[300], h%, k%, i%, n%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+res[k%] := HCursorExists(1); k% += 1;
+res[k%] := HCursorValid(1); k% += 1;
+n% := HCursorNew(1, 0.5); res[k%] := n%; k% += 1;
+res[k%] := HCursorExists(1); k% += 1;
+res[k%] := HCursorValid(1); k% += 1;
+res[k%] := HCursor(1); k% += 1;
+res[k%] := HCursorChan(1); k% += 1;
+res[k%] := HCursor(1, 1.25); k% += 1;
+res[k%] := HCursor(1); k% += 1;
+n% := HCursorNew(1, -0.5); res[k%] := n%; k% += 1;
+n% := HCursorNew(2, 3.0); res[k%] := n%; k% += 1;
+for i% := 1 to 4 do res[k%] := HCursorExists(i%); res[k%+1] := HCursor(i%); res[k%+2] := HCursorChan(i%); k% += 3; next
+res[k%] := HCursorLabelPos(1); k% += 1;
+res[k%] := HCursorLabelPos(1, 40); k% += 1;
+res[k%] := HCursorLabelPos(1); k% += 1;
+res[k%] := HCursorRenumber(); k% += 1;
+for i% := 1 to 4 do res[k%] := HCursor(i%); k% += 1; next
+res[k%] := HCursorDelete(2); k% += 1;
+for i% := 1 to 4 do res[k%] := HCursorExists(i%); k% += 1; next
+res[k%] := HCursorDelete(); k% += 1;
+for i% := 1 to 4 do res[k%] := HCursorExists(i%); k% += 1; next

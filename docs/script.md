@@ -684,3 +684,13 @@ against the same objects the application uses.
 
 `tools/command_census.py` calls every built-in once with made-up arguments of the right types and lists the
 commands that stop because something is missing (`unported`); the count is the measure of what is left.
+
+### Where the cursor commands stand
+
+The window's cursor manager (`CCursorHelper`, made by SONVIEW's routine `0x1400ccbb0`) and the handlers of the
+cursor messages are lifted, and every `Cursor*`/`HCursor*` command now reaches them. What stops them is the
+creation of the cursor objects themselves, which are child windows (`CWnd::Create`, `GetParent`, the parent
+frame): the first step that dereferences a parent that does not exist. `tools/pending_cases/d_hcursor.s2s` is
+the test for them (Spike2's answers are recorded by `run_oracle.py --only`); it moves to `tools/run_cases/`
+when they agree. The reference file `testdata/run_reference.txt` holds the date `t_date` ran on, so it must
+be regenerated (`run_oracle.py --only t_date`) when the day changes.
