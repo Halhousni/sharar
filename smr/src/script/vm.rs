@@ -148,7 +148,7 @@ mod printf;
 pub struct Vm {
     /// Why the last translated command stopped, when it reached something not provided.
     pub lifted_error: Option<String>,
-    lifted_world: Option<Box<lifted::World>>,
+    lifted_world: std::cell::RefCell<Option<Box<lifted::World>>>,
     code: Code,
     cells: Vec<Cell>,
     stack: Vec<Item>,
@@ -224,7 +224,7 @@ impl Vm {
         let code = Code::new(prog.code.clone());
         Ok(Vm {
             lifted_error: None,
-            lifted_world: None,
+            lifted_world: std::cell::RefCell::new(None),
             code,
             cells,
             stack: Vec::new(),
@@ -291,6 +291,9 @@ impl Vm {
     /// Read a place, refusing a whole array.
     fn try_get(&self, r: Ref) -> Result<V, RunError> {
         match r {
+            Ref::ViewElem(vh, ch, i) if self.host.as_ref().map(|h| h.view_lifted(vh)).unwrap_or(false) => {
+                return self.lifted_view_elem(vh, ch, i, None).map(V::Flt).map_err(RunError);
+            }
             Ref::ViewElem(vh, ch, i) => {
                 return match self.host.as_ref().map(|h| h.view_elem(vh, ch, i)) {
                     Some(Ok(v)) => Ok(V::Flt(v)),
@@ -323,6 +326,9 @@ impl Vm {
     pub(super) fn set(&mut self, r: Ref, v: V) -> Result<(), RunError> {
         if let Ref::ViewElem(vh, ch, i) = r {
             let x = as_flt(v.num()?);
+            if self.host.as_ref().map(|h| h.view_lifted(vh)).unwrap_or(false) {
+                return self.lifted_view_elem(vh, ch, i, Some(x)).map(|_| ()).map_err(RunError);
+            }
             return match self.host.as_mut().map(|h| h.set_view_elem(vh, ch, i, x)) {
                 Some(Ok(())) => Ok(()),
                 Some(Err(e)) => Err(RunError(e)),
@@ -952,7 +958,7 @@ impl Vm {
         let Ok(compiled) = super::compile_with_commands(&src) else { return Err(-1) };
         let Ok(mut next) = Vm::new(compiled, self.with_commands) else { return Err(-1) };
         next.host = self.host.take();
-        next.lifted_world = self.lifted_world.take();
+        next.lifted_world = std::cell::RefCell::new(self.lifted_world.take());
         next.log = std::mem::take(&mut self.log);
         next.read_cfg = self.read_cfg.clone();
         next.rng = std::mem::replace(&mut self.rng, [builtins::CRand::new(0), builtins::CRand::new(0), builtins::CRand::new(0)]);

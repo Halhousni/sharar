@@ -11043,7 +11043,7 @@ pub(super) fn f_f80005ec0(m: &mut M, s: &mut dyn Svc) {
                 // 180005f1c lea rcx, [rbp - 0x11]
                 { let v = m.ea(5, -1, 1, -17); m.sr(1, 8, false, v); }
                 // 180005f20 call qword ptr [rip + 0x41c2]
-                s.import(m, 627);
+                s.import(m, 629);
                 // 180005f26 lea r13, [rip + 0x4c13]
                 { let v = 0xf8000ab40u64; m.sr(13, 8, false, v); }
                 // 180005f2d mov qword ptr [rbp - 0x39], r13
@@ -14161,7 +14161,7 @@ pub(super) fn f_f800089ee(m: &mut M, s: &mut dyn Svc) {
             0xf800089ee => {
                 m.block(0xf800089ee);
                 // 1800089ee jmp qword ptr [rip + 0x170c]
-                s.import(m, 436); m.pop(); return;
+                s.import(m, 437); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }

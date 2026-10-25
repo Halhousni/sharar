@@ -150,6 +150,24 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.pop();
                 true
             }
+            // a frame's GetActiveDocument
+            0x5000 => {
+                m.r[0] = m.ld(m.r[1] + 0x2f8, 8);
+                m.pop();
+                true
+            }
+            // the result document template's OpenDocumentFile (slot 0x118): a document and its window
+            0x4118 => {
+                let h = self.vm.host.as_mut().map(|host| host.new_result_view()).unwrap_or(-1);
+                m.r[0] = if h < 0 { 0 } else { self.result_document(m, h) };
+                m.pop();
+                true
+            }
+            t if (0x4000..0x4800).contains(&t) => {
+                m.r[0] = 0;
+                m.pop();
+                true
+            }
             // a routine of an object whose constructor was skipped: it succeeds
             t if (0x3000..0x3200).contains(&t) => {
                 m.r[0] = 1;
@@ -688,8 +706,32 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             "GetFocus" | "GetCapture" | "GetDlgItem" | "GetActiveWindow" | "GetForegroundWindow" | "GetDC" | "ReleaseDC" | "GetWindow" | "GetAncestor" => {
                 m.r[0] = 0;
             }
-            "IsIconic" | "IsZoomed" | "GdiplusStartup" | "?BeginWaitCursor@CCmdTarget@@QEAAXXZ" | "?EndWaitCursor@CCmdTarget@@QEAAXXZ" | "?GetParentFrame@CWnd@@QEBAPEAVCFrameWnd@@XZ" => {
+            "IsIconic" | "IsZoomed" | "GdiplusStartup" | "?BeginWaitCursor@CCmdTarget@@QEAAXXZ" | "?EndWaitCursor@CCmdTarget@@QEAAXXZ" => {
                 m.r[0] = 0;
+            }
+            "?GetParentFrame@CWnd@@QEBAPEAVCFrameWnd@@XZ" => {
+                // each window has a frame of its own, which knows its document
+                let view = m.r[1];
+                if view == 0 {
+                    m.r[0] = 0;
+                } else {
+                    if let Some(&f) = self.world.frames.get(&view) {
+                        m.r[0] = f;
+                    } else {
+                        let f = m.alloc(0x1000);
+                        m.st(f + 0x40, 8, 0x30001);
+                        let vt = m.alloc(0x800);
+                        for k in 0..0x100u64 {
+                            m.st(vt + 8 * k, 8, FAKE_CODE + 0x3000 + k);
+                        }
+                        // GetActiveDocument (slot 0x2e0)
+                        m.st(vt + 0x2e0, 8, FAKE_CODE + 0x5000);
+                        m.st(f, 8, vt);
+                        m.st(f + 0x2f8, 8, m.ld(view + 0xd8, 8));
+                        self.world.frames.insert(view, f);
+                        m.r[0] = f;
+                    }
+                }
             }
             "InvalidateRect" | "UpdateWindow" | "RedrawWindow" | "ShowWindow" | "SetFocus" | "EnableWindow" | "BringWindowToTop" | "MoveWindow" | "SetCapture" | "ReleaseCapture" | "SetCursor" | "ClientToScreen" | "ScreenToClient" | "ValidateRect" | "SetWindowPos" => {
                 m.r[0] = 1;
@@ -960,6 +1002,26 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 let msg = rdx as u32;
                 m.r[0] = match msg {
                     0x14a7 => self.sonfile_of(m, view_of(rcx_of(m))),
+                    // the main window's table of views: a window for a view number, or a number for a window
+                    0x14aa => {
+                        let lp = r9;
+                        let (mut hw, mut num) = (m.ld(lp, 8), m.ld(lp + 8, 4) as u32 as i64);
+                        if hw == 0 && num != 0 {
+                            hw = hwnd_of(num);
+                            m.st(lp, 8, hw);
+                        } else if hw != 0 {
+                            num = view_of(hw) & 0xffff;
+                            m.st(lp + 8, 4, num as u64);
+                        }
+                        if hw != 0 && num != 0 {
+                            let win = self.world.reswins.get(&num).or_else(|| self.world.twins.get(&num)).or_else(|| self.world.txtwins.get(&num)).copied();
+                            let ty = win.map(|w| m.ld(w + 0xe8, 1)).unwrap_or(6);
+                            m.st(lp + 0xc, 2, ty);
+                            1
+                        } else {
+                            u64::MAX
+                        }
+                    }
                     0x15d1 => self.measure(m, view_of(rcx_of(m)), r9),
                     0x15d3 => self.search(m, view_of(rcx_of(m)), r9),
                     0x15a6 => self.chan_value(m, view_of(rcx_of(m)), r9),
@@ -977,6 +1039,8 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                                 self.world.strs.write(m, doc + 0x40, &units, true);
                             }
                             Some((0u8, win))
+                        } else if self.world.reswins.contains_key(&view_of(hwnd)) {
+                            Some((3u8, self.world.reswins[&view_of(hwnd)]))
                         } else if self.vm.host.as_ref().and_then(|host| host.view_info(view_of(hwnd))).map(|(k, _)| k == 1).unwrap_or(false) {
                             Some((2u8, self.text_view(m, view_of(hwnd))))
                         } else {
@@ -1148,7 +1212,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 }
                 m.r[0] = 0;
             }
-            other if self.world.lenient => {
+            other if self.world.lenient || (other.starts_with("??0") && other.ends_with("@@QEAA@XZ")) => {
                 if std::env::var_os("S2LIFT_SERVICES").is_some() {
                     eprintln!("  (service {other} skipped)");
                 }
@@ -1224,6 +1288,13 @@ impl<'v, 'w> Run<'v, 'w> {
             }
             m.st(o, 8, vt);
             m.st(o + 0x88, 8, 0x30100);
+            // the document template that makes result views: OpenDocumentFile is its slot 0x118
+            let (tmpl, tvt) = (m.alloc(0x400), m.alloc(0x800));
+            for k in 0..0x100u64 {
+                m.st(tvt + 8 * k, 8, FAKE_CODE + 0x4000 + 8 * k);
+            }
+            m.st(tmpl, 8, tvt);
+            m.st(o + 0x1d0, 8, tmpl);
             self.world.app = o;
             m.st(0x1_403d_ade8 + (7u64 << 32), 8, o);
         }
@@ -1434,6 +1505,31 @@ impl<'v, 'w> Run<'v, 'w> {
         m.st(win + 0x248, 8, ptrs + 8 * 32);
         m.st(win + 0x250, 8, ptrs + 8 * 40);
         win
+    }
+
+    /// A result document with its window, for the view `h`: SONVIEW's own constructors.
+    fn result_document(&mut self, m: &mut M, h: i64) -> u64 {
+        let bias = 7u64 << 32;
+        self.app(m);
+        self.world.lenient = true;
+        let doc = m.alloc(0x400);
+        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400b_e790 + bias, [doc, 0, 0, 0])));
+        let win = m.alloc(0x1000);
+        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400e_3030 + bias, [win, 5, 0, 0])));
+        m.st(win, 8, 0x1_402b_5738 + bias);
+        m.st(win + 0x5c4, 4, 1);
+        m.st(win + 0xd8, 8, doc);
+        m.st(win + 0x40, 8, hwnd_of(h));
+        self.world.reswins.insert(h, win);
+        self.world.doc_view.insert(doc, win);
+        // the window's manager of cursors, which the window makes when it is created
+        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400c_cbb0 + bias, [win, 0, 0, 0])));
+        let mgr = m.ld(win + 0x5b0, 8);
+        if mgr != 0 {
+            m.st(mgr + 0x40, 8, 0x30002);
+        }
+        self.world.lenient = false;
+        doc
     }
 
     /// The text window of view `h` (the log): SONVIEW's own view and document objects, made by their
@@ -1843,6 +1939,10 @@ pub struct World {
     log_h: i64,
     /// The view of each text document.
     doc_view: std::collections::HashMap<u64, u64>,
+    /// The result windows (by view handle) and the document template that makes them.
+    reswins: std::collections::HashMap<i64, u64>,
+    /// The frame stand-in of each window object.
+    frames: std::collections::HashMap<u64, u64>,
 }
 
 impl Default for World {
@@ -1853,7 +1953,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, ffind: Default::default(), edits: Default::default(), log_h: -1, doc_view: Default::default() }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, ffind: Default::default(), edits: Default::default(), log_h: -1, doc_view: Default::default(), reswins: Default::default(), frames: Default::default() }
     }
 }
 
@@ -1950,7 +2050,7 @@ impl Vm {
                         let t = t.0;
                         let vm = run.vm;
                         world.m = Some(m);
-                        vm.lifted_world = Some(world);
+                        vm.lifted_world.replace(Some(world));
                         return Err(RunError(t));
                     }
                 }
@@ -1970,7 +2070,7 @@ impl Vm {
             std::panic::set_hook(saved);
         }
         world.m = Some(m);
-        vm.lifted_world = Some(world);
+        vm.lifted_world.replace(Some(world));
         result
     }
 }
@@ -1980,17 +2080,76 @@ impl Vm {
     /// if there is one.
     pub(crate) fn log_append(&mut self, text: &str) {
         self.log.push_str(text);
-        let h = self.lifted_world.as_ref().map(|w| w.log_h).unwrap_or(-1);
+        let h = self.lifted_world.borrow().as_ref().map(|w| w.log_h).unwrap_or(-1);
         self.editor_append(h, text);
+    }
+
+    /// Element `i` of channel `ch` of a result view whose data Spike2's own result objects hold; with `set`, store it.
+    pub(crate) fn lifted_view_elem(&self, vh: i64, ch: i64, i: i64, set: Option<f64>) -> Result<f64, i32> {
+        let Some(mut world) = self.lifted_world.take() else { return Err(-1000) };
+        let Some(mut m) = world.m.take() else {
+            self.lifted_world.replace(Some(world));
+            return Err(-1000);
+        };
+        let mut bare = Bare::default();
+        let r = catch_unwind(AssertUnwindSafe(|| -> Result<f64, i32> {
+            let win = *world.reswins.get(&vh).ok_or(-1000)?;
+            let doc = m.ld(win + 0xd8, 8);
+            let sp = m.r[4];
+            let saved = m.r;
+            // the channel (the list counts from 0), how many bins it has, and where they are
+            m.r[1] = doc + 0x240;
+            m.r[2] = (ch - 1).max(0) as u64;
+            m.r[8] = 0;
+            m.push(0);
+            bare.call(&mut m, "?FindChan@CResChanList@@QEBAPEAVCResChan@@H_N@Z");
+            let chan = m.r[0];
+            m.r[4] = sp;
+            m.r = saved;
+            if chan == 0 || ch < 1 {
+                return Err(-1000);
+            }
+            let (n, a, b) = (m.alloc(16), m.alloc(16), m.alloc(16));
+            m.r[1] = chan;
+            m.r[2] = n;
+            m.r[8] = a;
+            m.r[9] = b;
+            m.push(0);
+            bare.call(&mut m, "?GetDataInfo@CResChan@@QEAAHAEAHAEAN1@Z");
+            m.r[4] = sp;
+            m.r = saved;
+            let bins = m.ld(n, 4) as u32 as i32 as i64;
+            if i < 0 || i >= bins {
+                return Err(-1000);
+            }
+            m.r[1] = chan;
+            m.push(0);
+            bare.call(&mut m, "?GetDataPtr@CResChan@@QEAAPEANXZ");
+            let data = m.r[0];
+            m.r[4] = sp;
+            m.r = saved;
+            if data == 0 {
+                return Err(-1000);
+            }
+            let at = data + 8 * i as u64;
+            if let Some(v) = set {
+                m.st(at, 8, v.to_bits());
+                return Ok(v);
+            }
+            Ok(f64::from_bits(m.ld(at, 8)))
+        }));
+        world.m = Some(m);
+        self.lifted_world.replace(Some(world));
+        r.unwrap_or(Err(-1000))
     }
 
     /// Does text window `h` have its editor yet?
     pub(crate) fn has_editor(&self, h: i64) -> bool {
-        self.lifted_world.as_ref().map(|w| w.edits.contains_key(&h)).unwrap_or(false)
+        self.lifted_world.borrow().as_ref().map(|w| w.edits.contains_key(&h)).unwrap_or(false)
     }
 
     pub(crate) fn log_has_editor(&self) -> bool {
-        self.lifted_world.as_ref().map(|w| w.edits.contains_key(&w.log_h)).unwrap_or(false)
+        self.lifted_world.borrow().as_ref().map(|w| w.edits.contains_key(&w.log_h)).unwrap_or(false)
     }
 
     /// Text printed to the current view when that is a text window of its own.
@@ -2011,7 +2170,7 @@ impl Vm {
 
     /// Put `text` at the end of the editor of text window `h` if it has one, with the caret after it.
     fn editor_append(&mut self, h: i64, text: &str) {
-        let Some(edit) = self.lifted_world.as_ref().and_then(|w| w.edits.get(&h).copied()) else { return };
+        let Some(edit) = self.lifted_world.borrow().as_ref().and_then(|w| w.edits.get(&h).copied()) else { return };
         let mut world = self.lifted_world.take().unwrap();
         let mut m = world.m.take().expect("the machine is out only during a command");
         {
@@ -2032,7 +2191,7 @@ impl Vm {
             std::panic::set_hook(quiet);
         }
         world.m = Some(m);
-        self.lifted_world = Some(world);
+        self.lifted_world.replace(Some(world));
     }
 
     /// After a command: the text of each text window as its editor now holds it.

@@ -89,6 +89,8 @@ struct ResView {
     ytitle: String,
     data: Vec<Vec<f64>>,
     sweeps: i64,
+    /// The view's data is held by Spike2's own result view objects, not here.
+    lifted: bool,
 }
 
 enum ExtKind {
@@ -210,7 +212,7 @@ impl Session {
         let title = if title.is_empty() { format!("Result{}", self.results_made) } else { title };
         let handle = self.next;
         self.next += 1;
-        let view = ResView { bins, binsz, offset, title, xunits, yunits, xtitle, ytitle, data: vec![vec![0.0; bins]; nchan], sweeps: 0 };
+        let view = ResView { bins, binsz, offset, title, xunits, yunits, xtitle, ytitle, data: vec![vec![0.0; bins]; nchan], sweeps: 0, lifted: false };
         self.exts.push(Ext { handle, kind: ExtKind::Result(view) });
         // the script's view; the window is not made the active one
         self.current = handle;
@@ -1414,6 +1416,19 @@ impl Host for Session {
         Some((v.file.time_factor, kind_code(c.kind)))
     }
 
+    fn view_lifted(&self, vh: i64) -> bool {
+        matches!(self.exts.iter().find(|e| e.handle == vh), Some(Ext { kind: ExtKind::Result(r), .. }) if r.lifted)
+    }
+
+    fn new_result_view(&mut self) -> i64 {
+        let handle = self.next;
+        self.next += 1;
+        let view = ResView { bins: 0, binsz: 1.0, offset: 0.0, title: String::new(), xunits: String::new(), yunits: String::new(), xtitle: String::new(), ytitle: String::new(), data: Vec::new(), sweeps: 0, lifted: true };
+        self.exts.push(Ext { handle, kind: ExtKind::Result(view) });
+        self.current = handle;
+        handle
+    }
+
     fn view_elem(&self, vh: i64, ch: i64, i: i64) -> Result<f64, i32> {
         match self.exts.iter().find(|e| e.handle == vh) {
             Some(Ext { kind: ExtKind::Result(r), .. }) => {
@@ -1503,7 +1518,7 @@ impl Host for Session {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
                         ExtKind::Win(..) => 1,
-                        ExtKind::Result(_) => 5,
+                        ExtKind::Result(_) => 4,
                     },
                     None,
                 )
@@ -1519,10 +1534,10 @@ impl Host for Session {
         mem: &mut dyn Mem,
     ) -> Result<Handled, RunError> {
         let some = |v: V| Ok(Some(Some(v)));
-        if name == "SetResult" {
+        if name == "SetResult" && std::env::var_os("S2NATIVE_RESULT").is_some() {
             return self.set_result(variant, args, mem);
         }
-        if matches!(self.exts.iter().find(|e| e.handle == self.current), Some(Ext { kind: ExtKind::Result(_), .. })) {
+        if matches!(self.exts.iter().find(|e| e.handle == self.current), Some(Ext { kind: ExtKind::Result(r), .. }) if !r.lifted) {
             if let Some(out) = self.result_command(name, args, mem)? {
                 return Ok(out);
             }
@@ -2067,6 +2082,12 @@ impl Host for SharedSession {
     }
     fn log_handle(&self) -> i64 {
         self.0.lock().unwrap().log_handle()
+    }
+    fn new_result_view(&mut self) -> i64 {
+        self.0.lock().unwrap().new_result_view()
+    }
+    fn view_lifted(&self, vh: i64) -> bool {
+        self.0.lock().unwrap().view_lifted(vh)
     }
     fn view_elem(&self, vh: i64, ch: i64, i: i64) -> Result<f64, i32> {
         self.0.lock().unwrap().view_elem(vh, ch, i)

@@ -318,15 +318,20 @@ for a in sys.argv:
 MSG_HANDLERS = {}
 CLASS_HANDLERS = {}   # (class number, message) -> handler address
 # the classes whose windows the host builds: 0 the data view's window, 1 the main window
-WINDOW_CLASSES = {0: 0x1402c56c8, 1: 0x1402a56a8, 2: 0x1402a00e8}
+WINDOW_CLASSES = {0: 0x1402c56c8, 1: 0x1402a56a8, 2: 0x1402a00e8, 3: 0x1402b5738}
 for a in sys.argv:
     if a.startswith("--msg="):
         from msgmaps import Maps
         mp = Maps(lifters["sonview"].dll_path)
         want = {int(x, 16) for x in a[len("--msg="):].split(",")}
+        per_class = {}
+        for a2 in sys.argv:
+            if a2.startswith("--msgc="):
+                c_, ms_ = a2[len("--msgc="):].split(":")
+                per_class.setdefault(int(c_), set()).update(int(x, 16) for x in ms_.split(","))
         for cls, vt in WINDOW_CLASSES.items():
             chain = mp.class_maps(vt)
-            for msg in sorted(want):
+            for msg in sorted(want | per_class.get(cls, set())):
                 for arr in chain:
                     hit = [e for e in mp.arrays[arr] if e[0] == msg and e[1:4] == (0, 0, 0)]
                     if hit:

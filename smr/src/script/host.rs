@@ -64,9 +64,17 @@ pub trait Host {
     fn view_elem(&self, _vh: i64, _ch: i64, _i: i64) -> Result<f64, i32> {
         Err(-7001)
     }
+    /// Whether the result view's data is held by the translated code.
+    fn view_lifted(&self, _vh: i64) -> bool {
+        false
+    }
     /// Set it.
     fn set_view_elem(&mut self, _vh: i64, _ch: i64, _i: i64, _v: f64) -> Result<(), i32> {
         Err(-7001)
+    }
+    /// A result view for translated code to fill in: a new view handle, which becomes the current view.
+    fn new_result_view(&mut self) -> i64 {
+        -1
     }
     /// The title of a data view's window.
     fn view_title(&self, _view: i64) -> Option<String> {

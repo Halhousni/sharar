@@ -2073,7 +2073,7 @@ pub(super) fn f_78000aab0(m: &mut M, s: &mut dyn Svc) {
                 // 18000aacf mov rcx, rax
                 { let v = m.gr(0, 8, false); m.sr(1, 8, false, v); }
                 // 18000aad2 call qword ptr [rip + 0x208c8]
-                s.import(m, 705);
+                s.import(m, 706);
                 // 18000aad8 mov qword ptr [rbx + 0x70], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(3, -1, 1, 112); m.st(a, 8, v); }
                 // 18000aadc test rax, rax
@@ -9619,7 +9619,7 @@ pub(super) fn f_780023ea0(m: &mut M, s: &mut dyn Svc) {
                 // 180023efc lea rcx, [rbp - 0x11]
                 { let v = m.ea(5, -1, 1, -17); m.sr(1, 8, false, v); }
                 // 180023f00 call qword ptr [rip + 0x723a]
-                s.import(m, 627);
+                s.import(m, 629);
                 // 180023f06 lea r13, [rip + 0x8423]
                 { let v = 0x78002c330u64; m.sr(13, 8, false, v); }
                 // 180023f0d mov qword ptr [rbp - 0x39], r13
@@ -12737,7 +12737,7 @@ pub(super) fn f_7800269de(m: &mut M, s: &mut dyn Svc) {
             0x7800269de => {
                 m.block(0x7800269de);
                 // 1800269de jmp qword ptr [rip + 0x4744]
-                s.import(m, 436); m.pop(); return;
+                s.import(m, 437); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
