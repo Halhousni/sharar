@@ -694,3 +694,18 @@ frame): the first step that dereferences a parent that does not exist. `tools/pe
 the test for them (Spike2's answers are recorded by `run_oracle.py --only`); it moves to `tools/run_cases/`
 when they agree. The reference file `testdata/run_reference.txt` holds the date `t_date` ran on, so it must
 be regenerated (`run_oracle.py --only t_date`) when the day changes.
+
+
+### Status of the 503 commands
+
+`tools/command_census.py` calls each command once. At the last run, 360 ran, 94 refused the made-up
+arguments (so are implemented), 9 could not be compiled with them and 40 stopped on something the port lacks:
+the `Toolbar*`, `Dlg*` and `Interact` dialogs and toolbars; `Process*`, `ViewLink`, `TabSettings`, `DupChan`,
+`ChanSave`, `MemSave` and `MemDeleteTime`, which need more of the window's own state (its axes, the result
+view); the text-view editing and export commands; `Eval` and `Debug*`, which need the compiler at run
+time; and the multimedia and playback commands. The 1401 commands (`U1401*`, `Sample*` beyond the
+settings) need the hardware library.
+
+Two things differ from the Windows machine the reference was recorded on, because they are the machine's
+state and not Spike2's: the serial ports (the port has none, where that machine has COM1) and the stored
+settings (`Profile` starts empty). A test case must write what it reads.
