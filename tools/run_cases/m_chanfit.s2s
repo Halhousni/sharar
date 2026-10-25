@@ -1,0 +1,17 @@
+var res[200], k%, i%, r%, it%, err, h%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+res[k%] := ChanFit(1, 2, 3); k% += 1;
+res[k%] := ChanFit(1, 1, 0.0, 1.0); k% += 1;
+for i% := 0 to 3 do res[k%] := ChanFitCoef(1, i%); k% += 1; next
+res[k%] := ChanFitValue(1, 0.5); k% += 1;
+res[k%] := ChanFit(1, 3, 1);k% += 1;
+r% := ChanFit(1, 1, 0.5, 2.5, 0.0, err, 300, it%);
+res[k%] := r%; res[k%+1] := err; res[k%+2] := it%; k% += 3;
+for i% := 0 to 2 do res[k%] := ChanFitCoef(1, i%); k% += 1; next
+res[k%] := ChanFitValue(1, 1.0); k% += 1;
+res[k%] := ChanFit(1, 0, 0); k% += 1;
+res[k%] := ChanFit(1, 2, 2); k% += 1;
+r% := ChanFit(1, 1, 1.0, 4.0, 0.0, err, 300, it%);
+res[k%] := r%; res[k%+1] := err; res[k%+2] := it%; k% += 3;
+for i% := 0 to 2 do res[k%] := ChanFitCoef(1, i%); k% += 1; next
