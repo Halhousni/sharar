@@ -98,14 +98,20 @@ PARAM = {1: "a%", 2: "a", 3: "a$"}
 
 def procs_for(ret, types):
     """Routines that fit a group of ret/types, and routines that nearly do."""
-    ok = [PARAM[t].replace("a", f"p{k}") for k, t in enumerate(types)]
+    def param(k, t):
+        if t > 255:
+            # an array parameter: its element type is the low byte
+            return {1: f"p{k}%[]", 2: f"p{k}[]", 3: f"p{k}$[]"}[t & 0xff]
+        return PARAM[t].replace("a", f"p{k}")
+    ok = [param(k, t) for k, t in enumerate(types)]
     out = [("fit", ret, ok), ("byref", ret, ["&" + p for p in ok])]
     out.append(("ret", (ret + 1) % 3, ok))
     out.append(("more", ret, ok + ["x%"]))
     if ok:
         out.append(("fewer", ret, ok[:-1]))
-        flip = [("p0" if k == 0 else f"p{k}") + ("" if types[k] == 1 else "%") if k == 0 else ok[k] for k in range(len(ok))]
-        out.append(("flip", ret, [(PARAM[3 - types[0]]).replace("a", "p0")] + ok[1:]))
+        t0 = types[0] & 0xff
+        if types[0] <= 255:
+            out.append(("flip", ret, [(PARAM[3 - types[0]]).replace("a", "p0")] + ok[1:]))
         out.append(("array", ret, ["p0[]"] + ok[1:]))
     return out
 
@@ -185,7 +191,7 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
     cmds = json.loads(
-        subprocess.run([sys.executable, os.path.join(ROOT, "tools", "command_table.py"), args.runtime],
+        subprocess.run([sys.executable, os.path.join(ROOT, "tools", "command_table.py"), args.runtime, "--all"],
                        capture_output=True, text=True, check=True).stdout
     )
     srcs = list(cases(cmds))

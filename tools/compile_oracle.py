@@ -37,7 +37,7 @@ def cases():
 
 def command_file(runtime, tmp):
     """The registration file compile_oracle.exe reads (see compile_oracle.c)."""
-    cmds = json.loads(subprocess.run([sys.executable, os.path.join(ROOT, "tools", "command_table.py"), runtime],
+    cmds = json.loads(subprocess.run([sys.executable, os.path.join(ROOT, "tools", "command_table.py"), runtime, "--all"],
                                      capture_output=True, text=True, check=True).stdout)
     path = os.path.join(tmp, "commands.txt")
     with open(path, "w") as f:

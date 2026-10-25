@@ -1449,7 +1449,7 @@ struct ArgInfo {
 #[derive(Debug, Clone)]
 struct ProcInfo {
     ret: u8,
-    params: Vec<u8>,
+    params: Vec<u16>,
 }
 
 fn ty_code(t: Ty) -> u8 {
@@ -1508,7 +1508,7 @@ fn proc_arg(g: &Gen, e: &Expr) -> Option<ProcInfo> {
             Kind::Func(t) => ty_code(t),
             _ => 0,
         },
-        params: r.args.iter().map(|p| if p.array { 0 } else { ty_code(p.ty) }).collect(),
+        params: r.args.iter().map(|p| if p.array { 0x100 | ty_code(p.ty) as u16 } else { ty_code(p.ty) as u16 }).collect(),
     })
 }
 
@@ -1584,7 +1584,7 @@ fn group_fits(v: &[u16], at: usize, p: &ProcInfo) -> Option<usize> {
     let end = at + v[at..].iter().position(|&w| w == super::commands::GROUP_CLOSE)?;
     let (ret, params) = (v[at + 1], &v[at + 2..end]);
     (ret as u8 == p.ret && params.len() == p.params.len()
-        && params.iter().zip(&p.params).all(|(&w, &t)| w as u8 == t))
+        && params.iter().zip(&p.params).all(|(&w, &t)| w == t))
     .then_some(end)
 }
 
@@ -1816,31 +1816,31 @@ mod tests {
     #[test]
     fn symbols_start_after_the_last_command() {
         let c = compile_with_commands("var a%;\nvar b;").unwrap();
-        assert_eq!(c.word_of("a%"), Some(126 + 503));
-        assert_eq!(c.word_of("b"), Some(126 + 503 + 1));
+        assert_eq!(c.word_of("a%"), Some(126 + 553));
+        assert_eq!(c.word_of("b"), Some(126 + 553 + 1));
     }
 
     #[test]
     fn a_call_is_its_arguments_their_count_the_command_and_call() {
         // Abs is command 429, so its word is 0x7a + 429 = 551.
-        assert_eq!(with("var x;\nx := Abs(1.5);"), [629, 630, 1, 551, 37, 22, 121]);
+        assert_eq!(with("var x;\nx := Abs(1.5);"), [679, 680, 1, 551, 37, 22, 121]);
         // Mid$ has one form: no variant number.
-        assert_eq!(with("var s$;\ns$ := Mid$(\"hello\",2,3);"), [629, 630, 2, 3, 3, 516, 37, 57, 121]);
+        assert_eq!(with("var s$;\ns$ := Mid$(\"hello\",2,3);"), [679, 680, 2, 3, 3, 516, 37, 57, 121]);
     }
 
     #[test]
     fn a_command_with_several_forms_says_which_one_the_call_fits() {
         // Len(s$) is its first form; Len on a real array its second, on a string array its third.
-        assert_eq!(with("var n%;\nn% := Len(\"abc\");"), [629, 630, 1, 1, 447, 37, 21, 121]);
-        assert_eq!(with("var a[3];\nvar n%;\nn% := Len(a[]);"), [630, 629, 1, 2, 447, 37, 21, 121]);
-        assert_eq!(with("var a$[3];\nvar n%;\nn% := Len(a$[]);"), [630, 629, 1, 3, 447, 37, 21, 121]);
+        assert_eq!(with("var n%;\nn% := Len(\"abc\");"), [679, 680, 1, 1, 447, 37, 21, 121]);
+        assert_eq!(with("var a[3];\nvar n%;\nn% := Len(a[]);"), [680, 679, 1, 2, 447, 37, 21, 121]);
+        assert_eq!(with("var a$[3];\nvar n%;\nn% := Len(a$[]);"), [680, 679, 1, 3, 447, 37, 21, 121]);
     }
 
     #[test]
     fn a_command_used_as_a_statement_discards_its_value() {
         // CallAsProc for one that returns a value, Call for one that returns none.
-        assert_eq!(with("Len(\"x\");"), [629, 1, 1, 447, 36, 121]);
-        assert_eq!(with("var i%;\nEval(i%);"), [629, 1, 122, 37, 121]);
+        assert_eq!(with("Len(\"x\");"), [679, 1, 1, 447, 36, 121]);
+        assert_eq!(with("var i%;\nEval(i%);"), [679, 1, 122, 37, 121]);
     }
 
     #[test]

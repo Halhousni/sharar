@@ -101,11 +101,11 @@ mod tests {
 
     #[test]
     fn the_table_holds_what_the_runtime_registers() {
-        assert_eq!(all().count(), 503);
+        assert_eq!(all().count(), 553);
         let mut names: Vec<_> = all().map(|c| c.name.to_ascii_lowercase()).collect();
         names.sort();
         names.dedup();
-        assert_eq!(names.len(), 503, "names are unique without regard to case");
+        assert_eq!(names.len(), 553, "names are unique without regard to case");
     }
 
     #[test]
