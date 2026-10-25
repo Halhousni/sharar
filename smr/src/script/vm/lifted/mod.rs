@@ -269,6 +269,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             // the script debugger and its log window do not exist here
             "?SetDebuggerString@CRunInfo@@QEBAXAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" | "?WriteLogStr@CRunInfo@@QEBAXPEB_W_N@Z" => {}
             "?LastOperator@CRunInfo@@QEBAGXZ" => m.r[0] = 0,
+            "?DestroyWindow@CWnd@@UEAAHXZ" => m.r[0] = 1,
             // the script options (DebugOpts): kept for the length of the run
             "?SetScriptOption@CRunInfo@@QEBAXHF@Z" => {
                 self.world.script_options.insert(rdx as u32 as i32, r8 as u16 as i16);

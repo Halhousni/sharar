@@ -709,3 +709,11 @@ settings) need the hardware library.
 Two things differ from the Windows machine the reference was recorded on, because they are the machine's
 state and not Spike2's: the serial ports (the port has none, where that machine has COM1) and the stored
 settings (`Profile` starts empty). A test case must write what it reads.
+
+
+### Regenerating the translated code
+
+`tools/regen/regen.sh` runs `lift_runtime.py` with every root, message list and virtual-table slot the
+port needs (`tools/regen/vslots.txt` and `addrs.txt` hold the long lists) and then builds. It needs a Python
+with `capstone` (`PY=`) and the compiler oracle directory (`ORACLE_DIR=`). A new routine the port has to call
+is added to `addrs.txt` as `--addr=module:0xADDRESS`.

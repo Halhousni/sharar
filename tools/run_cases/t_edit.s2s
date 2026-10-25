@@ -1,0 +1,16 @@
+var res[200], k%, h%, r%, s$, i%, lh%;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+k% := 0;
+lh% := LogHandle();
+View(lh%);
+EditSelectAll();
+EditClear();
+Print("abc def abc\nxyz abc\n");
+EditSelectAll();
+s$ := Selection$();
+res[k%] := Len(s$); k% += 1;
+Enc(s$, 100);
