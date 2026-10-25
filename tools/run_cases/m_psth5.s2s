@@ -1,0 +1,16 @@
+var res[300], h%, r%, p%, k%, i%, n%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+r% := SetEvtCrl(3, 20, 0.01, 0.1, 0, 0);
+res[k%] := r%; k% += 1;
+res[k%] := ViewKind(r%); k% += 1;
+p% := Process(0.0, 20.0);
+res[k%] := p%; k% += 1;
+res[k%] := Sweeps(); k% += 1;
+for i% := 0 to 19 do res[k%] := View(r%).[i%]; k% += 1; next
+r% := SetWaveCrl(1, 1, 20, 0.0);
+res[k%] := r%; k% += 1;
+p% := Process(0.0, 1.0);
+res[k%] := p%; k% += 1;
+res[k%] := Sweeps(); k% += 1;
+for i% := 0 to 19 do res[k%] := View(r%).[i%]; k% += 1; next

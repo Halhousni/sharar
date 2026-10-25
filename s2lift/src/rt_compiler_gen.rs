@@ -9513,6 +9513,210 @@ pub(super) fn f_280022880(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_2800228b0(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x2800228b0);
+    let mut pc: u64 = 0x2800228b0;
+    loop {
+        match pc {
+            0x2800228b0 => {
+                m.block(0x2800228b0);
+                // 1800228b0 mov rdx, rcx
+                { let v = m.gr(1, 8, false); m.sr(2, 8, false, v); }
+                // 1800228b3 mov rcx, qword ptr [rip + 0x69666]
+                { let v = m.ld(0x28008bf20u64, 8); m.sr(1, 8, false, v); }
+                // 1800228ba jmp 0x1800228c0
+                f_2800228c0(m, s); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_2800228c0(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x2800228c0);
+    let mut pc: u64 = 0x2800228c0;
+    loop {
+        match pc {
+            0x2800228c0 => {
+                m.block(0x2800228c0);
+                // 1800228c0 mov qword ptr [rsp + 8], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(4, -1, 1, 8); m.st(a, 8, v); }
+                // 1800228c5 push rdi
+                m.push(m.gr(7, 8, false));
+                // 1800228c6 sub rsp, 0x20
+                { let v = m.sub(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 1800228ca mov rbx, rdx
+                { let v = m.gr(2, 8, false); m.sr(3, 8, false, v); }
+                // 1800228cd mov rdi, rcx
+                { let v = m.gr(1, 8, false); m.sr(7, 8, false, v); }
+                // 1800228d0 call 0x180022900
+                m.push(0); f_280022900(m, s);
+                // 1800228d5 test al, al
+                m.and(m.gr(0, 1, false), m.gr(0, 1, false), 1);
+                // 1800228d7 jne 0x1800228f2
+                if m.cc("ne") { pc = 0x2800228f2; continue; }
+                pc = 0x2800228d9; continue;
+            }
+            0x2800228d9 => {
+                m.block(0x2800228d9);
+                // 1800228d9 lea rcx, [rdi + 0x98]
+                { let v = m.ea(7, -1, 1, 152); m.sr(1, 8, false, v); }
+                // 1800228e0 lea r8, [rsp + 0x40]
+                { let v = m.ea(4, -1, 1, 64); m.sr(8, 8, false, v); }
+                // 1800228e5 mov qword ptr [rsp + 0x40], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(4, -1, 1, 64); m.st(a, 8, v); }
+                // 1800228ea mov rdx, qword ptr [rcx]
+                { let v = m.ld(m.ea(1, -1, 1, 0), 8); m.sr(2, 8, false, v); }
+                // 1800228ed call 0x1800227b0
+                m.push(0); f_2800227b0(m, s);
+                pc = 0x2800228f2; continue;
+            }
+            0x2800228f2 => {
+                m.block(0x2800228f2);
+                // 1800228f2 mov rbx, qword ptr [rsp + 0x30]
+                { let v = m.ld(m.ea(4, -1, 1, 48), 8); m.sr(3, 8, false, v); }
+                // 1800228f7 add rsp, 0x20
+                { let v = m.add(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 1800228fb pop rdi
+                { let v = m.pop(); m.sr(7, 8, false, v); }
+                // 1800228fc ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_280022900(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x280022900);
+    let mut pc: u64 = 0x280022900;
+    loop {
+        match pc {
+            0x280022900 => {
+                m.block(0x280022900);
+                // 180022900 mov rax, rsp
+                { let v = m.gr(4, 8, false); m.sr(0, 8, false, v); }
+                // 180022903 mov qword ptr [rax + 0x10], rdx
+                { let v = m.gr(2, 8, false); let a = m.ea(0, -1, 1, 16); m.st(a, 8, v); }
+                // 180022907 sub rsp, 0x28
+                { let v = m.sub(m.gr(4, 8, false), 0x28u64, 8); m.sr(4, 8, false, v); }
+                // 18002290b mov rdx, qword ptr [rcx + 0x98]
+                { let v = m.ld(m.ea(1, -1, 1, 152), 8); m.sr(2, 8, false, v); }
+                // 180022912 lea r9, [rax + 0x10]
+                { let v = m.ea(0, -1, 1, 16); m.sr(9, 8, false, v); }
+                // 180022916 lea rcx, [rax + 0x18]
+                { let v = m.ea(0, -1, 1, 24); m.sr(1, 8, false, v); }
+                // 18002291a mov qword ptr [rax + 8], rdx
+                { let v = m.gr(2, 8, false); let a = m.ea(0, -1, 1, 8); m.st(a, 8, v); }
+                // 18002291e mov r8, rdx
+                { let v = m.gr(2, 8, false); m.sr(8, 8, false, v); }
+                // 180022921 mov rdx, qword ptr [rdx]
+                { let v = m.ld(m.ea(2, -1, 1, 0), 8); m.sr(2, 8, false, v); }
+                // 180022924 call 0x180022940
+                m.push(0); f_280022940(m, s);
+                // 180022929 lea rdx, [rsp + 0x30]
+                { let v = m.ea(4, -1, 1, 48); m.sr(2, 8, false, v); }
+                // 18002292e mov rcx, rax
+                { let v = m.gr(0, 8, false); m.sr(1, 8, false, v); }
+                // 180022931 call 0x180004160
+                m.push(0); f_280004160(m, s);
+                // 180022936 add rsp, 0x28
+                { let v = m.add(m.gr(4, 8, false), 0x28u64, 8); m.sr(4, 8, false, v); }
+                // 18002293a ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_280022940(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x280022940);
+    let mut pc: u64 = 0x280022940;
+    loop {
+        match pc {
+            0x280022940 => {
+                m.block(0x280022940);
+                // 180022940 push rbx
+                m.push(m.gr(3, 8, false));
+                // 180022942 sub rsp, 0x20
+                { let v = m.sub(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180022946 mov rbx, rcx
+                { let v = m.gr(1, 8, false); m.sr(3, 8, false, v); }
+                // 180022949 lea rcx, [rsp + 0x30]
+                { let v = m.ea(4, -1, 1, 48); m.sr(1, 8, false, v); }
+                // 18002294e call 0x180022970
+                m.push(0); f_280022970(m, s);
+                // 180022953 mov rdx, qword ptr [rax]
+                { let v = m.ld(m.ea(0, -1, 1, 0), 8); m.sr(2, 8, false, v); }
+                // 180022956 mov rax, rbx
+                { let v = m.gr(3, 8, false); m.sr(0, 8, false, v); }
+                // 180022959 mov qword ptr [rbx], rdx
+                { let v = m.gr(2, 8, false); let a = m.ea(3, -1, 1, 0); m.st(a, 8, v); }
+                // 18002295c add rsp, 0x20
+                { let v = m.add(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180022960 pop rbx
+                { let v = m.pop(); m.sr(3, 8, false, v); }
+                // 180022961 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_280022970(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x280022970);
+    let mut pc: u64 = 0x280022970;
+    loop {
+        match pc {
+            0x280022970 => {
+                m.block(0x280022970);
+                // 180022970 mov qword ptr [rsp + 0x10], rdx
+                { let v = m.gr(2, 8, false); let a = m.ea(4, -1, 1, 16); m.st(a, 8, v); }
+                pc = 0x280022975; continue;
+            }
+            0x280022975 => {
+                m.block(0x280022975);
+                // 180022975 cmp rdx, r8
+                m.sub(m.gr(2, 8, false), m.gr(8, 8, false), 8);
+                // 180022978 je 0x18002298d
+                if m.cc("e") { pc = 0x28002298d; continue; }
+                pc = 0x28002297a; continue;
+            }
+            0x28002297a => {
+                m.block(0x28002297a);
+                // 18002297a mov rax, qword ptr [r9]
+                { let v = m.ld(m.ea(9, -1, 1, 0), 8); m.sr(0, 8, false, v); }
+                // 18002297d cmp qword ptr [rdx + 0x10], rax
+                m.sub(m.ld(m.ea(2, -1, 1, 16), 8), m.gr(0, 8, false), 8);
+                // 180022981 je 0x18002298d
+                if m.cc("e") { pc = 0x28002298d; continue; }
+                pc = 0x280022983; continue;
+            }
+            0x280022983 => {
+                m.block(0x280022983);
+                // 180022983 mov rdx, qword ptr [rdx]
+                { let v = m.ld(m.ea(2, -1, 1, 0), 8); m.sr(2, 8, false, v); }
+                // 180022986 mov qword ptr [rsp + 0x10], rdx
+                { let v = m.gr(2, 8, false); let a = m.ea(4, -1, 1, 16); m.st(a, 8, v); }
+                // 18002298b jmp 0x180022975
+                pc = 0x280022975; continue;
+            }
+            0x28002298d => {
+                m.block(0x28002298d);
+                // 18002298d mov qword ptr [rcx], rdx
+                { let v = m.gr(2, 8, false); let a = m.ea(1, -1, 1, 0); m.st(a, 8, v); }
+                // 180022990 mov rax, rcx
+                { let v = m.gr(1, 8, false); m.sr(0, 8, false, v); }
+                // 180022993 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_2800229a0(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x2800229a0);
     let mut pc: u64 = 0x2800229a0;
@@ -37486,6 +37690,23 @@ pub(super) fn f_28002d870(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_28002d8a0(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x28002d8a0);
+    let mut pc: u64 = 0x28002d8a0;
+    loop {
+        match pc {
+            0x28002d8a0 => {
+                m.block(0x28002d8a0);
+                // 18002d8a0 mov rax, qword ptr [rip + 0x5e6b9]
+                { let v = m.ld(0x28008bf60u64, 8); m.sr(0, 8, false, v); }
+                // 18002d8a7 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_28002dc60(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x28002dc60);
     let mut pc: u64 = 0x28002dc60;
@@ -39551,6 +39772,107 @@ pub(super) fn f_280030e50(m: &mut M, s: &mut dyn Svc) {
                 { let v = m.gr(0, 4, false); let a = m.ea(1, -1, 1, 16); m.st(a, 4, v); }
                 // 180030e5c ret 
                 m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_280030f60(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x280030f60);
+    let mut pc: u64 = 0x280030f60;
+    loop {
+        match pc {
+            0x280030f60 => {
+                m.block(0x280030f60);
+                // 180030f60 push rbx
+                m.push(m.gr(3, 8, false));
+                // 180030f62 sub rsp, 0x20
+                { let v = m.sub(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180030f66 mov rcx, qword ptr [rip + 0x5afb3]
+                { let v = m.ld(0x28008bf20u64, 8); m.sr(1, 8, false, v); }
+                // 180030f6d mov rbx, r9
+                { let v = m.gr(9, 8, false); m.sr(3, 8, false, v); }
+                // 180030f70 call 0x180030f90
+                m.push(0); f_280030f90(m, s);
+                // 180030f75 xor eax, eax
+                { let v = m.xor(m.gr(0, 4, false), m.gr(0, 4, false), 4); m.sr(0, 4, false, v); }
+                // 180030f77 cmp dword ptr [rbx], eax
+                m.sub(m.ld(m.ea(3, -1, 1, 0), 4), m.gr(0, 4, false), 4);
+                // 180030f79 setne al
+                { let v = m.cc("ne") as u64; m.sr(0, 1, false, v); }
+                // 180030f7c add rsp, 0x20
+                { let v = m.add(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180030f80 pop rbx
+                { let v = m.pop(); m.sr(3, 8, false, v); }
+                // 180030f81 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_280030f90(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x280030f90);
+    let mut pc: u64 = 0x280030f90;
+    loop {
+        match pc {
+            0x280030f90 => {
+                m.block(0x280030f90);
+                // 180030f90 mov qword ptr [rsp + 8], rbx
+                { let v = m.gr(3, 8, false); let a = m.ea(4, -1, 1, 8); m.st(a, 8, v); }
+                // 180030f95 push rdi
+                m.push(m.gr(7, 8, false));
+                // 180030f96 sub rsp, 0x20
+                { let v = m.sub(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180030f9a mov rcx, qword ptr [rcx + 0x90]
+                { let v = m.ld(m.ea(1, -1, 1, 144), 8); m.sr(1, 8, false, v); }
+                // 180030fa1 mov rdi, r9
+                { let v = m.gr(9, 8, false); m.sr(7, 8, false, v); }
+                // 180030fa4 mov r9, r8
+                { let v = m.gr(8, 8, false); m.sr(9, 8, false, v); }
+                // 180030fa7 movsx r8, dx
+                { let v = crate::mach::sx(m.gr(2, 2, false), 2); m.sr(8, 8, false, v); }
+                // 180030fab mov edx, 0xd35
+                { let v = 0xd35u64; m.sr(2, 4, false, v); }
+                // 180030fb0 xor ebx, ebx
+                { let v = m.xor(m.gr(3, 4, false), m.gr(3, 4, false), 4); m.sr(3, 4, false, v); }
+                // 180030fb2 call qword ptr [rip + 0x26570]
+                s.import(m, 17);
+                // 180030fb8 test rax, rax
+                m.and(m.gr(0, 8, false), m.gr(0, 8, false), 8);
+                // 180030fbb js 0x180053ba6
+                if m.cc("s") { pc = 0x280053ba6; continue; }
+                pc = 0x280030fc1; continue;
+            }
+            0x280030fc1 => {
+                m.block(0x280030fc1);
+                // 180030fc1 mov dword ptr [rdi], eax
+                { let v = m.gr(0, 4, false); let a = m.ea(7, -1, 1, 0); m.st(a, 4, v); }
+                pc = 0x280030fc3; continue;
+            }
+            0x280030fc3 => {
+                m.block(0x280030fc3);
+                // 180030fc3 mov eax, ebx
+                { let v = m.gr(3, 4, false); m.sr(0, 4, false, v); }
+                // 180030fc5 mov rbx, qword ptr [rsp + 0x30]
+                { let v = m.ld(m.ea(4, -1, 1, 48), 8); m.sr(3, 8, false, v); }
+                // 180030fca add rsp, 0x20
+                { let v = m.add(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180030fce pop rdi
+                { let v = m.pop(); m.sr(7, 8, false, v); }
+                // 180030fcf ret 
+                m.pop(); return;
+            }
+            0x280053ba6 => {
+                m.block(0x280053ba6);
+                // 180053ba6 and dword ptr [rdi], 0
+                { let v = m.and(m.ld(m.ea(7, -1, 1, 0), 4), 0x0u64, 4); let a = m.ea(7, -1, 1, 0); m.st(a, 4, v); }
+                // 180053ba9 mov ebx, eax
+                { let v = m.gr(0, 4, false); m.sr(3, 4, false, v); }
+                // 180053bab jmp 0x180030fc3
+                pc = 0x280030fc3; continue;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -42905,6 +43227,36 @@ pub(super) fn f_280033f20(m: &mut M, s: &mut dyn Svc) {
                 { let v = m.pop(); m.sr(7, 8, false, v); }
                 // 180033f8b ret 
                 m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
+pub(super) fn f_280034000(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x280034000);
+    let mut pc: u64 = 0x280034000;
+    loop {
+        match pc {
+            0x280034000 => {
+                m.block(0x280034000);
+                // 180034000 mov rcx, qword ptr [rip + 0x57f19]
+                { let v = m.ld(0x28008bf20u64, 8); m.sr(1, 8, false, v); }
+                // 180034007 jmp 0x180046150
+                pc = 0x280046150; continue;
+            }
+            0x280046150 => {
+                m.block(0x280046150);
+                // 180046150 mov rcx, qword ptr [rcx + 0x90]
+                { let v = m.ld(m.ea(1, -1, 1, 144), 8); m.sr(1, 8, false, v); }
+                // 180046157 movzx r9d, r8b
+                { let v = m.gr(8, 1, false); m.sr(9, 4, false, v); }
+                // 18004615b mov r8d, edx
+                { let v = m.gr(2, 4, false); m.sr(8, 4, false, v); }
+                // 18004615e mov edx, 0xd36
+                { let v = 0xd36u64; m.sr(2, 4, false, v); }
+                // 180046163 jmp qword ptr [rip + 0x113be]
+                s.import(m, 17); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -73105,6 +73457,11 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x280022800 => f_280022800(m, s),
         0x280022850 => f_280022850(m, s),
         0x280022880 => f_280022880(m, s),
+        0x2800228b0 => f_2800228b0(m, s),
+        0x2800228c0 => f_2800228c0(m, s),
+        0x280022900 => f_280022900(m, s),
+        0x280022940 => f_280022940(m, s),
+        0x280022970 => f_280022970(m, s),
         0x2800229a0 => f_2800229a0(m, s),
         0x280022a20 => f_280022a20(m, s),
         0x280022ab0 => f_280022ab0(m, s),
@@ -73352,6 +73709,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x28002caa0 => f_28002caa0(m, s),
         0x28002d840 => f_28002d840(m, s),
         0x28002d870 => f_28002d870(m, s),
+        0x28002d8a0 => f_28002d8a0(m, s),
         0x28002dc60 => f_28002dc60(m, s),
         0x28002dca0 => f_28002dca0(m, s),
         0x28002dfc0 => f_28002dfc0(m, s),
@@ -73376,6 +73734,8 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x280030b90 => f_280030b90(m, s),
         0x280030d40 => f_280030d40(m, s),
         0x280030e50 => f_280030e50(m, s),
+        0x280030f60 => f_280030f60(m, s),
+        0x280030f90 => f_280030f90(m, s),
         0x280031040 => f_280031040(m, s),
         0x2800311c0 => f_2800311c0(m, s),
         0x280031350 => f_280031350(m, s),
@@ -73427,6 +73787,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x280033e40 => f_280033e40(m, s),
         0x280033eb0 => f_280033eb0(m, s),
         0x280033f20 => f_280033f20(m, s),
+        0x280034000 => f_280034000(m, s),
         0x2800340a0 => f_2800340a0(m, s),
         0x280034190 => f_280034190(m, s),
         0x280034240 => f_280034240(m, s),
@@ -73790,6 +74151,11 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x280022800 => f_280022800(m, s),
         0x280022850 => f_280022850(m, s),
         0x280022880 => f_280022880(m, s),
+        0x2800228b0 => f_2800228b0(m, s),
+        0x2800228c0 => f_2800228c0(m, s),
+        0x280022900 => f_280022900(m, s),
+        0x280022940 => f_280022940(m, s),
+        0x280022970 => f_280022970(m, s),
         0x2800229a0 => f_2800229a0(m, s),
         0x280022a20 => f_280022a20(m, s),
         0x280022ab0 => f_280022ab0(m, s),
@@ -74037,6 +74403,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x28002caa0 => f_28002caa0(m, s),
         0x28002d840 => f_28002d840(m, s),
         0x28002d870 => f_28002d870(m, s),
+        0x28002d8a0 => f_28002d8a0(m, s),
         0x28002dc60 => f_28002dc60(m, s),
         0x28002dca0 => f_28002dca0(m, s),
         0x28002dfc0 => f_28002dfc0(m, s),
@@ -74061,6 +74428,8 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x280030b90 => f_280030b90(m, s),
         0x280030d40 => f_280030d40(m, s),
         0x280030e50 => f_280030e50(m, s),
+        0x280030f60 => f_280030f60(m, s),
+        0x280030f90 => f_280030f90(m, s),
         0x280031040 => f_280031040(m, s),
         0x2800311c0 => f_2800311c0(m, s),
         0x280031350 => f_280031350(m, s),
@@ -74112,6 +74481,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x280033e40 => f_280033e40(m, s),
         0x280033eb0 => f_280033eb0(m, s),
         0x280033f20 => f_280033f20(m, s),
+        0x280034000 => f_280034000(m, s),
         0x2800340a0 => f_2800340a0(m, s),
         0x280034190 => f_280034190(m, s),
         0x280034240 => f_280034240(m, s),
@@ -74474,6 +74844,20 @@ pub(crate) fn tail_28001f8f0(m: &mut M, s: &mut dyn Svc) {
 pub(crate) fn enter_28001f8f0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_28001f8f0(m, s); });
 }
+pub(crate) fn tail_280021f30(m: &mut M, s: &mut dyn Svc) {
+    f_280021f30(m, s)
+}
+/// Run the routine at 0x180021f30 with the machine's registers as the caller set them.
+pub(crate) fn enter_280021f30(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_280021f30(m, s); });
+}
+pub(crate) fn tail_280021f40(m: &mut M, s: &mut dyn Svc) {
+    f_280021f40(m, s)
+}
+/// Run the routine at 0x180021f40 with the machine's registers as the caller set them.
+pub(crate) fn enter_280021f40(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_280021f40(m, s); });
+}
 pub(crate) fn tail_280021fb0(m: &mut M, s: &mut dyn Svc) {
     f_280021fb0(m, s)
 }
@@ -74481,12 +74865,40 @@ pub(crate) fn tail_280021fb0(m: &mut M, s: &mut dyn Svc) {
 pub(crate) fn enter_280021fb0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_280021fb0(m, s); });
 }
+pub(crate) fn tail_280022400(m: &mut M, s: &mut dyn Svc) {
+    f_280022400(m, s)
+}
+/// Run the routine at 0x180022400 with the machine's registers as the caller set them.
+pub(crate) fn enter_280022400(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_280022400(m, s); });
+}
 pub(crate) fn tail_2800224c0(m: &mut M, s: &mut dyn Svc) {
     f_2800224c0(m, s)
 }
 /// Run the routine at 0x1800224c0 with the machine's registers as the caller set them.
 pub(crate) fn enter_2800224c0(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_2800224c0(m, s); });
+}
+pub(crate) fn tail_2800226a0(m: &mut M, s: &mut dyn Svc) {
+    f_2800226a0(m, s)
+}
+/// Run the routine at 0x1800226a0 with the machine's registers as the caller set them.
+pub(crate) fn enter_2800226a0(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_2800226a0(m, s); });
+}
+pub(crate) fn tail_280022880(m: &mut M, s: &mut dyn Svc) {
+    f_280022880(m, s)
+}
+/// Run the routine at 0x180022880 with the machine's registers as the caller set them.
+pub(crate) fn enter_280022880(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_280022880(m, s); });
+}
+pub(crate) fn tail_2800228b0(m: &mut M, s: &mut dyn Svc) {
+    f_2800228b0(m, s)
+}
+/// Run the routine at 0x1800228b0 with the machine's registers as the caller set them.
+pub(crate) fn enter_2800228b0(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_2800228b0(m, s); });
 }
 pub(crate) fn tail_2800229a0(m: &mut M, s: &mut dyn Svc) {
     f_2800229a0(m, s)
@@ -74915,6 +75327,13 @@ pub(crate) fn tail_28002c830(m: &mut M, s: &mut dyn Svc) {
 pub(crate) fn enter_28002c830(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_28002c830(m, s); });
 }
+pub(crate) fn tail_28002d8a0(m: &mut M, s: &mut dyn Svc) {
+    f_28002d8a0(m, s)
+}
+/// Run the routine at 0x18002d8a0 with the machine's registers as the caller set them.
+pub(crate) fn enter_28002d8a0(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_28002d8a0(m, s); });
+}
 pub(crate) fn tail_28002dc60(m: &mut M, s: &mut dyn Svc) {
     f_28002dc60(m, s)
 }
@@ -75006,6 +75425,13 @@ pub(crate) fn tail_280030e50(m: &mut M, s: &mut dyn Svc) {
 pub(crate) fn enter_280030e50(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_280030e50(m, s); });
 }
+pub(crate) fn tail_280030f60(m: &mut M, s: &mut dyn Svc) {
+    f_280030f60(m, s)
+}
+/// Run the routine at 0x180030f60 with the machine's registers as the caller set them.
+pub(crate) fn enter_280030f60(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_280030f60(m, s); });
+}
 pub(crate) fn tail_280031040(m: &mut M, s: &mut dyn Svc) {
     f_280031040(m, s)
 }
@@ -75082,6 +75508,13 @@ pub(crate) fn tail_280032d70(m: &mut M, s: &mut dyn Svc) {
 /// Run the routine at 0x180032d70 with the machine's registers as the caller set them.
 pub(crate) fn enter_280032d70(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_280032d70(m, s); });
+}
+pub(crate) fn tail_280034000(m: &mut M, s: &mut dyn Svc) {
+    f_280034000(m, s)
+}
+/// Run the routine at 0x180034000 with the machine's registers as the caller set them.
+pub(crate) fn enter_280034000(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_280034000(m, s); });
 }
 pub(crate) fn tail_280034190(m: &mut M, s: &mut dyn Svc) {
     f_280034190(m, s)

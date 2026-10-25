@@ -205749,6 +205749,35 @@ pub(super) fn f_580050e50(m: &mut M, s: &mut dyn Svc) {
     }
 }
 
+pub(super) fn f_580050f10(m: &mut M, s: &mut dyn Svc) {
+    m.trace_enter(0x580050f10);
+    let mut pc: u64 = 0x580050f10;
+    loop {
+        match pc {
+            0x580050f10 => {
+                m.block(0x580050f10);
+                // 180050f10 push rbx
+                m.push(m.gr(3, 8, false));
+                // 180050f12 sub rsp, 0x20
+                { let v = m.sub(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180050f16 mov rbx, rcx
+                { let v = m.gr(1, 8, false); m.sr(3, 8, false, v); }
+                // 180050f19 call 0x180050f30
+                m.push(0); f_580050f30(m, s);
+                // 180050f1e mov rax, rbx
+                { let v = m.gr(3, 8, false); m.sr(0, 8, false, v); }
+                // 180050f21 add rsp, 0x20
+                { let v = m.add(m.gr(4, 8, false), 0x20u64, 8); m.sr(4, 8, false, v); }
+                // 180050f25 pop rbx
+                { let v = m.pop(); m.sr(3, 8, false, v); }
+                // 180050f26 ret 
+                m.pop(); return;
+            }
+            _ => unreachable!("jump to {pc:#x}"),
+        }
+    }
+}
+
 pub(super) fn f_580050f30(m: &mut M, s: &mut dyn Svc) {
     m.trace_enter(0x580050f30);
     let mut pc: u64 = 0x580050f30;
@@ -345401,6 +345430,7 @@ fn call_ptr(m: &mut M, s: &mut dyn Svc, t: u64) {
         0x580050e10 => f_580050e10(m, s),
         0x580050e40 => f_580050e40(m, s),
         0x580050e50 => f_580050e50(m, s),
+        0x580050f10 => f_580050f10(m, s),
         0x580050f30 => f_580050f30(m, s),
         0x580051030 => f_580051030(m, s),
         0x5800511b0 => f_5800511b0(m, s),
@@ -347526,6 +347556,7 @@ pub(crate) fn try_call(m: &mut M, s: &mut dyn Svc, t: u64) -> bool {
         0x580050e10 => f_580050e10(m, s),
         0x580050e40 => f_580050e40(m, s),
         0x580050e50 => f_580050e50(m, s),
+        0x580050f10 => f_580050f10(m, s),
         0x580050f30 => f_580050f30(m, s),
         0x580051030 => f_580051030(m, s),
         0x5800511b0 => f_5800511b0(m, s),
@@ -352733,6 +352764,13 @@ pub(crate) fn tail_580050e50(m: &mut M, s: &mut dyn Svc) {
 /// Run the routine at 0x180050e50 with the machine's registers as the caller set them.
 pub(crate) fn enter_580050e50(m: &mut M, s: &mut dyn Svc) {
     m.with_img(&IMG, |m| { m.push(0); f_580050e50(m, s); });
+}
+pub(crate) fn tail_580050f10(m: &mut M, s: &mut dyn Svc) {
+    f_580050f10(m, s)
+}
+/// Run the routine at 0x180050f10 with the machine's registers as the caller set them.
+pub(crate) fn enter_580050f10(m: &mut M, s: &mut dyn Svc) {
+    m.with_img(&IMG, |m| { m.push(0); f_580050f10(m, s); });
 }
 pub(crate) fn tail_580050f30(m: &mut M, s: &mut dyn Svc) {
     f_580050f30(m, s)

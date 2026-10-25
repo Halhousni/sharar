@@ -834,6 +834,52 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 self.world.classes.insert(name, proc_);
                 m.r[0] = 0xc001 + self.world.classes.len() as u64;
             }
+            "__RTDynamicCast" => {
+                // walk the run-time type information of the object's class for the target type
+                let (obj, target) = (rcx, r9);
+                m.r[0] = 0;
+                if obj != 0 {
+                    let vt = m.ld(obj, 8);
+                    let col = m.ld(vt - 8, 8);
+                    let base = col.wrapping_sub(m.ld(col + 20, 4));
+                    let chd = base + m.ld(col + 16, 4);
+                    let n = m.ld(chd + 8, 4);
+                    let arr = base + m.ld(chd + 12, 4);
+                    let name_of = |m: &mut M, td: u64| -> Vec<u8> { (0..64).map(|k| m.ld(td + 16 + k, 1) as u8).take_while(|&b| b != 0).collect() };
+                    let want = name_of(m, target);
+                    let top = obj - m.ld(col + 4, 4);
+                    for k in 0..n {
+                        let bcd = base + m.ld(arr + 4 * k, 4);
+                        let td = base + m.ld(bcd, 4);
+                        if td == target || name_of(m, td) == want {
+                            let (mdisp, pdisp, vdisp) = (m.ld(bcd + 8, 4) as u32 as i32 as i64, m.ld(bcd + 12, 4) as u32 as i32 as i64, m.ld(bcd + 16, 4) as u32 as i32 as i64);
+                            let mut p = top.wrapping_add(mdisp as u64);
+                            if pdisp != -1 {
+                                let vbt = m.ld(top.wrapping_add(pdisp as u64), 8);
+                                p = p.wrapping_add(m.ld(vbt.wrapping_add(vdisp as u64), 4) as u32 as i32 as i64 as u64).wrapping_add(pdisp as u64).wrapping_sub(pdisp as u64);
+                            }
+                            m.r[0] = p;
+                            break;
+                        }
+                    }
+                }
+            }
+            // a command's hidden window, which the command's own code answers messages for
+            "RegisterClassW" => {
+                let proc_ = m.ld(rcx + 8, 8);
+                let class = String::from_utf16_lossy(&win::wide_at(m, m.ld(rcx + 0x40, 8)));
+                self.world.classes.insert(class, proc_);
+                m.r[0] = 0xc001 + self.world.classes.len() as u64;
+            }
+            "CreateWindowExW" => {
+                let class = String::from_utf16_lossy(&win::wide_at(m, rdx));
+                self.world.next_hwnd += 16;
+                let hwnd = self.world.next_hwnd;
+                if let Some(&wp) = self.world.classes.get(&class) {
+                    self.world.cmd_wins.insert(hwnd, wp);
+                }
+                m.r[0] = hwnd;
+            }
             "GetWindowLongPtrA" | "GetWindowLongPtrW" | "GetWindowLongA" | "GetWindowLongW" => {
                 m.r[0] = self.world.winlong.get(&(rcx, rdx as u32 as i32 as i64)).copied().unwrap_or(0);
             }
@@ -998,6 +1044,10 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.r[0] = r;
             }
             "SendMessageA" => m.r[0] = 0,
+            "SendMessageW" if self.world.cmd_wins.contains_key(&rcx) => {
+                let wp = self.world.cmd_wins[&rcx];
+                m.r[0] = self.call_lifted(m, wp, [rcx, rdx, r8, r9]);
+            }
             "SendMessageW" => {
                 let msg = rdx as u32;
                 m.r[0] = match msg {
@@ -1759,6 +1809,12 @@ impl<'v, 'w> Run<'v, 'w> {
         if let Some(&o) = self.world.sonfiles.get(&h) {
             return o;
         }
+        // a result view reads the file of the time view it was made from
+        if let Some(src) = self.vm.host.as_ref().and_then(|host| host.result_source(h)) {
+            if src != h {
+                return self.sonfile_of(m, src);
+            }
+        }
         let info = self.vm.host.as_ref().and_then(|host| host.view_info(h));
         if std::env::var_os("S2LIFT_SERVICES").is_some() {
             eprintln!("  sonfile for view {h}: {info:?}");
@@ -1932,6 +1988,8 @@ pub struct World {
     sci_loaded: bool,
     sci_wins: std::collections::HashSet<u64>,
     next_hwnd: u64,
+    /// The hidden windows commands make, with the routine that answers their messages.
+    cmd_wins: std::collections::HashMap<u64, u64>,
     /// The files `CFileFind` objects have found, and the one each is at.
     ffind: std::collections::HashMap<u64, (std::collections::VecDeque<std::path::PathBuf>, Option<std::path::PathBuf>)>,
     /// The editor window of each text window that has one (by view handle), and which of them is the log.
@@ -1953,7 +2011,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, ffind: Default::default(), edits: Default::default(), log_h: -1, doc_view: Default::default(), reswins: Default::default(), frames: Default::default() }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, cmd_wins: Default::default(), ffind: Default::default(), edits: Default::default(), log_h: -1, doc_view: Default::default(), reswins: Default::default(), frames: Default::default() }
     }
 }
 
@@ -1987,6 +2045,10 @@ impl Vm {
                     let _ = r;
                 }
                 commands::register_all(&mut m, &mut run);
+                // the libraries whose command objects are globals
+                for (n, a) in commands::STATIC_OBJECTS {
+                    run.world.objects.entry(n.to_string()).or_insert(*a);
+                }
                 if let Some(h) = run.vm.host.as_ref() {
                     win::set_maps(h.path_maps());
                 }
@@ -2013,6 +2075,9 @@ impl Vm {
             let obj = match run.world.objects.get(name) {
                 Some(&o) => o,
                 None => {
+                    if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                        eprintln!("  (no command object for {name}; have {})", run.world.objects.len());
+                    }
                     let o = m.alloc(0x1000);
                     run.world.objects.insert(name.to_string(), o);
                     o

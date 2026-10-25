@@ -717,6 +717,26 @@ class Lifter:
                     f"let l = if {imm} & 1 == 0 {{ d as u64 }} else {{ (d >> 64) as u64 }}; "
                     f"let h = if {imm} & 2 == 0 {{ s as u64 }} else {{ (s >> 64) as u64 }}; "
                     f"m.x[{di}] = l as u128 | (h as u128) << 64; }}"), False
+        if mn in ("shufps", "pshufd"):
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            imm = ops[2].imm
+            src = self.x128(ins, ops[1])
+            if mn == "shufps":
+                return (f"{{ let d = m.x[{di}]; let s = {src}; let l = |v: u128, i: u32| -> u128 {{ (v >> (32 * i)) & 0xffff_ffff }}; "
+                        f"m.x[{di}] = l(d, {imm & 3}) | l(d, {(imm >> 2) & 3}) << 32 | l(s, {(imm >> 4) & 3}) << 64 | l(s, {(imm >> 6) & 3}) << 96; }}"), False
+            return (f"{{ let s = {src}; let l = |i: u32| -> u128 {{ (s >> (32 * i)) & 0xffff_ffff }}; "
+                    f"m.x[{di}] = l({imm & 3}) | l({(imm >> 2) & 3}) << 32 | l({(imm >> 4) & 3}) << 64 | l({(imm >> 6) & 3}) << 96; }}"), False
+        if mn in ("unpcklps", "unpckhps"):
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            base = 0 if mn == "unpcklps" else 2
+            return (f"{{ let d = m.x[{di}]; let s = {self.x128(ins, ops[1])}; let l = |v: u128, i: u32| -> u128 {{ (v >> (32 * i)) & 0xffff_ffff }}; "
+                    f"m.x[{di}] = l(d, {base}) | l(s, {base}) << 32 | l(d, {base + 1}) << 64 | l(s, {base + 1}) << 96; }}"), False
+        if mn in ("addps", "subps", "mulps", "divps"):
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            op = {"addps": "+", "subps": "-", "mulps": "*", "divps": "/"}[mn]
+            return (f"{{ let d = m.x[{di}]; let s = {self.x128(ins, ops[1])}; let mut o = 0u128; for i in 0..4 {{ "
+                    f"let a = f32::from_bits((d >> (32 * i)) as u32); let b = f32::from_bits((s >> (32 * i)) as u32); "
+                    f"o |= ((a {op} b).to_bits() as u128) << (32 * i); }} m.x[{di}] = o; }}"), False
         if mn in ("movlpd", "movlps"):
             d, sop = ops
             if d.type == X.X86_OP_REG:
@@ -734,6 +754,10 @@ class Lifter:
             return f"m.x[{di}] >>= {8 * ops[1].imm};", False
         if mn == "movmskpd":
             return put(ins, ops[0], f"m.movmskpd({xmm_index(ins.reg_name(ops[1].reg))})"), False
+        if mn == "psllq" and ops[1].type == X.X86_OP_IMM:
+            di = xmm_index(ins.reg_name(ops[0].reg))
+            return (f"{{ let s = m.x[{di}]; let n = {ops[1].imm}; m.x[{di}] = if n > 63 {{ 0 }} else {{ (((s as u64) << n) as u128) | "
+                    f"((((s >> 64) as u64) << n) as u128) << 64 }}; }}"), False
         if mn == "psrlq":
             di = xmm_index(ins.reg_name(ops[0].reg))
             return (f"{{ let s = m.x[{di}]; let n = {ops[1].imm}; m.x[{di}] = (((s as u64) >> n) as u128) | "

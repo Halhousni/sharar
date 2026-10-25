@@ -1,0 +1,17 @@
+var res[300], h%, r%, p%, k%, i%, n%;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+r% := SetAverage(1, 100, 0.0, 3, 0);
+res[k%] := r%; k% += 1;
+res[k%] := ViewKind(r%); k% += 1;
+p% := Process(0.0, 20.0);
+res[k%] := p%; k% += 1;
+res[k%] := Sweeps(); k% += 1;
+res[k%] := MaxTime(); k% += 1;
+res[k%] := BinSize(); k% += 1;
+for i% := 0 to 99 step 7 do res[k%] := View(r%).[i%]; k% += 1; next
+r% := SetAverage(1, 50, 0.01, 2, 1);
+p% := Process(0.0, 15.0);
+res[k%] := p%; k% += 1;
+res[k%] := Sweeps(); k% += 1;
+for i% := 0 to 49 step 5 do res[k%] := View(r%).[i%]; k% += 1; next

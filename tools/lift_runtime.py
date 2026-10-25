@@ -138,7 +138,7 @@ def cross_data(name):
 for mod, f in MODULES.items():
     roots = [execs[n] for n in wanted if cmd_module.get(n) == mod]
     lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross, cross_data=cross_data, bias=BIAS[mod])
-    lifters[mod].whole_data = mod in ("scilexer", "firwin", "fitting", "mateng")
+    lifters[mod].whole_data = mod in ("scilexer", "firwin", "fitting", "mateng", "spikecmd")
     lifters[mod].import_names = import_names
     lifters[mod].pointer_hooks = "--pointer-hooks" in sys.argv
 
@@ -180,10 +180,10 @@ def init_tables(mod):
     out = []
     for st in sorted(im.starts):
         end = im.ends.get(st)
-        if end is None or end - st > 0x40:
+        if end is None or end - st > (0x70 if mod == "spikecmd" else 0x40):
             continue
         ins = list(MD.disasm(im.b[im.off(st):im.off(st) + end - st], st))
-        if not (3 <= len(ins) <= 12) or ins[-1].mnemonic not in ("jmp", "ret"):
+        if not (3 <= len(ins) <= (24 if mod == "spikecmd" else 12)) or ins[-1].mnemonic not in ("jmp", "ret"):
             continue
         leas = [i.address + i.size + i.operands[1].mem.disp for i in ins
                 if i.mnemonic == "lea" and i.operands[1].type == X.X86_OP_MEM and i.operands[1].mem.base == X.X86_REG_RIP]
@@ -478,6 +478,40 @@ lines += ["}", "", "/// Each command's vtable, which says which command an objec
 lines += [f"    ({json.dumps(c['name'])}, {c['vtable']:#x})," for c in table if c["name"] in set(wanted)]
 for m_ in EXTRA_MODS:
     lines += [f"    ({json.dumps(c['name'])}, {c['vtable'] + BIAS[m_]:#x})," for c in EXTRA_ROWS[m_] if c["name"] in set(wanted)]
+lines += ["];", ""]
+# A library whose command objects are globals (their constructors are static initialisers) never
+# hands them to `DoInit` itself: find each object by the store of its vtable.
+def static_objects(m_):
+    lf = lifters[m_]
+    im = lf.im
+    rows = [c for c in EXTRA_ROWS[m_] if c["name"] in set(wanted)]
+    by_vt = {}
+    for c in rows:
+        by_vt.setdefault(c["vtable"], []).append(c["name"])
+    found = {}
+    for st in im.starts:
+        end = im.ends.get(st)
+        if end is None:
+            continue
+        ins = list(MD.disasm(im.b[im.off(st):im.off(st) + end - st], st))
+        for k, i in enumerate(ins):
+            if i.mnemonic == "lea" and i.op_str.startswith("rax, [rip") and i.address + i.size + i.operands[1].mem.disp in by_vt:
+                vt = i.address + i.size + i.operands[1].mem.disp
+                for j in ins[k + 1:k + 3]:
+                    if j.mnemonic == "mov" and j.operands[1].type == 1 and j.operands[0].type == 3 and j.operands[0].mem.base == 41 \
+                            and j.operands[0].mem.disp and j.op_str.endswith(", rax"):
+                        found.setdefault(vt, []).append(j.address + j.size + j.operands[0].mem.disp)
+    out = []
+    for vt, objs in found.items():
+        for k, name in enumerate(by_vt[vt]):
+            out.append((name, objs[min(k, len(objs) - 1)] + BIAS[m_]))
+    return out
+SO = []
+for m_ in EXTRA_MODS:
+    if not EXTRA_REGISTRARS.get(m_):
+        SO += static_objects(m_)
+lines += ["/// The command objects a library keeps as globals, by command name.", "pub const STATIC_OBJECTS: &[(&str, u64)] = &["]
+lines += [f"    ({json.dumps(n)}, {a:#x})," for n, a in SO]
 lines += ["];", "",
           "/// Call an exported routine that was asked for with `--root` by its decorated name.",
           "pub fn call_export(name: &str, m: &mut crate::mach::M, s: &mut dyn crate::Svc) -> bool {",

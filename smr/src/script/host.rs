@@ -64,6 +64,10 @@ pub trait Host {
     fn view_elem(&self, _vh: i64, _ch: i64, _i: i64) -> Result<f64, i32> {
         Err(-7001)
     }
+    /// The time view a result view reads.
+    fn result_source(&self, _vh: i64) -> Option<i64> {
+        None
+    }
     /// Whether the result view's data is held by the translated code.
     fn view_lifted(&self, _vh: i64) -> bool {
         false

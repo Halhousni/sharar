@@ -91,6 +91,8 @@ struct ResView {
     sweeps: i64,
     /// The view's data is held by Spike2's own result view objects, not here.
     lifted: bool,
+    /// The time view the analysis reads: the one that was current when the view was made.
+    source: i64,
 }
 
 enum ExtKind {
@@ -212,7 +214,7 @@ impl Session {
         let title = if title.is_empty() { format!("Result{}", self.results_made) } else { title };
         let handle = self.next;
         self.next += 1;
-        let view = ResView { bins, binsz, offset, title, xunits, yunits, xtitle, ytitle, data: vec![vec![0.0; bins]; nchan], sweeps: 0, lifted: false };
+        let view = ResView { bins, binsz, offset, title, xunits, yunits, xtitle, ytitle, data: vec![vec![0.0; bins]; nchan], sweeps: 0, lifted: false, source: -1 };
         self.exts.push(Ext { handle, kind: ExtKind::Result(view) });
         // the script's view; the window is not made the active one
         self.current = handle;
@@ -1420,10 +1422,19 @@ impl Host for Session {
         matches!(self.exts.iter().find(|e| e.handle == vh), Some(Ext { kind: ExtKind::Result(r), .. }) if r.lifted)
     }
 
+    fn result_source(&self, vh: i64) -> Option<i64> {
+        match self.exts.iter().find(|e| e.handle == vh) {
+            Some(Ext { kind: ExtKind::Result(r), .. }) => Some(r.source),
+            _ => None,
+        }
+    }
+
     fn new_result_view(&mut self) -> i64 {
+        // the time view the analysis will read: the current one, or the one the current result view reads
+        let source = self.result_source(self.current).unwrap_or(self.current);
         let handle = self.next;
         self.next += 1;
-        let view = ResView { bins: 0, binsz: 1.0, offset: 0.0, title: String::new(), xunits: String::new(), yunits: String::new(), xtitle: String::new(), ytitle: String::new(), data: Vec::new(), sweeps: 0, lifted: true };
+        let view = ResView { bins: 0, binsz: 1.0, offset: 0.0, title: String::new(), xunits: String::new(), yunits: String::new(), xtitle: String::new(), ytitle: String::new(), data: Vec::new(), sweeps: 0, lifted: true, source };
         self.exts.push(Ext { handle, kind: ExtKind::Result(view) });
         self.current = handle;
         handle
@@ -2088,6 +2099,9 @@ impl Host for SharedSession {
     }
     fn view_lifted(&self, vh: i64) -> bool {
         self.0.lock().unwrap().view_lifted(vh)
+    }
+    fn result_source(&self, vh: i64) -> Option<i64> {
+        self.0.lock().unwrap().result_source(vh)
     }
     fn view_elem(&self, vh: i64, ch: i64, i: i64) -> Result<f64, i32> {
         self.0.lock().unwrap().view_elem(vh, ch, i)
