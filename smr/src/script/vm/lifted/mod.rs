@@ -287,10 +287,96 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             }
             // device contexts, pens, dialogs: objects that are only built and dropped here
             n if (n.starts_with("??0") || n.starts_with("??1"))
-                && ["@CClientDC@@", "@CFileDialog@@", "@CWaitCursor@@", "@CPen@@", "@CBrush@@", "@CFont@@", "@CDC@@", "@CBitmap@@", "@CPaintDC@@"].iter().any(|c| n.contains(c)) => {
-                m.r[0] = m.r[1];
+                && ["CClientDC@@", "CFileDialog@@", "CWaitCursor@@", "CPen@@", "CBrush@@", "CFont@@", "CDC@@", "CBitmap@@", "CPaintDC@@"].iter().any(|c| n.contains(c)) => {
+                let obj = m.r[1];
+                if n.starts_with("??0") && obj != 0 {
+                    // its routines all succeed
+                    if self.world.stub_vtable == 0 {
+                        let vt = m.alloc(8 * 0x200);
+                        for k in 0..0x200u64 {
+                            m.st(vt + 8 * k, 8, FAKE_CODE + 0x3000 + k);
+                        }
+                        self.world.stub_vtable = vt;
+                    }
+                    m.st(obj, 8, self.world.stub_vtable);
+                }
+                m.r[0] = obj;
             }
-            "GetParent" | "GetFocus" | "GetCapture" | "GetDlgItem" | "GetActiveWindow" | "GetForegroundWindow" | "GetDC" | "ReleaseDC" | "GetWindow" | "GetAncestor" => {
+            "_ecvt" | "_fcvt" => {
+                // (double value, int digits, int *decpt, int *sign): the digits of the value, rounded
+                let v = f64::from_bits(m.xl(0));
+                let nd = (rdx as u32 as i32).clamp(0, 40) as usize;
+                let neg = v.is_sign_negative();
+                let (digits, decpt) = if v == 0.0 || !v.is_finite() {
+                    ("0".repeat(nd.max(1)), 0i32)
+                } else if name == "_ecvt" {
+                    let t = format!("{:.*e}", nd.saturating_sub(1), v.abs());
+                    let (mant, exp) = t.split_once('e').unwrap();
+                    (mant.replace('.', ""), exp.parse::<i32>().unwrap() + 1)
+                } else {
+                    // digits after the point
+                    let t = format!("{:.*}", nd, v.abs());
+                    let (ip, fp) = t.split_once('.').unwrap_or((t.as_str(), ""));
+                    let all = format!("{ip}{fp}");
+                    let lead = all.len() - all.trim_start_matches('0').len();
+                    if all.trim_start_matches('0').is_empty() {
+                        ("0".to_string(), 0)
+                    } else {
+                        (all.trim_start_matches('0').to_string(), ip.len() as i32 - lead as i32)
+                    }
+                };
+                if self.world.cvt_buf == 0 {
+                    self.world.cvt_buf = m.alloc(64);
+                }
+                for (i, b) in digits.bytes().enumerate() {
+                    m.st(self.world.cvt_buf + i as u64, 1, b as u64);
+                }
+                m.st(self.world.cvt_buf + digits.len() as u64, 1, 0);
+                if r8 != 0 {
+                    m.st(r8, 4, decpt as u32 as u64);
+                }
+                if r9 != 0 {
+                    m.st(r9, 4, neg as u64);
+                }
+                m.r[0] = self.world.cvt_buf;
+            }
+            "GetTextMetricsW" => {
+                // a font of 16 rows and 7-wide letters
+                for k in 0..16u64 {
+                    m.st(rdx + 4 * k, 4, 0);
+                }
+                m.st(rdx, 4, 16);
+                m.st(rdx + 4, 4, 13);
+                m.st(rdx + 8, 4, 3);
+                m.st(rdx + 20, 4, 7);
+                m.st(rdx + 24, 4, 14);
+                m.r[0] = 1;
+            }
+            "GetTextExtentPoint32W" | "GetTextExtentPointW" => {
+                let n = r9 as u32 as u64;
+                m.st(m.r[4] + 0x28, 4, 0);
+                let out = m.ld(m.r[4] + 0x20, 8);
+                if out != 0 {
+                    m.st(out, 4, 7 * n);
+                    m.st(out + 4, 4, 16);
+                }
+                m.r[0] = 1;
+            }
+            "SelectObject" | "DeleteObject" | "GetStockObject" | "CreateFontIndirectW" | "CreatePen" | "CreateSolidBrush" | "SetBkMode" | "SetTextColor" | "SetBkColor" | "SetMapMode" | "GetDeviceCaps" | "SaveDC" | "RestoreDC" | "IntersectClipRect" | "SelectClipRgn" | "CreateCompatibleDC" | "DeleteDC" | "SetROP2" | "MoveToEx" | "LineTo" | "Rectangle" | "FillRect" | "TextOutW" | "ExtTextOutW" | "DrawTextW" | "SetTextAlign" | "GetCurrentObject" | "PtVisible" | "RectVisible" => {
+                m.r[0] = 1;
+            }
+            "GetObjectType" | "GetObjectW" | "GetClipBox" | "GetCursorPos" | "GetKeyState" | "GetAsyncKeyState" | "GetSystemMetrics" | "GetWindowLongPtrW" | "SetWindowLongPtrW" | "GetBkColor" | "GetTextColor" | "GetBkMode" | "GetROP2" | "GetMapMode" | "GetViewportOrgEx" | "SetViewportOrgEx" | "OffsetViewportOrgEx" | "GetDCOrgEx" => {
+                m.r[0] = 0;
+            }
+            "GetSysColor" => m.r[0] = 0x808080,
+            n if n.starts_with('?') && !n.starts_with("??") && ["@CGdiObject@@", "@CDC@@", "@CPen@@", "@CBrush@@", "@CFont@@", "@CBitmap@@", "@CRgn@@", "@CClientDC@@", "@CMetaFileDC@@", "@CPaintDC@@", "@CMenu@@", "@CToolTipCtrl@@"].iter().any(|c| n.contains(c)) => {
+                // drawing: nothing is drawn
+                m.r[0] = 1;
+            }
+            n if n.starts_with("?GetThisClass@") => m.r[0] = 0x7777_0000,
+            "?IsKindOf@CObject@@QEBAHPEBUCRuntimeClass@@@Z" => m.r[0] = 0,
+            "GetParent" => m.r[0] = if m.r[1] != 0 { 0x30001 } else { 0 },
+            "GetFocus" | "GetCapture" | "GetDlgItem" | "GetActiveWindow" | "GetForegroundWindow" | "GetDC" | "ReleaseDC" | "GetWindow" | "GetAncestor" => {
                 m.r[0] = 0;
             }
             "IsIconic" | "IsZoomed" | "GdiplusStartup" | "?BeginWaitCursor@CCmdTarget@@QEAAXXZ" | "?EndWaitCursor@CCmdTarget@@QEAAXXZ" | "?GetParentFrame@CWnd@@QEBAPEAVCFrameWnd@@XZ" => {
@@ -475,6 +561,15 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 // the window object behind a handle: a data view's window stand-in
                 let hwnd = m.r[1];
                 let h = view_of(hwnd);
+                if hwnd == 0x30001 {
+                    // the frame window around the views
+                    if self.world.frame == 0 {
+                        self.world.frame = m.alloc(0x1000);
+                        m.st(self.world.frame + 0x40, 8, 0x30001);
+                    }
+                    m.r[0] = self.world.frame;
+                    return;
+                }
                 let is_view = hwnd != 0 && self.vm.host.as_ref().map(|host| !host.view_channels(h).is_empty()).unwrap_or(false);
                 m.r[0] = if is_view { self.time_window(m, h) } else { 0 };
             }
@@ -556,6 +651,13 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 }
                 let s = String::from_utf16_lossy(&v);
                 m.r[0] = crate::script::text::parse_int(s.trim_start()) as i32 as u32 as u64;
+            }
+            // any other call of the window system: there is no screen, so it does nothing
+            other if !other.starts_with('?') && !other.starts_with('_') && other.chars().next().map_or(false, |c| c.is_ascii_uppercase()) && !other.contains('@') => {
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  (window-system call {other} ignored)");
+                }
+                m.r[0] = 0;
             }
             other if self.world.lenient => {
                 if std::env::var_os("S2LIFT_SERVICES").is_some() {
@@ -784,6 +886,11 @@ impl<'v, 'w> Run<'v, 'w> {
             self.world.lenient = false;
             m.r[4] = sp;
             m.r = saved;
+            let mgr = m.ld(win + 0x5b0, 8);
+            if mgr != 0 {
+                // it is a window of its own
+                m.st(mgr + 0x40, 8, 0x30002);
+            }
             if r.is_err() && std::env::var_os("S2LIFT_SERVICES").is_some() {
                 let why = match &r {
                     Err(p) => p.downcast_ref::<String>().cloned().or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default(),
@@ -1112,6 +1219,10 @@ pub struct World {
     twins: std::collections::HashMap<i64, u64>,
     /// A vtable of do-nothing routines for objects whose constructors were skipped.
     stub_vtable: u64,
+    /// The frame window stand-in (parent of the views).
+    frame: u64,
+    /// The buffer `_ecvt` answers in.
+    cvt_buf: u64,
 }
 
 impl Default for World {
@@ -1122,7 +1233,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0 }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0 }
     }
 }
 
