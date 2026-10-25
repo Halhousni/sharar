@@ -1,0 +1,6 @@
+var res[100], k%;
+k% := 0;
+res[k%] := SerialOpen(2); k% += 1;
+res[k%] := SerialOpen(3, 9600); k% += 1;
+res[k%] := SerialClose(2); k% += 1;
+res[k%] := SerialClose(3); k% += 1;

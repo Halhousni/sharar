@@ -81,7 +81,7 @@ class Lifter:
               to it become `m.fail(..)` instead of being translated.
     """
 
-    def __init__(self, dll, roots, stubs, imports, fail_imports, svc=False, default_import=None, cross=None, bias=0):
+    def __init__(self, dll, roots, stubs, imports, fail_imports, svc=False, default_import=None, cross=None, bias=0, cross_data=None):
         # `svc`: functions take a second argument, the services the host provides.
         # `default_import(name)` gives the statements for an import `imports` does not list.
         # `cross(name)` gives (module, address) for an import that another translated module
@@ -91,6 +91,7 @@ class Lifter:
         self.pointer_hooks = False
         self.default_import = default_import
         self.cross = cross
+        self.cross_data = cross_data
         self.import_names = []
         self.dll_path = dll
         self.im = Image(dll)
@@ -985,6 +986,15 @@ class Lifter:
         fnimp = {}
         fake_fn = 0x4000_0000_0000
         for slot, imp in sorted(self.iat.items()):
+            cd = self.cross_data(imp) if self.cross_data and imp not in data_imports else None
+            if os.environ.get('LIFT_DEBUG') and 'ComPorts' in imp:
+                print('DEBUG', imp, hex(slot), cd, slot in self.data_refs, file=sys.stderr)
+            if cd is not None and slot in self.data_refs:
+                # a variable of another translated module: the slot holds its address
+                at = next(i for i, (a, o, n) in enumerate(ranges) if a <= slot < a + n)
+                a, o, n = ranges[at]
+                struct.pack_into("<Q", blob, o + slot - a, cd)
+                continue
             if imp not in data_imports and slot in self.data_refs:
                 at = next(i for i, (a, o, n) in enumerate(ranges) if a <= slot < a + n)
                 a, o, n = ranges[at]

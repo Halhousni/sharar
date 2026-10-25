@@ -39,13 +39,29 @@ def exports(path):
 
 # The DLLs whose code is translated, and what they export.
 MODULES = {"runtime": "runtime.s2l", "compiler": "compiler.dll", "spikeutl": "SpikeUtl.dll", "msvcp110": "msvcp110.dll",
-           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe", "use1432": "USE1432_vm.dll", "filters": "Filters.dll"}
+           "sonlayer": "sonlayer.dll", "son64": "son64.dll", "spikecmd": "spikecmd.dll", "sonview": "SONVIEW.exe", "use1432": "USE1432_vm.dll", "filters": "Filters.dll", "ccomm": "ccomm.dll"}
 def find(f):
     for d in (vmbin, os.environ.get("ORACLE_DIR", "")):
         if d and os.path.exists(os.path.join(d, f)):
             return os.path.join(d, f)
     raise SystemExit(f"{f} not found in {vmbin} or $ORACLE_DIR")
 EXPORTS = {m: exports(find(f)) for m, f in MODULES.items() if m != "runtime"}
+
+
+def data_exports(path):
+    """The exported variables of a DLL."""
+    im = Image(path)
+    lo, hi = im.tva, im.tva + im.text[2]
+    out = {}
+    for line in subprocess.run([sys.executable, os.path.join(HERE, "pe_exports.py"), path],
+                               capture_output=True, text=True, check=True).stdout.splitlines():
+        a, n = line.split(" ", 1)
+        if not lo <= int(a, 16) < hi:
+            out[n] = int(a, 16)
+    return out
+
+
+DATA_EXPORTS = {m: data_exports(find(f)) for m, f in MODULES.items() if m != "runtime"}
 
 # Imports the host answers even where a translated DLL exports them: they reach into the script
 # interpreter's own structures, which the host keeps.
@@ -74,7 +90,7 @@ import_names = []
 lifters = {}
 entries_extra = {}
 # Each module's addresses are moved apart, so that a pointer says which module's code it is.
-BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32, "use1432": 8 << 32, "filters": 9 << 32}
+BIAS = {"runtime": 0, "compiler": 1 << 32, "spikeutl": 2 << 32, "msvcp110": 3 << 32, "sonlayer": 4 << 32, "son64": 5 << 32, "spikecmd": 6 << 32, "sonview": 7 << 32, "use1432": 8 << 32, "filters": 9 << 32, "ccomm": 10 << 32}
 
 
 def service(lifter, name):
@@ -98,11 +114,27 @@ def cross(name):
     return (f"rt_{r[0]}_gen", r[1] + BIAS[r[0]]) if r else None
 
 
+def cross_data(name):
+    """The (biased) address of a variable another translated module exports, or None."""
+    for mod, ex in DATA_EXPORTS.items():
+        if name in ex:
+            return ex[name] + BIAS[mod]
+    return None
+
+
 for mod, f in MODULES.items():
     roots = [execs[n] for n in wanted] if mod == "runtime" else []
-    lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross, bias=BIAS[mod])
+    lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross, cross_data=cross_data, bias=BIAS[mod])
     lifters[mod].import_names = import_names
     lifters[mod].pointer_hooks = "--pointer-hooks" in sys.argv
+
+# A variable one module exports and another uses must be in the exporter's copy of its data.
+for mod_, lf_ in lifters.items():
+    for slot_, name_ in lf_.iat.items():
+        for mod2_, ex_ in DATA_EXPORTS.items():
+            if name_ in ex_:
+                lifters[mod2_].data_refs.add(ex_[name_])
+                lifters[mod2_].table_bases.add(ex_[name_])
 
 # The functions that build the command objects: each makes a run of commands (`new`, the base
 # constructor, the vtable) and hands every one to `DoInit`. Running them at start gives the host the
@@ -167,7 +199,7 @@ def crt_run(mod):
             best = run
     return best if len(best) >= 20 else []
 
-INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "filters", "sonview", "runtime"]
+INIT_ORDER = ["son64", "spikeutl", "compiler", "sonlayer", "spikecmd", "filters", "ccomm", "sonview", "runtime"]
 INITS = {m: (crt_run(m) if m in ("sonview", "filters") else init_tables(m)) for m in INIT_ORDER}
 for m_, fs in INITS.items():
     for a in fs:
@@ -332,7 +364,7 @@ lines += ["];", "",
           "static IMAGES: &[&crate::mach::Img] = &[",
           "    &crate::rt_runtime_gen::IMG, &crate::rt_compiler_gen::IMG,",
           "    &crate::rt_spikeutl_gen::IMG, &crate::rt_msvcp110_gen::IMG,",
-          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG, &crate::rt_use1432_gen::IMG, &crate::rt_filters_gen::IMG,",
+          "    &crate::rt_sonlayer_gen::IMG, &crate::rt_son64_gen::IMG, &crate::rt_spikecmd_gen::IMG, &crate::rt_sonview_gen::IMG, &crate::rt_use1432_gen::IMG, &crate::rt_filters_gen::IMG, &crate::rt_ccomm_gen::IMG,",
           "];", "",
           "pub fn machine() -> crate::mach::M {",
           "    crate::mach::M::big(IMAGES)",
@@ -342,7 +374,7 @@ lines += ["];", "",
           "    let done = crate::rt_runtime_gen::try_call(m, s, t) || crate::rt_compiler_gen::try_call(m, s, t)",
           "        || crate::rt_spikeutl_gen::try_call(m, s, t) || crate::rt_msvcp110_gen::try_call(m, s, t)",
           "        || crate::rt_sonlayer_gen::try_call(m, s, t) || crate::rt_son64_gen::try_call(m, s, t)",
-          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t) || crate::rt_use1432_gen::try_call(m, s, t) || crate::rt_filters_gen::try_call(m, s, t);",
+          "        || crate::rt_spikecmd_gen::try_call(m, s, t) || crate::rt_sonview_gen::try_call(m, s, t) || crate::rt_use1432_gen::try_call(m, s, t) || crate::rt_filters_gen::try_call(m, s, t) || crate::rt_ccomm_gen::try_call(m, s, t);",
           "    if !done && !s.call(m, t) {",
           "        m.fail(&format!(\"a call through a pointer to {t:#x}\"));",
           "    }",

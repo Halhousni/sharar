@@ -16,6 +16,7 @@ mod rt_spikecmd_gen;
 mod rt_sonview_gen;
 mod rt_use1432_gen;
 mod rt_filters_gen;
+mod rt_ccomm_gen;
 mod rt_spikeutl_gen;
 mod spikeutl_gen;
 

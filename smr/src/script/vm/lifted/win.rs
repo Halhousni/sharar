@@ -90,6 +90,16 @@ impl Win {
         let stack = |m: &M, k: u64| m.ld(m.r[4] + 0x20 + 8 * k, 8);
         match name {
             // ---- files ------------------------------------------------------------------
+            "GetCommState" | "SetCommState" | "SetCommTimeouts" | "GetCommTimeouts" | "SetupComm" | "PurgeComm" | "ClearCommError" | "EscapeCommFunction" | "GetCommModemStatus" | "SetCommMask" | "WaitCommEvent" => {
+                // there are no serial ports on this machine
+                self.last_error = ERROR_FILE_NOT_FOUND;
+                m.r[0] = 0;
+            }
+            "CreateFileA" => {
+                // the only narrow use is a serial port, and this machine has none
+                self.last_error = ERROR_FILE_NOT_FOUND;
+                m.r[0] = u64::MAX;
+            }
             "CreateFileW" => {
                 let (access, disposition) = (rdx as u32, stack(m, 0) as u32);
                 let mut p = path(m, rcx);
