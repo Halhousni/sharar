@@ -1,4 +1,4 @@
-var res[1160];
+var res[1440];
 proc Enc(s$, at%)
   var i%;
   res[at%] := Len(s$);
@@ -33,3 +33,10 @@ Enc(Print$("%d", 1e10), 1000);
 Enc(Print$("%s", 2.5), 1040);
 Enc(Print$("%c%c", 72, 105), 1080);
 Enc(Print$("[%*d]", 5, 3), 1120);
+Enc(Print$("a\\b"), 1160);
+Enc(Print$("a\\nb"), 1200);
+Enc(Print$("%d\\%d", 1, 2), 1240);
+Enc(Print$("\\\\"), 1280);
+Enc(Print$("\\t\\x"), 1320);
+Enc(Print$("%s\\", "q"), 1360);
+Enc(Print$("C:\\new\\tab"), 1400);
