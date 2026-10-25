@@ -1,0 +1,40 @@
+var res[300], k%, i%, n%, r%;
+var coef[2047], tot, lo, hi, db, s$;
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+proc Sum(n%)
+  var q%;
+  tot := 0.0;
+  for q% := 0 to n% - 1 do tot += coef[q%] * (1 + (q% mod 5)) next
+end;
+k% := 0;
+res[k%] := FiltCreate(0, 2, 5.0, 40.0); k% += 1;
+res[k%] := FiltCreate(1, 4, 4.0, 20.0, 60.0); k% += 1;
+res[k%] := FiltCreate(2, 5, 3.0, 30.0, 80.0); k% += 1;
+res[k%] := FiltCreate(3, 3, 6.0, 15.0); k% += 1;
+res[k%] := FiltCreate(4, 7); k% += 1;
+res[k%] := FiltInfo(0, -2); k% += 1;
+for i% := 0 to 4 do
+  res[k%] := FiltInfo(i%); res[k%+1] := FiltInfo(i%, -1); k% += 2;
+  if i% < 4 then res[k%] := FiltInfo(i%, 1); k% += 1; endif
+  if i% < 4 then res[k%] := FiltInfo(i%, 2); k% += 1; endif
+  if i% = 1 or i% = 2 then res[k%] := FiltInfo(i%, 3); k% += 1; endif
+next
+s$ := FiltName$(0); Enc(s$, 200);
+s$ := FiltComment$(0); Enc(s$, 230);
+s$ := FiltName$(0, "Mine"); Enc(s$, 260);
+s$ := FiltName$(0); Enc(s$, 270);
+FiltRange(0, lo, hi); res[k%] := lo; res[k%+1] := hi; k% += 2;
+FiltRange(1, lo, hi); res[k%] := lo; res[k%+1] := hi; k% += 2;
+res[k%] := FiltAtten(0); k% += 1;
+res[k%] := FiltAtten(0, -55.0); k% += 1;
+res[k%] := FiltAtten(0); k% += 1;
+for i% := 0 to 3 do
+  n% := FiltCalc(i%, 0.005, coef[], db);
+  Sum(n%); res[k%] := n%; res[k%+1] := tot; res[k%+2] := db; k% += 3;
+next
+n% := FiltCalc(0, 0.0025, coef[], db, 101);
+Sum(n%); res[k%] := n%; res[k%+1] := tot; res[k%+2] := db; k% += 3;

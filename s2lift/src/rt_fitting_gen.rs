@@ -15145,10 +15145,10 @@ static BLOB: &[u8] = include_bytes!("rt_fitting.dat");
 /// (address in the DLL, offset in the blob, length)
 const RANGES: &[(u64, u32, u32)] = &[
     (0xd80001000, 0, 14752),
-    (0xd80009660, 14752, 11216),
-    (0xd8000f820, 25968, 1792),
-    (0xd80010000, 27760, 1536),
-    (0xd80011000, 29296, 2048),
+    (0xd80009000, 14752, 24064),
+    (0xd8000f000, 38816, 3872),
+    (0xd80010000, 42688, 1536),
+    (0xd80011000, 44224, 2048),
 ];
 static TLS: &[u8] = &[];
 pub(super) static IMG: Img = Img { blob: BLOB, ranges: RANGES, tls: TLS, tls_zero: 0, tls_slot: 12 };

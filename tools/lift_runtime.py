@@ -138,7 +138,7 @@ def cross_data(name):
 for mod, f in MODULES.items():
     roots = [execs[n] for n in wanted if cmd_module.get(n) == mod]
     lifters[mod] = Lifter(find(f), roots, {}, NATIVE, r"$^", svc=True, default_import=service, cross=cross, cross_data=cross_data, bias=BIAS[mod])
-    lifters[mod].whole_data = mod == "scilexer"
+    lifters[mod].whole_data = mod in ("scilexer", "firwin", "fitting", "mateng")
     lifters[mod].import_names = import_names
     lifters[mod].pointer_hooks = "--pointer-hooks" in sys.argv
 
