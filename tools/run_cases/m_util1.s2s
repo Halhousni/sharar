@@ -1,0 +1,26 @@
+var res[400], k%, h%, g, ic, cr, s$, i%, n%, d[64], o[16], cf[8];
+proc Enc(s$, at%)
+  var j%;
+  res[at%] := Len(s$);
+  for j% := 1 to Len(s$) do res[at% + j%] := Asc(Mid$(s$, j%, 1)) next
+end;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+res[k%] := FitLine(1, 0.0, 10.0, g, ic, cr); res[k%+1] := g; res[k%+2] := ic; res[k%+3] := cr; k% += 4;
+res[k%] := FitLine(1, 2.0, 3.0, g, ic); res[k%+1] := g; res[k%+2] := ic; k% += 3;
+res[k%] := FitLine(1, 0.0, 120.0, g); res[k%+1] := g; k% += 2;
+res[k%] := XToBin(1.5); res[k%+1] := XToBin(0.0); res[k%+2] := XToBin(120.0); k% += 3;
+res[k%] := BinToX(100000); res[k%+1] := BinToX(0); k% += 2;
+res[k%] := ChanIndex(1); res[k%+1] := ChanIndex(1, 5); res[k%+2] := ChanIndex(1); k% += 3;
+s$ := FileDate$(); Enc(s$, 100);
+s$ := FileDate$(1, 1, 1, 0, "/"); Enc(s$, 120);
+s$ := FileDate$(2, 2, 2, 1, "-"); Enc(s$, 140);
+s$ := FileTime$(); Enc(s$, 160);
+s$ := FileTime$(0, 1, 0, ":"); Enc(s$, 180);
+s$ := FileTime$(1, 3, 1, "."); Enc(s$, 200);
+for i% := 0 to 63 do d[i%] := Sin(i% * 0.3) + 0.5 * Sin(i% * 0.9) next
+res[k%] := LinPred(d[], 6, 0.0, o[], 0); k% += 1;
+for i% := 0 to 15 do res[250 + i%] := o[i%] next
+res[k%] := LinPred(3, cf[]); k% += 1;
+for i% := 0 to 7 do res[270 + i%] := cf[i%] next
+res[k%] := LinPred(2, 0); k% += 1;
