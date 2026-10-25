@@ -56,6 +56,14 @@ pub trait Host {
     fn view_channels(&self, _view: i64) -> Vec<(i64, i64)> {
         Vec::new()
     }
+    /// Guest folders (lower case, back slashes, ending in one) and the folders here that stand for them.
+    fn path_maps(&self) -> Vec<(String, std::path::PathBuf)> {
+        Vec::new()
+    }
+    /// The title of a data view's window.
+    fn view_title(&self, _view: i64) -> Option<String> {
+        None
+    }
     /// The text of a script file, for `ScriptRun`.
     fn read_script(&self, _name: &str) -> Option<String> {
         None

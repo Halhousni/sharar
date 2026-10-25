@@ -491,12 +491,11 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.r[0] = 1;
             }
             "GetTextExtentPoint32W" | "GetTextExtentPointW" => {
-                let n = r9 as u32 as u64;
-                m.st(m.r[4] + 0x28, 4, 0);
-                let out = m.ld(m.r[4] + 0x20, 8);
-                if out != 0 {
-                    m.st(out, 4, 7 * n);
-                    m.st(out + 4, 4, 16);
+                // (dc, text, count, SIZE*): a font of 7-wide letters and 16 rows
+                let n = r8 as u32 as u64;
+                if r9 != 0 {
+                    m.st(r9, 4, 7 * n);
+                    m.st(r9 + 4, 4, 16);
                 }
                 m.r[0] = 1;
             }
@@ -551,6 +550,36 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     m.st(buf + 2 * i as u64, 2, *u as u64);
                 }
                 m.st(buf + 2 * n as u64, 2, 0);
+                m.r[0] = n as u64;
+            }
+            "vsprintf" | "vsprintf_s" | "_vsnprintf" | "_vsnprintf_s" => {
+                // (buffer, [size,] format, va_list)
+                let (buf, size, fmt, valist) = match name {
+                    "vsprintf" => (m.r[1], u64::MAX, m.r[2], m.r[8]),
+                    _ => (m.r[1], m.r[2], m.r[8], m.r[9]),
+                };
+                let mut f = Vec::new();
+                while m.ld(fmt + f.len() as u64, 1) != 0 {
+                    f.push(m.ld(fmt + f.len() as u64, 1) as u32);
+                }
+                let mut next = 0u64;
+                let mut arg = |mm: &M| -> u64 {
+                    let v = mm.ld(valist + 8 * next, 8);
+                    next += 1;
+                    v
+                };
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  (vsprintf {:?})", String::from_utf8_lossy(&f.iter().map(|&c| c as u8).collect::<Vec<u8>>()));
+                }
+                let out = cstring::format_any(m, &f, &mut arg, true);
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  (vsprintf gives {:?}; args {:x?})", String::from_utf16_lossy(&out.iter().map(|&u| u as u16).collect::<Vec<u16>>()), (0..3).map(|k| m.ld(valist + 8 * k, 8)).collect::<Vec<_>>());
+                }
+                let n = out.len().min(size.saturating_sub(1) as usize);
+                for (i, u) in out.iter().take(n).enumerate() {
+                    m.st(buf + i as u64, 1, (*u & 0xff) as u64);
+                }
+                m.st(buf + n as u64, 1, 0);
                 m.r[0] = n as u64;
             }
             "wcscpy_s" => {
@@ -699,6 +728,45 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.r[0] = self.world.winlong.insert((rcx, rdx as u32 as i32 as i64), r8).unwrap_or(0);
             }
             "DefWindowProcA" | "DefWindowProcW" => m.r[0] = 0,
+            // the C library's character classes, in the "C" locale
+            "isprint" | "isalpha" | "isdigit" | "isalnum" | "isspace" | "ispunct" | "iscntrl" | "isupper" | "islower" | "isxdigit" | "isgraph" | "iswprint" | "iswalpha" | "iswdigit" | "iswalnum" | "iswspace" | "iswpunct" | "iswcntrl" | "iswupper" | "iswlower" | "iswxdigit" | "iswgraph" => {
+                let c = (rcx as u32 as i32) as i64;
+                let ch = if (0..=0x7f).contains(&c) { Some(c as u8 as char) } else { None };
+                let b = ch.map_or(false, |ch| match &name[if name.starts_with("isw") { 3 } else { 2 }..] {
+                    "print" => (' '..='~').contains(&ch),
+                    "alpha" => ch.is_ascii_alphabetic(),
+                    "digit" => ch.is_ascii_digit(),
+                    "alnum" => ch.is_ascii_alphanumeric(),
+                    "space" => matches!(ch, ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r'),
+                    "punct" => ch.is_ascii_punctuation(),
+                    "cntrl" => ch.is_ascii_control(),
+                    "upper" => ch.is_ascii_uppercase(),
+                    "lower" => ch.is_ascii_lowercase(),
+                    "xdigit" => ch.is_ascii_hexdigit(),
+                    _ => ch.is_ascii_graphic(),
+                });
+                m.r[0] = b as u64;
+            }
+            "toupper" | "tolower" | "towupper" | "towlower" => {
+                let c = rcx as u32;
+                m.r[0] = if c < 0x80 {
+                    (if name.ends_with("upper") { (c as u8).to_ascii_uppercase() } else { (c as u8).to_ascii_lowercase() }) as u64
+                } else {
+                    c as u64
+                };
+            }
+            // the C runtime's locale: the plain "C" one
+            "_wsetlocale" | "setlocale" => {
+                let p = m.alloc(16);
+                if name == "_wsetlocale" {
+                    m.st(p, 2, 'C' as u64);
+                    m.st(p + 2, 2, 0);
+                } else {
+                    m.st(p, 1, 'C' as u64);
+                    m.st(p + 1, 1, 0);
+                }
+                m.r[0] = p;
+            }
             "?GetFirstViewPosition@CDocument@@UEBAPEAU__POSITION@@XZ" => {
                 if std::env::var_os("S2LIFT_SERVICES").is_some() {
                     eprintln!("  (first view of {rcx:#x}; known {:x?})", self.world.doc_view);
@@ -728,6 +796,54 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                         m.r[0] = 1;
                     }
                     None => m.r[0] = 0,
+                }
+            }
+            // ---- CFileFind: the files matching a name ------------------------------------------
+            n if n.starts_with('?') && n.contains("CFileFind@@") && !n.contains("@CFileFind@@@") => {
+                let what = if n.starts_with("??0") || n.starts_with("??1") { "Close" } else { n[1..].split('@').next().unwrap_or("") };
+                match what {
+                    "FindFile" => {
+                        let pat = win::path(m, rdx);
+                        let dir = pat.parent().map(|d| d.to_path_buf()).unwrap_or_default();
+                        let mask = pat.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+                        let mut found: Vec<std::path::PathBuf> = match std::fs::read_dir(if dir.as_os_str().is_empty() { std::path::Path::new(".") } else { &dir }) {
+                            Ok(rd) => rd.flatten().filter(|e| win::glob(&mask, &e.file_name().to_string_lossy())).map(|e| e.path()).collect(),
+                            Err(_) => Vec::new(),
+                        };
+                        found.sort_by_key(|p| p.to_string_lossy().to_lowercase());
+                        m.r[0] = (!found.is_empty()) as u64;
+                        self.world.ffind.insert(rcx, (found.into(), None));
+                    }
+                    "FindNextFile" => {
+                        let e = self.world.ffind.entry(rcx).or_default();
+                        match e.0.pop_front() {
+                            Some(p) => {
+                                e.1 = Some(p);
+                                m.r[0] = (!e.0.is_empty()) as u64;
+                            }
+                            None => {
+                                e.1 = None;
+                                m.r[0] = 0;
+                            }
+                        }
+                    }
+                    "Close" | "CFileFind" => {
+                        self.world.ffind.remove(&rcx);
+                        m.r[0] = rcx;
+                    }
+                    "IsDirectory" => m.r[0] = self.world.ffind.get(&rcx).and_then(|e| e.1.as_ref()).map(|p| p.is_dir() as u64).unwrap_or(0),
+                    "GetFilePath" | "GetFileName" | "GetFileTitle" => {
+                        let p = self.world.ffind.get(&rcx).and_then(|e| e.1.clone()).unwrap_or_default();
+                        let text = match what {
+                            "GetFilePath" => p.to_string_lossy().replace('/', "\\"),
+                            "GetFileName" => p.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default(),
+                            _ => p.file_stem().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default(),
+                        };
+                        let units: Vec<u32> = text.encode_utf16().map(|u| u as u32).collect();
+                        self.world.strs.write(m, rdx, &units, true);
+                        m.r[0] = rdx;
+                    }
+                    _ => m.r[0] = 0,
                 }
             }
             other if cstring::call(&mut self.world.strs, m, other) => {}
@@ -776,7 +892,14 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                         let target = if hwnd == 0 {
                             Some((1u8, self.main_window(m)))
                         } else if self.vm.host.as_ref().map(|host| !host.view_channels(view_of(hwnd)).is_empty()).unwrap_or(false) {
-                            Some((0u8, self.time_window(m, view_of(hwnd))))
+                            let win = self.time_window(m, view_of(hwnd));
+                            // the document's title is the window's, which the script can change
+                            if let Some(title) = self.vm.host.as_ref().and_then(|host| host.view_title(view_of(hwnd))) {
+                                let doc = m.ld(win + 0xd8, 8);
+                                let units: Vec<u32> = title.encode_utf16().map(|u| u as u32).collect();
+                                self.world.strs.write(m, doc + 0x40, &units, true);
+                            }
+                            Some((0u8, win))
                         } else if self.vm.host.as_ref().and_then(|host| host.view_info(view_of(hwnd))).map(|(k, _)| k == 1).unwrap_or(false) {
                             Some((2u8, self.text_view(m, view_of(hwnd))))
                         } else {
@@ -1631,6 +1754,8 @@ pub struct World {
     sci_loaded: bool,
     sci_wins: std::collections::HashSet<u64>,
     next_hwnd: u64,
+    /// The files `CFileFind` objects have found, and the one each is at.
+    ffind: std::collections::HashMap<u64, (std::collections::VecDeque<std::path::PathBuf>, Option<std::path::PathBuf>)>,
     /// The editor window of each text window that has one (by view handle), and which of them is the log.
     edits: std::collections::HashMap<i64, u64>,
     log_h: i64,
@@ -1646,7 +1771,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, edits: Default::default(), log_h: -1, doc_view: Default::default() }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, ffind: Default::default(), edits: Default::default(), log_h: -1, doc_view: Default::default() }
     }
 }
 
@@ -1680,6 +1805,9 @@ impl Vm {
                     let _ = r;
                 }
                 commands::register_all(&mut m, &mut run);
+                if let Some(h) = run.vm.host.as_ref() {
+                    win::set_maps(h.path_maps());
+                }
                 // where the commands that print to the log send their text
                 let log = run.vm.host.as_ref().map(|h| h.log_handle()).unwrap_or(11);
                 m.st(0x1_8008_bf68 + (1u64 << 32), 8, hwnd_of(log));
@@ -1689,6 +1817,12 @@ impl Vm {
                     let t = run.main_window(&mut m);
                     let cfg = m.ld(t + 0xc870, 8);
                     m.st(0x1_8009_ea28, 8, cfg);
+                    // the list of times and channels to export is kept by an object the application makes
+                    let ex = m.alloc(0x200);
+                    m.r[1] = ex;
+                    m.push(0);
+                    commands::call_export("??0CExportTimes@@QEAA@XZ", &mut m, &mut run);
+                    m.st(0x1_8009_ea18, 8, ex);
                 }));
                 m.r[4] = saved_sp;
                 m.reset_stack();

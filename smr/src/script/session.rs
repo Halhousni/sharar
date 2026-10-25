@@ -1298,6 +1298,20 @@ impl Host for Session {
         self.log
     }
 
+    fn path_maps(&self) -> Vec<(String, std::path::PathBuf)> {
+        self.maps.clone()
+    }
+
+    fn view_title(&self, h: i64) -> Option<String> {
+        let v = self.views.iter().find(|v| v.handle == h)?;
+        Some(v.title.clone().unwrap_or_else(|| {
+            let win = v.script_name.replace('/', "\\");
+            let file = win.rsplit('\\').next().unwrap_or("");
+            let stem = file.rsplit_once('.').map(|(a, _)| a).unwrap_or(file).to_string();
+            format!("{}[Read only, {}-bit]", stem, if v.file.son64 { 64 } else { 32 })
+        }))
+    }
+
     fn read_script(&self, name: &str) -> Option<String> {
         std::fs::read(self.resolve(name)).ok().map(|b| String::from_utf8_lossy(&b).into_owned())
     }
@@ -1517,7 +1531,7 @@ impl Host for Session {
                 }))
             }
             // a data file opened from disk is read only: Spike2 will not save it under another name
-            "FileSaveAs" if self.view().is_some() => some(V::Int(-1548)),
+            "FileSaveAs" if self.view().is_some() && args.get(1).map(|a| int(mem, a)).transpose()?.map_or(true, |t| t == 0) => some(V::Int(-1548)),
             "FileNew" if matches!(args.first().map(|a| int(mem, a)), Some(Ok(1))) => {
                 let handle = self.next;
                 self.next += 1;
@@ -1901,6 +1915,12 @@ impl Host for SharedSession {
     }
     fn read_script(&self, name: &str) -> Option<String> {
         self.0.lock().unwrap().read_script(name)
+    }
+    fn path_maps(&self) -> Vec<(String, std::path::PathBuf)> {
+        self.0.lock().unwrap().path_maps()
+    }
+    fn view_title(&self, view: i64) -> Option<String> {
+        self.0.lock().unwrap().view_title(view)
     }
     fn text_content(&self, view: i64) -> Option<String> {
         self.0.lock().unwrap().text_content(view)

@@ -230,7 +230,7 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
         }
         ("?ReverseFind@", _) => {
             let v = cs(m, st, rcx);
-            let ch = rdx as u32 & 0xffff;
+            let ch = rdx as u32 & if wide { 0xffff } else { 0xff };
             m.r[0] = v.iter().rposition(|&c| c == ch).map(|i| i as u64).unwrap_or(u64::MAX);
         }
         ("?LoadStringW@", _) => {
@@ -245,7 +245,7 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
             }
         }
         ("?Format@", _) | ("?AppendFormat@", _) => {
-            let fmt = cstr(m, rdx, true);
+            let fmt = cstr(m, rdx, wide);
             let mut next = 0u64;
             let mut arg = |m: &M| -> u64 {
                 let v = match next {
@@ -256,7 +256,7 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
                 next += 1;
                 v
             };
-            let out = format_wide(m, &fmt, &mut arg);
+            let out = format_any(m, &fmt, &mut arg, !wide);
             if std::env::var_os("S2LIFT_SERVICES").is_some() {
                 eprintln!("  format {:?} -> {:?}", from_units(&fmt), from_units(&out));
             }
@@ -304,7 +304,7 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
             let set: Vec<u32> = if s.contains("PEB_W@Z") {
                 cstr(m, rdx, true)
             } else if s.contains("_W@Z") || s.contains("D@Z") {
-                vec![rdx as u32]
+                vec![rdx as u32 & if wide { 0xffff } else { 0xff }]
             } else {
                 vec![9, 10, 11, 12, 13, 32, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000]
             };
@@ -381,6 +381,20 @@ pub fn call(st: &mut State, m: &mut M, name: &str) -> bool {
 /// A wide `printf`: `%d %i %u %x %X %o %c %s (wide) %hs/%S (narrow) %f %e %g %p %%` with flags,
 /// width and precision. `arg` hands out the next argument slot.
 pub(super) fn format_wide(m: &M, fmt: &[u32], arg: &mut dyn FnMut(&M) -> u64) -> Vec<u32> {
+    format_any(m, fmt, arg, false)
+}
+
+/// `printf` over a format held as characters; `narrow` says it is the narrow-character function,
+/// where `%s` is a string of bytes and `%S` one of wide characters (it is the other way round for `wprintf`).
+pub(super) fn format_any(m: &M, fmt: &[u32], arg: &mut dyn FnMut(&M) -> u64, narrow_fn: bool) -> Vec<u32> {
+    let r = format_any_(m, fmt, arg, narrow_fn);
+    if std::env::var_os("S2LIFT_SERVICES").is_some() {
+        eprintln!("  (format {:?} gives {:?})", from_units(fmt), from_units(&r));
+    }
+    r
+}
+
+fn format_any_(m: &M, fmt: &[u32], arg: &mut dyn FnMut(&M) -> u64, narrow_fn: bool) -> Vec<u32> {
     let mut out: Vec<u32> = Vec::new();
     let mut i = 0;
     while i < fmt.len() {
@@ -450,10 +464,10 @@ pub(super) fn format_wide(m: &M, fmt: &[u32], arg: &mut dyn FnMut(&M) -> u64) ->
             'x' => format!("{:x}", if wide64 { arg(m) } else { arg(m) as u32 as u64 }),
             'X' => format!("{:X}", if wide64 { arg(m) } else { arg(m) as u32 as u64 }),
             'o' => format!("{:o}", if wide64 { arg(m) } else { arg(m) as u32 as u64 }),
-            'c' => char::from_u32(arg(m) as u32 & 0xffff).unwrap_or('?').to_string(),
+            'c' => char::from_u32(arg(m) as u32 & if narrow_fn { 0xff } else { 0xffff }).unwrap_or('?').to_string(),
             's' | 'S' => {
                 let p = arg(m);
-                let narrow = t == 'S' || size.contains('h');
+                let narrow = (t == 'S') != narrow_fn || size.contains('h');
                 let v = if p == 0 { to_units("(null)") } else { cstr(m, p, !narrow) };
                 let mut s = from_units(&v);
                 if let Some(pr) = prec {

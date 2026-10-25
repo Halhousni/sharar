@@ -58,8 +58,25 @@ fn wide(m: &M, p: u64) -> Vec<u16> {
     v
 }
 
-fn path(m: &M, p: u64) -> std::path::PathBuf {
+thread_local! {
+    /// Guest folders (lower case, back slashes, ending in one) and the folders here that stand for them.
+    static MAPS: std::cell::RefCell<Vec<(String, std::path::PathBuf)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+pub fn set_maps(v: Vec<(String, std::path::PathBuf)>) {
+    MAPS.with(|m| *m.borrow_mut() = v);
+}
+
+pub(super) fn path(m: &M, p: u64) -> std::path::PathBuf {
     let s = String::from_utf16_lossy(&wide(m, p));
+    let mapped = MAPS.with(|maps| {
+        let norm = s.replace('/', "\\");
+        let lower = norm.to_ascii_lowercase();
+        maps.borrow().iter().find(|(pre, _)| lower.starts_with(pre.as_str())).map(|(pre, dir)| dir.join(norm[pre.len()..].replace('\\', "/")))
+    });
+    if let Some(p) = mapped {
+        return p;
+    }
     // Windows paths: the drive and the back slashes mean nothing here
     let s = s.replace('\\', "/");
     let s = match s.strip_prefix(|c: char| c.is_ascii_alphabetic()) {
@@ -1034,7 +1051,7 @@ impl Win {
 }
 
 /// `*` and `?` matching without regard to case, for the names a directory search finds.
-fn glob(pat: &str, name: &str) -> bool {
+pub(super) fn glob(pat: &str, name: &str) -> bool {
     let (p, n): (Vec<char>, Vec<char>) = (pat.to_lowercase().chars().collect(), name.to_lowercase().chars().collect());
     fn go(p: &[char], n: &[char]) -> bool {
         match p.first() {
