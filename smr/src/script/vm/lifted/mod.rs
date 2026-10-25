@@ -269,7 +269,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             }
             // the script debugger and its log window do not exist here
             "?SetDebuggerString@CRunInfo@@QEBAXAEBV?$CStringT@_WV?$StrTraitMFC_DLL@_WV?$ChTraitsCRT@_W@ATL@@@@@ATL@@@Z" | "?WriteLogStr@CRunInfo@@QEBAXPEB_W_N@Z" => {}
-            "?LastOperator@CRunInfo@@QEBAGXZ" => m.r[0] = 0,
+            "?LastOperator@CRunInfo@@QEBAGXZ" | "?SetUserBreak@CRunInfo@@QEBAHH@Z" => m.r[0] = 0,
             "?DestroyWindow@CWnd@@UEAAHXZ" => m.r[0] = 1,
             // the script options (DebugOpts): kept for the length of the run
             "?SetScriptOption@CRunInfo@@QEBAXHF@Z" => {
@@ -325,6 +325,31 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.set_xl(0, r.to_bits());
             }
             "?GetArgType@CRunInfo@@QEBAXHAEAVTypeDesc@@@Z" => self.arg_type(m, int_arg(rdx), r8),
+            // the type of the one argument of `Eval`, which hands the value to the debugger
+            "?GetArgTypes@CRunInfo@@QEBAFPEAVTypeDesc@@@Z" => {
+                let n = self.args.len() as u64;
+                if n >= 1 {
+                    self.arg_type(m, 1, rdx);
+                }
+                m.r[0] = n;
+            }
+            // the value `Eval` hands to the debugger goes to the log, one to a line
+            "?StoreEvalInt@CRunInfo@@QEBAX_J@Z" => self.log_line(m, &format!("{}", rdx as i64)),
+            "?StoreEvalFloat@CRunInfo@@QEBAXN@Z" => {
+                let v = f64::from_bits(m.xl(1));
+                let text = if v == 0.0 {
+                    "0".to_string()
+                } else if (1e-4..1e21).contains(&v.abs()) || !v.is_finite() {
+                    format!("{v}")
+                } else {
+                    format!("{v:e}")
+                };
+                self.log_line(m, &text)
+            }
+            "?StoreEvalString@CRunInfo@@QEBAXPEB_W@Z" => {
+                let text = String::from_utf16_lossy(&win::wide_at(m, rdx));
+                self.log_line(m, &text)
+            }
             "?Resize@CRunInfo@@QEBAXHAEAVCArrObj@@H@Z" => self.resize(m, int_arg(rdx), r8, int_arg(m.r[9])),
             "?SetFloat@CRunInfo@@QEBAXHN@Z" => {
                 let v = f64::from_bits(m.xl(2));
@@ -1219,6 +1244,25 @@ impl<'v, 'w> Run<'v, 'w> {
         }
         self.world.lenient = false;
         view
+    }
+
+    /// A line of text for the log: into its editor if it has one.
+    fn log_line(&mut self, m: &mut M, text: &str) {
+        let log_h = self.world.log_h;
+        match self.world.edits.get(&log_h).copied() {
+            Some(edit) => {
+                let bytes = format!("{text}\r\n").into_bytes();
+                let p = m.alloc(bytes.len() + 1);
+                for (i, b) in bytes.iter().enumerate() {
+                    m.st(p + i as u64, 1, *b as u64);
+                }
+                let wp = self.world.classes.get("Scintilla").copied().unwrap_or(0);
+                self.call_lifted(m, wp, [edit, 2282, bytes.len() as u64, p]);
+                let len = self.call_lifted(m, wp, [edit, 2006, 0, 0]);
+                self.call_lifted(m, wp, [edit, 2025, len, 0]);
+            }
+            None => self.vm.log.push_str(&format!("{text}\n")),
+        }
     }
 
     /// Run the translated routine at `f` with up to four arguments; the machine's registers are put back.

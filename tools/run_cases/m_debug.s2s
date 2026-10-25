@@ -1,0 +1,21 @@
+var res[100], k%, lh%, s$, i%;
+lh% := LogHandle();
+View(lh%);
+EditSelectAll(); EditClear();
+k% := 0;
+Eval(5); Eval(2.5); Eval("abc");
+res[k%] := Debug(1); k% += 1;
+res[k%] := Debug(0); k% += 1;
+DebugList(-3);
+DebugList(-2);
+DebugList(-1);
+DebugList(0);
+EditSelectAll(); s$ := Selection$();
+res[k%] := Len(s$); k% += 1;
+for i% := 1 to 12 do res[k% + i%] := Asc(Mid$(s$, i%, 1)) next
+EditSelectAll(); EditClear();
+Eval(1/3.0); Eval(100000.0); Eval(1e10); Eval(-0.5); Eval(123456789.0); Eval(0.000012345); Eval(5+3); Eval(-7); Eval("a b"); Eval(""); Eval(1e300); Eval(123456.789);
+Eval(1e14); Eval(1e20); Eval(1e21); Eval(0.001); Eval(0.0001); Eval(0.00001); Eval(1.5e15); Eval(-1e-7); Eval(2.5e-4); Eval(0.1+0.2); Eval(1e22); Eval(12345678901234567890.0);
+EditSelectAll(); s$ := Selection$();
+res[k% + 14] := Len(s$);
+for i% := 1 to 25 do res[k% + 14 + i%] := Asc(Mid$(s$, 80 + i%, 1)) next
