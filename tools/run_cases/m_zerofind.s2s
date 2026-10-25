@@ -1,0 +1,36 @@
+var res[120], k%, r, n%;
+func f1(x)
+  return x*x - 2;
+end;
+func f2(x)
+  return Cos(x) - x;
+end;
+func f3(x)
+  return x*x*x - x - 1;
+end;
+func f4(x)
+  return Exp(x) - 5;
+end;
+func f5(x)
+  return x*x + 1;
+end;
+func f6(x)
+  return 3;
+end;
+func f7(x)
+  return Sin(x);
+end;
+k% := 0;
+r := 0; n% := ZeroFind(r, f1, 0.0, 3.0); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f1, 0.0, 3.0, 1e-3, 10); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f1, -3.0, 0.0, 0.0, 50); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f2, 0.0, 1.0); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f3, 1.0, 2.0); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f3, 1.0, 2.0, 1e-10); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f4, 0.0, 5.0); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f4, 0.0, 5.0, 1e-6, 3); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f5, 0.0, 3.0); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f6, 0.0, 3.0); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f7, 3.0, 4.0); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f7, 3.0, 3.0); res[k%] := n%; res[k%+1] := r; k% += 2;
+r := 0; n% := ZeroFind(r, f1, 1.5, 1.5); res[k%] := n%; res[k%+1] := r; k% += 2;

@@ -30,6 +30,8 @@ pub const ERR_ARG_INT: i32 = -1000;
 pub const ERR_ARG_REAL: i32 = -1001;
 /// A call with the wrong kind of value, e.g. a string where a number is wanted.
 pub const ERR_TYPE: i32 = -7001;
+/// A routine passed to a command is the number of the routine added to this.
+pub(crate) const ROUTINE_ARG: i64 = 0x4000_0000_0000;
 
 /// A value a script holds.
 #[derive(Debug, Clone, PartialEq)]
@@ -157,6 +159,9 @@ pub struct Vm {
     pub(crate) next_script: Option<(String, i64)>,
     /// The globals of the scripts that ran before this one (`ScriptRun`).
     retired: Vec<(Vec<String>, Vec<Cell>)>,
+    /// Arguments a translated command has made ready for a script function, and what the function gave back.
+    pub(crate) xargs: Vec<V>,
+    pub(crate) xret: Option<V>,
 }
 
 fn flt_to_num(v: &V) -> Result<f64, RunError> {
@@ -222,6 +227,8 @@ impl Vm {
             rng: [builtins::CRand::new(0), builtins::CRand::new(0), builtins::CRand::new(0)],
             next_script: None,
             retired: Vec::new(),
+            xargs: Vec::new(),
+            xret: None,
         })
     }
 
@@ -415,6 +422,29 @@ impl Vm {
         Ok(())
     }
 
+    /// Run script routine `ri` to its end from inside a command, with `args`; the value it returns.
+    pub(crate) fn call_sync(&mut self, ri: usize, args: Vec<V>) -> Result<Option<V>, RunError> {
+        let depth = self.frames.len();
+        let saved_ip = self.code.ip;
+        let wants = self.prog.routines[ri].ret.is_some();
+        let items: Vec<Item> = args.into_iter().map(Item::Val).collect();
+        self.call_routine(ri, items, wants)?;
+        while self.frames.len() > depth {
+            match self.step()? {
+                None => {}
+                Some(_) => return Err(RunError(ERR_TYPE)),
+            }
+        }
+        self.code.ip = saved_ip;
+        if !wants {
+            return Ok(None);
+        }
+        match self.stack.pop() {
+            Some(Item::Val(v)) => Ok(Some(v)),
+            _ => Err(RunError(ERR_TYPE)),
+        }
+    }
+
     fn do_return(&mut self) {
         let f = self.frames.pop().expect("Return outside a routine");
         if f.want_value {
@@ -454,6 +484,8 @@ impl Vm {
                     .map(|i| match i {
                         Item::Val(v) => Arg::Val(v),
                         Item::Ref(r) => Arg::Ref(r),
+                        // a script routine named as an argument: its number, past anything a value can be
+                        Item::Routine(ri) => Arg::Val(V::Int(ROUTINE_ARG + ri as i64)),
                         _ => Arg::Val(V::Int(0)),
                     })
                     .collect();

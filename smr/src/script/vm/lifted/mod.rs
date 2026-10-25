@@ -325,6 +325,45 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                 m.set_xl(0, r.to_bits());
             }
             "?GetArgType@CRunInfo@@QEBAXHAEAVTypeDesc@@@Z" => self.arg_type(m, int_arg(rdx), r8),
+            // a script function a command calls back (`ZeroFind`): the argument is the routine's number
+            "?GetArgObject@CRunInfo@@QEBAPEAXH@Z" => {
+                let a = self.vm.a_int(self.arg(int_arg(rdx))).unwrap_or(0);
+                m.r[0] = if a >= super::ROUTINE_ARG { a as u64 } else { 0 };
+            }
+            "?XMakeFloat@CRunInfo@@QEBAXN@Z" => {
+                let v = f64::from_bits(m.xl(1));
+                self.vm.xargs.push(V::Flt(v));
+            }
+            "?XMakeInt@CRunInfo@@QEBAX_J@Z" => self.vm.xargs.push(V::Int(rdx as i64)),
+            "?XCallFunc@CRunInfo@@QEBAFFPEAVTProcedure@@@Z" => {
+                let n = (rdx as u16 as usize).min(self.vm.xargs.len());
+                let at = self.vm.xargs.len() - n;
+                let args: Vec<V> = self.vm.xargs.drain(at..).collect();
+                let ri = (r8 as i64 - super::ROUTINE_ARG) as usize;
+                match self.vm.call_sync(ri, args) {
+                    Ok(v) => {
+                        self.vm.xret = v;
+                        m.r[0] = (-2i16) as u16 as u64;
+                    }
+                    Err(RunError(e)) => panic_any(Thrown(e)),
+                }
+            }
+            "?XGetFloatReturn@CRunInfo@@QEBAXAEAN@Z" => {
+                let v = match self.vm.xret.clone() {
+                    Some(V::Flt(f)) => f,
+                    Some(V::Int(i)) => i as f64,
+                    _ => 0.0,
+                };
+                m.st(rdx, 8, v.to_bits());
+            }
+            "?XGetIntReturn@CRunInfo@@QEBAXAEA_J@Z" => {
+                let v = match self.vm.xret.clone() {
+                    Some(V::Int(i)) => i,
+                    Some(V::Flt(f)) => f as i64,
+                    _ => 0,
+                };
+                m.st(rdx, 8, v as u64);
+            }
             // the type of the one argument of `Eval`, which hands the value to the debugger
             "?GetArgTypes@CRunInfo@@QEBAFPEAVTypeDesc@@@Z" => {
                 let n = self.args.len() as u64;
