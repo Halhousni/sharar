@@ -158,8 +158,15 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             }
             // the result document template's OpenDocumentFile (slot 0x118): a document and its window
             0x4118 => {
-                let h = self.vm.host.as_mut().map(|host| host.new_result_view()).unwrap_or(-1);
-                m.r[0] = if h < 0 { 0 } else { self.result_document(m, h) };
+                let h = self.vm.host.as_mut().map(|host| host.new_result_view(4)).unwrap_or(-1);
+                m.r[0] = if h < 0 { 0 } else { self.result_document(m, h, false) };
+                m.pop();
+                true
+            }
+            // the XY document template's
+            0x4518 => {
+                let h = self.vm.host.as_mut().map(|host| host.new_result_view(12)).unwrap_or(-1);
+                m.r[0] = if h < 0 { 0 } else { self.result_document(m, h, true) };
                 m.pop();
                 true
             }
@@ -575,7 +582,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             "SelectObject" | "DeleteObject" | "GetStockObject" | "CreateFontIndirectW" | "CreatePen" | "CreateSolidBrush" | "SetBkMode" | "SetTextColor" | "SetBkColor" | "SetMapMode" | "SaveDC" | "RestoreDC" | "IntersectClipRect" | "SelectClipRgn" | "CreateCompatibleDC" | "DeleteDC" | "SetROP2" | "MoveToEx" | "LineTo" | "Rectangle" | "FillRect" | "TextOutW" | "ExtTextOutW" | "DrawTextW" | "SetTextAlign" | "GetCurrentObject" | "PtVisible" | "RectVisible" => {
                 m.r[0] = 1;
             }
-            "GetObjectType" | "GetObjectW" | "GetClipBox" | "GetCursorPos" | "GetKeyState" | "GetAsyncKeyState" | "GetSystemMetrics" | "GetBkColor" | "GetTextColor" | "GetBkMode" | "GetROP2" | "GetMapMode" | "GetViewportOrgEx" | "SetViewportOrgEx" | "OffsetViewportOrgEx" | "GetDCOrgEx" => {
+            "GetObjectType" | "GetClipBox" | "GetCursorPos" | "GetKeyState" | "GetAsyncKeyState" | "GetSystemMetrics" | "GetBkColor" | "GetTextColor" | "GetBkMode" | "GetROP2" | "GetMapMode" | "GetViewportOrgEx" | "SetViewportOrgEx" | "OffsetViewportOrgEx" | "GetDCOrgEx" => {
                 m.r[0] = 0;
             }
             "GetSysColor" => m.r[0] = 0x808080,
@@ -610,6 +617,20 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     self.world.cvt_buf = m.alloc(64);
                 }
                 m.r[0] = m.alloc(64);
+            }
+            // the device context of a window: a stand-in object whose routines all succeed
+            "?FromHandle@CDC@@SAPEAV1@PEAUHDC__@@@Z" => {
+                if self.world.dc == 0 {
+                    let (o, vt) = (m.alloc(0x100), m.alloc(0x800));
+                    for k in 0..0x100u64 {
+                        m.st(vt + 8 * k, 8, FAKE_CODE + 0x3000 + k);
+                    }
+                    m.st(o, 8, vt);
+                    self.world.dc = o;
+                }
+                m.st(self.world.dc + 8, 8, rcx);
+                m.st(self.world.dc + 0x10, 8, rcx);
+                m.r[0] = self.world.dc;
             }
             // an MFC window class's destructor: the window stand-ins own nothing
             n if n.starts_with("??1C") && n.ends_with("@@UEAA@XZ") => m.r[0] = rcx,
@@ -703,7 +724,8 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
             n if n.starts_with("?GetThisClass@") => m.r[0] = 0x7777_0000,
             "?IsKindOf@CObject@@QEBAHPEBUCRuntimeClass@@@Z" => m.r[0] = 0,
             "GetParent" => m.r[0] = if m.r[1] != 0 { 0x30001 } else { 0 },
-            "GetFocus" | "GetCapture" | "GetDlgItem" | "GetActiveWindow" | "GetForegroundWindow" | "GetDC" | "ReleaseDC" | "GetWindow" | "GetAncestor" => {
+            "GetDC" => m.r[0] = 0x9100,
+            "GetFocus" | "GetCapture" | "GetDlgItem" | "GetActiveWindow" | "GetForegroundWindow" | "ReleaseDC" | "GetWindow" | "GetAncestor" => {
                 m.r[0] = 0;
             }
             "IsIconic" | "IsZoomed" | "GdiplusStartup" | "?BeginWaitCursor@CCmdTarget@@QEAAXXZ" | "?EndWaitCursor@CCmdTarget@@QEAAXXZ" => {
@@ -1090,7 +1112,7 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                             }
                             Some((0u8, win))
                         } else if self.world.reswins.contains_key(&view_of(hwnd)) {
-                            Some((3u8, self.world.reswins[&view_of(hwnd)]))
+                            Some((if self.world.xywins.contains(&view_of(hwnd)) { 4u8 } else { 3u8 }, self.world.reswins[&view_of(hwnd)]))
                         } else if self.vm.host.as_ref().and_then(|host| host.view_info(view_of(hwnd))).map(|(k, _)| k == 1).unwrap_or(false) {
                             Some((2u8, self.text_view(m, view_of(hwnd))))
                         } else {
@@ -1159,6 +1181,19 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     }
                 };
                 m.r[0] = o;
+            }
+            // the font behind a handle: 13 rows of height, as the system dialog font is
+            "GetObjectW" => {
+                if rdx >= 0x5c && r8 != 0 {
+                    for k in 0..0x5cu64 {
+                        m.st(r8 + k, 1, 0);
+                    }
+                    m.st(r8, 4, (-13i32) as u32 as u64);
+                    m.st(r8 + 16, 4, 400);
+                    m.r[0] = 0x5c;
+                } else {
+                    m.r[0] = 0;
+                }
             }
             "?FromHandlePermanent@CWnd@@SAPEAV1@PEAUHWND__@@@Z" | "?FromHandle@CWnd@@SAPEAV1@PEAUHWND__@@@Z" => {
                 // the window object behind a handle: a data view's window stand-in
@@ -1345,6 +1380,13 @@ impl<'v, 'w> Run<'v, 'w> {
             }
             m.st(tmpl, 8, tvt);
             m.st(o + 0x1d0, 8, tmpl);
+            // the XY template, whose routines are numbered apart
+            let (xt, xvt) = (m.alloc(0x400), m.alloc(0x800));
+            for k in 0..0x100u64 {
+                m.st(xvt + 8 * k, 8, FAKE_CODE + 0x4400 + 8 * k);
+            }
+            m.st(xt, 8, xvt);
+            m.st(o + 0x1f8, 8, xt);
             self.world.app = o;
             m.st(0x1_403d_ade8 + (7u64 << 32), 8, o);
         }
@@ -1488,6 +1530,10 @@ impl<'v, 'w> Run<'v, 'w> {
         }
         m.st(doc + 0x270, 8, file);
         m.st(win + 0xd8, 8, doc);
+        // the window's font, which sizes the text drawn in it
+        let font = m.alloc(0x40);
+        m.st(font + 8, 8, 0x7001);
+        m.st(win + 0xf8, 8, font);
         // the window's manager of cursors, which the window makes when it is created
         {
             self.world.lenient = true;
@@ -1558,25 +1604,39 @@ impl<'v, 'w> Run<'v, 'w> {
     }
 
     /// A result document with its window, for the view `h`: SONVIEW's own constructors.
-    fn result_document(&mut self, m: &mut M, h: i64) -> u64 {
+    fn result_document(&mut self, m: &mut M, h: i64, xy: bool) -> u64 {
         let bias = 7u64 << 32;
         self.app(m);
         self.world.lenient = true;
-        let doc = m.alloc(0x400);
-        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400b_e790 + bias, [doc, 0, 0, 0])));
         let win = m.alloc(0x1000);
-        let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400e_3030 + bias, [win, 5, 0, 0])));
-        m.st(win, 8, 0x1_402b_5738 + bias);
-        m.st(win + 0x5c4, 4, 1);
+        let doc;
+        if xy {
+            // the XY document comes from its own factory, the window from its constructor
+            doc = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_4015_6c40 + bias, [0, 0, 0, 0]))).unwrap_or(0);
+            let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_4015_7c00 + bias, [win, 0, 0, 0])));
+        } else {
+            doc = m.alloc(0x400);
+            let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400b_e790 + bias, [doc, 0, 0, 0])));
+            let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400e_3030 + bias, [win, 5, 0, 0])));
+            m.st(win, 8, 0x1_402b_5738 + bias);
+            m.st(win + 0x5c4, 4, 1);
+        }
         m.st(win + 0xd8, 8, doc);
         m.st(win + 0x40, 8, hwnd_of(h));
         self.world.reswins.insert(h, win);
+        if xy {
+            self.world.xywins.insert(h);
+        }
         self.world.doc_view.insert(doc, win);
         // the window's manager of cursors, which the window makes when it is created
         let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_400c_cbb0 + bias, [win, 0, 0, 0])));
         let mgr = m.ld(win + 0x5b0, 8);
         if mgr != 0 {
             m.st(mgr + 0x40, 8, 0x30002);
+        }
+        if xy {
+            // the window starts its first channel when it is set up
+            let _ = catch_unwind(AssertUnwindSafe(|| self.call_lifted(m, 0x1_4015_7e30 + bias, [win, 1, 0, 0])));
         }
         self.world.lenient = false;
         doc
@@ -1999,6 +2059,10 @@ pub struct World {
     doc_view: std::collections::HashMap<u64, u64>,
     /// The result windows (by view handle) and the document template that makes them.
     reswins: std::collections::HashMap<i64, u64>,
+    /// Which of those are XY views.
+    xywins: std::collections::HashSet<i64>,
+    /// The stand-in device context.
+    dc: u64,
     /// The frame stand-in of each window object.
     frames: std::collections::HashMap<u64, u64>,
 }
@@ -2011,7 +2075,7 @@ impl Default for World {
         let app = m.alloc(0x400);
         m.st(0x2_8008_bf20, 8, app);
         m.st(app + 0x88, 8, 0x1111); // the main window
-        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, cmd_wins: Default::default(), ffind: Default::default(), edits: Default::default(), log_h: -1, doc_view: Default::default(), reswins: Default::default(), frames: Default::default() }
+        World { m: Some(m), strs: Default::default(), win: Default::default(), objects: Default::default(), sonfiles: Default::default(), registered: false, thread: 0, main_wnd: 0, wnds: Default::default(), measure_file: 0, measure_tf: 0.0, measure_buf: 0, app: 0, seen: Default::default(), lenient: false, twins: Default::default(), stub_vtable: 0, frame: 0, cvt_buf: 0, script_options: Default::default(), txtwins: Default::default(), classes: Default::default(), winlong: Default::default(), sci_loaded: false, sci_wins: Default::default(), next_hwnd: 0x50000, cmd_wins: Default::default(), ffind: Default::default(), edits: Default::default(), log_h: -1, doc_view: Default::default(), reswins: Default::default(), xywins: Default::default(), dc: 0, frames: Default::default() }
     }
 }
 

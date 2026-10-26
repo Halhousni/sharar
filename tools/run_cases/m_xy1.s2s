@@ -1,0 +1,38 @@
+var res[400], v%, k%, i%, n%, x[10], y[10], xo[10], yo[10], xl, yl, xh, yh, lst%[10], c%;
+k% := 0;
+v% := FileNew(12);
+res[k%] := v%; k% += 1;
+res[k%] := ViewKind(v%); k% += 1;
+res[k%] := XYCount(1); k% += 1;
+res[k%] := XYAddData(1, 1.5, 2.5); k% += 1;
+res[k%] := XYAddData(1, -3.0, 4.0); k% += 1;
+res[k%] := XYAddData(1, 7.25, -1.0); k% += 1;
+res[k%] := XYCount(1); k% += 1;
+for i% := 0 to 4 do x[i%] := i% * 2.0; y[i%] := i% * i% - 3.0; next
+res[k%] := XYAddData(1, x[], y[]); k% += 1;
+res[k%] := XYCount(1); k% += 1;
+res[k%] := XYRange(1, xl, yl, xh, yh); k% += 1;
+res[k%] := xl; k% += 1; res[k%] := yl; k% += 1; res[k%] := xh; k% += 1; res[k%] := yh; k% += 1;
+n% := XYGetData(1, xo[], yo[]);
+res[k%] := n%; k% += 1;
+for i% := 0 to 7 do res[k%] := xo[i%]; k% += 1; res[k%] := yo[i%]; k% += 1; next
+res[k%] := XYSize(1); k% += 1;
+res[k%] := XYSize(1, -6); k% += 1;
+res[k%] := XYSize(1); k% += 1;
+res[k%] := XYCount(1); k% += 1;
+res[k%] := XYSort(1); k% += 1;
+res[k%] := XYSort(1, 1); k% += 1;
+res[k%] := XYSort(1); k% += 1;
+res[k%] := XYJoin(1); k% += 1;
+res[k%] := XYJoin(1, 1); k% += 1;
+res[k%] := XYJoin(1); k% += 1;
+c% := XYSetChan(0, 0, 2, 1);
+res[k%] := c%; k% += 1;
+res[k%] := XYAddData(c%, 1.0, 1.0); k% += 1;
+res[k%] := XYInRect(1, -1.0, -5.0, 5.0, 5.0); k% += 1;
+res[k%] := XYInCircle(1, 0.0, 0.0, 4.0); k% += 1;
+res[k%] := XYDelete(1, 1, 2); k% += 1;
+res[k%] := XYCount(1); k% += 1;
+res[k%] := XYColour(1); k% += 1;
+res[k%] := XYDrawMode(1, 1); k% += 1;
+res[k%] := XYKey(1); k% += 1;

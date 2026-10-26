@@ -77,7 +77,7 @@ pub trait Host {
         Err(-7001)
     }
     /// A result view for translated code to fill in: a new view handle, which becomes the current view.
-    fn new_result_view(&mut self) -> i64 {
+    fn new_result_view(&mut self, _kind: i64) -> i64 {
         -1
     }
     /// The title of a data view's window.

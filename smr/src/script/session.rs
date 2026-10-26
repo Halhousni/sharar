@@ -93,6 +93,8 @@ struct ResView {
     lifted: bool,
     /// The time view the analysis reads: the one that was current when the view was made.
     source: i64,
+    /// 4 for a result view, 12 for an XY view.
+    kind: i64,
 }
 
 enum ExtKind {
@@ -214,7 +216,7 @@ impl Session {
         let title = if title.is_empty() { format!("Result{}", self.results_made) } else { title };
         let handle = self.next;
         self.next += 1;
-        let view = ResView { bins, binsz, offset, title, xunits, yunits, xtitle, ytitle, data: vec![vec![0.0; bins]; nchan], sweeps: 0, lifted: false, source: -1 };
+        let view = ResView { bins, binsz, offset, title, xunits, yunits, xtitle, ytitle, data: vec![vec![0.0; bins]; nchan], sweeps: 0, lifted: false, source: -1, kind: 4 };
         self.exts.push(Ext { handle, kind: ExtKind::Result(view) });
         // the script's view; the window is not made the active one
         self.current = handle;
@@ -1429,12 +1431,12 @@ impl Host for Session {
         }
     }
 
-    fn new_result_view(&mut self) -> i64 {
+    fn new_result_view(&mut self, kind: i64) -> i64 {
         // the time view the analysis will read: the current one, or the one the current result view reads
         let source = self.result_source(self.current).unwrap_or(self.current);
         let handle = self.next;
         self.next += 1;
-        let view = ResView { bins: 0, binsz: 1.0, offset: 0.0, title: String::new(), xunits: String::new(), yunits: String::new(), xtitle: String::new(), ytitle: String::new(), data: Vec::new(), sweeps: 0, lifted: true, source };
+        let view = ResView { bins: 0, binsz: 1.0, offset: 0.0, title: String::new(), xunits: String::new(), yunits: String::new(), xtitle: String::new(), ytitle: String::new(), data: Vec::new(), sweeps: 0, lifted: true, source, kind };
         self.exts.push(Ext { handle, kind: ExtKind::Result(view) });
         self.current = handle;
         handle
@@ -1529,7 +1531,7 @@ impl Host for Session {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
                         ExtKind::Win(..) => 1,
-                        ExtKind::Result(_) => 4,
+                        ExtKind::Result(ref r) => r.kind,
                     },
                     None,
                 )
@@ -1566,7 +1568,7 @@ impl Host for Session {
                         ExtKind::Text(_) => 8,
                         ExtKind::Bin(_) => 9,
                         ExtKind::Win(..) => 1,
-                        ExtKind::Result(_) => 4,
+                        ExtKind::Result(ref r) => r.kind,
                     }))
                 } else {
                     some(V::Int(-2))
@@ -2094,8 +2096,8 @@ impl Host for SharedSession {
     fn log_handle(&self) -> i64 {
         self.0.lock().unwrap().log_handle()
     }
-    fn new_result_view(&mut self) -> i64 {
-        self.0.lock().unwrap().new_result_view()
+    fn new_result_view(&mut self, kind: i64) -> i64 {
+        self.0.lock().unwrap().new_result_view(kind)
     }
     fn view_lifted(&self, vh: i64) -> bool {
         self.0.lock().unwrap().view_lifted(vh)

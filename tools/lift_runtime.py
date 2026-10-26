@@ -318,7 +318,7 @@ for a in sys.argv:
 MSG_HANDLERS = {}
 CLASS_HANDLERS = {}   # (class number, message) -> handler address
 # the classes whose windows the host builds: 0 the data view's window, 1 the main window
-WINDOW_CLASSES = {0: 0x1402c56c8, 1: 0x1402a56a8, 2: 0x1402a00e8, 3: 0x1402b5738}
+WINDOW_CLASSES = {0: 0x1402c56c8, 1: 0x1402a56a8, 2: 0x1402a00e8, 3: 0x1402b5738, 4: 0x1402cbd58}
 for a in sys.argv:
     if a.startswith("--msg="):
         from msgmaps import Maps
