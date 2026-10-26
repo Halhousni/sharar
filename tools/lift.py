@@ -597,6 +597,10 @@ class Lifter:
             a, b = ops
             sz = a.size
             return (f"{{ let x = {val(ins, a)}; let y = {val(ins, b)}; {put(ins, a, 'y')} {put(ins, b, 'x')} }}"), False
+        if mn == "xadd":
+            a, b = ops
+            sz = a.size
+            return (f"{{ let x = {val(ins, a)}; let y = {val(ins, b)}; {put(ins, a, f'm.add(x, y, {sz})')} {put(ins, b, 'x')} }}"), False
         if mn == "cmpxchg":
             a, b = ops
             sz = a.size

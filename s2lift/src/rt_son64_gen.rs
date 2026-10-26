@@ -53819,7 +53819,7 @@ pub(super) fn f_680014040(m: &mut M, s: &mut dyn Svc) {
                 // 1800140a3 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800140a8 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800140a8");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800140ac bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800140b0 jb 0x1800140d1
@@ -53933,7 +53933,7 @@ pub(super) fn f_6800140f0(m: &mut M, s: &mut dyn Svc) {
                 // 180014124 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180014129 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180014129");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001412d bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180014131 jb 0x180014152
@@ -54055,7 +54055,7 @@ pub(super) fn f_680014170(m: &mut M, s: &mut dyn Svc) {
                 // 1800141bb mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800141c0 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800141c0");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800141c4 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800141c8 jb 0x1800141e9
@@ -54490,7 +54490,7 @@ pub(super) fn f_6800143a0(m: &mut M, s: &mut dyn Svc) {
                 // 18001440a mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001440f lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001440f");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180014413 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180014417 jb 0x18001443f
@@ -54598,7 +54598,7 @@ pub(super) fn f_680014460(m: &mut M, s: &mut dyn Svc) {
                 // 1800144c3 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800144c8 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800144c8");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800144cc bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800144d0 jb 0x1800144f8
@@ -54729,7 +54729,7 @@ pub(super) fn f_680014510(m: &mut M, s: &mut dyn Svc) {
                 // 18001457a mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001457f lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001457f");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180014583 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180014587 jb 0x1800145af
@@ -54837,7 +54837,7 @@ pub(super) fn f_6800145d0(m: &mut M, s: &mut dyn Svc) {
                 // 180014633 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180014638 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180014638");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001463c bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180014640 jb 0x180014668
@@ -54968,7 +54968,7 @@ pub(super) fn f_680014680(m: &mut M, s: &mut dyn Svc) {
                 // 1800146ea mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800146ef lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800146ef");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800146f3 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800146f7 jb 0x18001471f
@@ -55110,7 +55110,7 @@ pub(super) fn f_680014780(m: &mut M, s: &mut dyn Svc) {
                 // 1800147b3 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800147b8 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800147b8");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800147bc bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800147c0 jb 0x1800147e1
@@ -55228,7 +55228,7 @@ pub(super) fn f_680014810(m: &mut M, s: &mut dyn Svc) {
                 // 180014848 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001484d lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001484d");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180014851 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180014855 jb 0x180014876
@@ -55365,7 +55365,7 @@ pub(super) fn f_6800148b0(m: &mut M, s: &mut dyn Svc) {
                 // 1800148e6 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800148eb lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800148eb");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800148ef bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800148f3 jb 0x180014914
@@ -55531,7 +55531,7 @@ pub(super) fn f_680014960(m: &mut M, s: &mut dyn Svc) {
                 // 1800149a2 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800149a7 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800149a7");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800149ab bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800149af jb 0x1800149d0
@@ -55653,7 +55653,7 @@ pub(super) fn f_6800149f0(m: &mut M, s: &mut dyn Svc) {
                 // 180014a28 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180014a2d lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180014a2d");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180014a31 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180014a35 jb 0x180014a56
@@ -55786,7 +55786,7 @@ pub(super) fn f_680014a90(m: &mut M, s: &mut dyn Svc) {
                 // 180014acf mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180014ad4 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180014ad4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180014ad8 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180014adc jb 0x180014afd
@@ -55928,7 +55928,7 @@ pub(super) fn f_680014b20(m: &mut M, s: &mut dyn Svc) {
                 // 180014b8c mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180014b91 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180014b91");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180014b95 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180014b99 jb 0x180014bba
@@ -57939,7 +57939,7 @@ pub(super) fn f_6800155b0(m: &mut M, s: &mut dyn Svc) {
                 // 18001564d mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180015652 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180015652");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180015656 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001565a jb 0x1800156aa
@@ -58280,7 +58280,7 @@ pub(super) fn f_6800156c0(m: &mut M, s: &mut dyn Svc) {
                 // 1800157f6 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800157fb lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800157fb");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800157ff bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180015803 jb 0x180015853
@@ -58460,7 +58460,7 @@ pub(super) fn f_680015870(m: &mut M, s: &mut dyn Svc) {
                 // 1800158c4 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800158c9 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800158c9");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800158cd bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800158d1 jb 0x1800158f2
@@ -58639,7 +58639,7 @@ pub(super) fn f_680015960(m: &mut M, s: &mut dyn Svc) {
                 // 18001599b mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800159a0 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800159a0");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800159a4 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800159a8 jb 0x1800159d0
@@ -59436,7 +59436,7 @@ pub(super) fn f_680015c40(m: &mut M, s: &mut dyn Svc) {
                 // 180015dcb mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180015dd0 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180015dd0");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180015dd4 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180015dd8 jb 0x180015e00
@@ -59872,7 +59872,7 @@ pub(super) fn f_680015e30(m: &mut M, s: &mut dyn Svc) {
                 // 180015fb9 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 180015fbe lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 180015fbe");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 180015fc2 bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180015fc6 jb 0x180015ff5
@@ -60310,7 +60310,7 @@ pub(super) fn f_680016020(m: &mut M, s: &mut dyn Svc) {
                 // 1800161a9 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 1800161ae lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 1800161ae");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 1800161b2 bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800161b6 jb 0x1800161e5
@@ -60489,7 +60489,7 @@ pub(super) fn f_680016210(m: &mut M, s: &mut dyn Svc) {
                 // 18001627e mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180016283 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180016283");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180016287 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001628b jb 0x1800162b3
@@ -74321,7 +74321,7 @@ pub(super) fn f_68001a6b0(m: &mut M, s: &mut dyn Svc) {
                 // 18001a7bf mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001a7c4 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001a7c4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001a7c8 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001a7cc jb 0x18001a7f4
@@ -74651,7 +74651,7 @@ pub(super) fn f_68001a910(m: &mut M, s: &mut dyn Svc) {
                 // 18001a973 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001a978 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001a978");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001a97c bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001a980 jb 0x18001a9a8
@@ -74766,7 +74766,7 @@ pub(super) fn f_68001a9c0(m: &mut M, s: &mut dyn Svc) {
                 // 18001aa22 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001aa27 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001aa27");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001aa2b bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001aa2f jb 0x18001aa57
@@ -74929,7 +74929,7 @@ pub(super) fn f_68001aa70(m: &mut M, s: &mut dyn Svc) {
                 // 18001aaf1 setne dil
                 { let v = m.cc("ne") as u64; m.sr(7, 1, false, v); }
                 // 18001aaf5 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001aaf5");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001aaf9 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001aafd jb 0x18001ab1e
@@ -75036,7 +75036,7 @@ pub(super) fn f_68001ab40(m: &mut M, s: &mut dyn Svc) {
                 // 18001ab93 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001ab98 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001ab98");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001ab9c bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001aba0 jb 0x18001abc1
@@ -75188,7 +75188,7 @@ pub(super) fn f_68001abe0(m: &mut M, s: &mut dyn Svc) {
                 // 18001ac4f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001ac54 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001ac54");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001ac58 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001ac5c jb 0x18001ac7d
@@ -75312,7 +75312,7 @@ pub(super) fn f_68001ac90(m: &mut M, s: &mut dyn Svc) {
                 // 18001acef mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001acf4 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001acf4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001acf8 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001acfc jb 0x18001ad1d
@@ -75758,7 +75758,7 @@ pub(super) fn f_68001ad30(m: &mut M, s: &mut dyn Svc) {
                 // 18001af4e mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001af53 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001af53");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001af57 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001af5b jb 0x18001af83
@@ -76450,7 +76450,7 @@ pub(super) fn f_68001b180(m: &mut M, s: &mut dyn Svc) {
                 // 18001b31f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001b324 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001b324");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001b328 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001b32c jb 0x18001b35a
@@ -76614,7 +76614,7 @@ pub(super) fn f_68001b380(m: &mut M, s: &mut dyn Svc) {
                 // 18001b400 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001b405 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001b405");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001b409 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001b40d jb 0x18001b435
@@ -76742,7 +76742,7 @@ pub(super) fn f_68001b450(m: &mut M, s: &mut dyn Svc) {
                 // 18001b4bf mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001b4c4 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001b4c4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001b4c8 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001b4cc jb 0x18001b4f4
@@ -76874,7 +76874,7 @@ pub(super) fn f_68001b510(m: &mut M, s: &mut dyn Svc) {
                 // 18001b576 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001b57b lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001b57b");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001b57f bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001b583 jb 0x18001b5ab
@@ -77062,7 +77062,7 @@ pub(super) fn f_68001b5c0(m: &mut M, s: &mut dyn Svc) {
                 // 18001b662 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 18001b667 lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 18001b667");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 18001b66b bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001b66f jb 0x18001b698
@@ -77239,7 +77239,7 @@ pub(super) fn f_68001b6c0(m: &mut M, s: &mut dyn Svc) {
                 // 18001b739 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001b73e lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001b73e");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001b742 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001b746 jb 0x18001b76e
@@ -87419,7 +87419,7 @@ pub(super) fn f_68001f700(m: &mut M, s: &mut dyn Svc) {
                 // 18001f742 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001f747 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001f747");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001f74b bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001f74f jb 0x18001f770
@@ -87577,7 +87577,7 @@ pub(super) fn f_68001f790(m: &mut M, s: &mut dyn Svc) {
                 // 18001f821 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18001f826 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18001f826");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18001f82a bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18001f82e jb 0x18001f84f
@@ -89196,7 +89196,7 @@ pub(super) fn f_680020060(m: &mut M, s: &mut dyn Svc) {
                 // 1800200c2 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800200c7 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800200c7");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800200cb bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800200cf jb 0x1800200f7
@@ -89347,7 +89347,7 @@ pub(super) fn f_680020130(m: &mut M, s: &mut dyn Svc) {
                 // 1800201a1 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800201a6 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800201a6");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800201aa bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800201ae jb 0x1800201d6
@@ -89502,7 +89502,7 @@ pub(super) fn f_6800201f0(m: &mut M, s: &mut dyn Svc) {
                 // 180020261 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180020266 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180020266");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002026a bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002026e jb 0x180020296
@@ -89589,7 +89589,7 @@ pub(super) fn f_6800202b0(m: &mut M, s: &mut dyn Svc) {
                 // 1800202cf mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800202d4 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800202d4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800202d8 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800202dc jb 0x1800202fd
@@ -90986,7 +90986,7 @@ pub(super) fn f_6800208b0(m: &mut M, s: &mut dyn Svc) {
                 // 180020905 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 18002090a lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 18002090a");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 18002090e bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180020912 jb 0x18002093b
@@ -91396,7 +91396,7 @@ pub(super) fn f_680020a60(m: &mut M, s: &mut dyn Svc) {
                 // 180020b02 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180020b07 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180020b07");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180020b0b bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180020b0f jb 0x180020b37
@@ -91909,7 +91909,7 @@ pub(super) fn f_680020c90(m: &mut M, s: &mut dyn Svc) {
                 // 180020db1 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 180020db6 lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 180020db6");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 180020dba bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180020dbe jb 0x180020de7
@@ -92405,7 +92405,7 @@ pub(super) fn f_680021020(m: &mut M, s: &mut dyn Svc) {
                 // 18002107f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180021084 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180021084");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180021088 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002108c jb 0x1800210b4
@@ -92572,7 +92572,7 @@ pub(super) fn f_6800210d0(m: &mut M, s: &mut dyn Svc) {
                 // 180021157 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002115c lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002115c");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180021160 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180021164 jb 0x180021185
@@ -92696,7 +92696,7 @@ pub(super) fn f_6800211a0(m: &mut M, s: &mut dyn Svc) {
                 // 1800211ff mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180021204 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180021204");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180021208 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002120c jb 0x18002122d
@@ -93108,7 +93108,7 @@ pub(super) fn f_6800212b0(m: &mut M, s: &mut dyn Svc) {
                 // 1800213ce mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800213d3 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800213d3");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800213d7 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800213db jb 0x180021403
@@ -93235,7 +93235,7 @@ pub(super) fn f_680021420(m: &mut M, s: &mut dyn Svc) {
                 // 180021475 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 18002147a lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 18002147a");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 18002147e bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180021482 jb 0x1800214ab
@@ -94586,7 +94586,7 @@ pub(super) fn f_680021920(m: &mut M, s: &mut dyn Svc) {
                 // 180021bb5 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180021bba lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180021bba");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180021bbe bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180021bc2 jb 0x180021bea
@@ -95122,7 +95122,7 @@ pub(super) fn f_680021c10(m: &mut M, s: &mut dyn Svc) {
                 // 180021e7b mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180021e80 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180021e80");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180021e84 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180021e88 jb 0x180021eb0
@@ -95268,7 +95268,7 @@ pub(super) fn f_680021ed0(m: &mut M, s: &mut dyn Svc) {
                 // 180021f42 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180021f47 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180021f47");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180021f4b bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180021f4f jb 0x180021f77
@@ -95400,7 +95400,7 @@ pub(super) fn f_680021f90(m: &mut M, s: &mut dyn Svc) {
                 // 180021ff6 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180021ffb lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180021ffb");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180021fff bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180022003 jb 0x18002202b
@@ -95608,7 +95608,7 @@ pub(super) fn f_680022040(m: &mut M, s: &mut dyn Svc) {
                 // 1800220f7 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800220fc lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800220fc");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180022100 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180022104 jb 0x18002212c
@@ -95797,7 +95797,7 @@ pub(super) fn f_680022150(m: &mut M, s: &mut dyn Svc) {
                 // 1800221d7 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800221dc lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800221dc");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800221e0 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800221e4 jb 0x18002220c
@@ -96075,7 +96075,7 @@ pub(super) fn f_680022220(m: &mut M, s: &mut dyn Svc) {
                 // 180022346 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002234b lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002234b");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002234f bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180022353 jb 0x18002237b
@@ -110749,7 +110749,7 @@ pub(super) fn f_680026470(m: &mut M, s: &mut dyn Svc) {
                 // 180026697 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002669c lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002669c");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800266a0 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800266a4 jb 0x1800266cc
@@ -111453,7 +111453,7 @@ pub(super) fn f_680026850(m: &mut M, s: &mut dyn Svc) {
                 // 1800269e3 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 1800269e8 lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 1800269e8");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 1800269ec bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800269f0 jb 0x180026a1f
@@ -111759,7 +111759,7 @@ pub(super) fn f_680026b40(m: &mut M, s: &mut dyn Svc) {
                 // 180026b9a mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180026b9f lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180026b9f");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180026ba3 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180026ba7 jb 0x180026bc8
@@ -111888,7 +111888,7 @@ pub(super) fn f_680026be0(m: &mut M, s: &mut dyn Svc) {
                 // 180026c4f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180026c54 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180026c54");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180026c58 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180026c5c jb 0x180026c84
@@ -112589,7 +112589,7 @@ pub(super) fn f_680026ca0(m: &mut M, s: &mut dyn Svc) {
                 // 18002702c mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180027031 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180027031");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180027035 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180027039 jb 0x180027061
@@ -112962,7 +112962,7 @@ pub(super) fn f_6800270f0(m: &mut M, s: &mut dyn Svc) {
                 // 18002722e mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180027233 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180027233");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180027237 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002723b jb 0x180027263
@@ -113114,7 +113114,7 @@ pub(super) fn f_680027280(m: &mut M, s: &mut dyn Svc) {
                 // 1800272e7 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800272ec lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800272ec");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800272f0 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800272f4 jb 0x18002731c
@@ -113300,7 +113300,7 @@ pub(super) fn f_680027330(m: &mut M, s: &mut dyn Svc) {
                 // 1800273d2 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 1800273d7 lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 1800273d7");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 1800273db bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800273df jb 0x180027408
@@ -113445,7 +113445,7 @@ pub(super) fn f_680027430(m: &mut M, s: &mut dyn Svc) {
                 // 18002749f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800274a4 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800274a4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800274a8 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800274ac jb 0x1800274d4
@@ -113577,7 +113577,7 @@ pub(super) fn f_6800274f0(m: &mut M, s: &mut dyn Svc) {
                 // 180027556 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002755b lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002755b");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002755f bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180027563 jb 0x18002758b
@@ -114745,7 +114745,7 @@ pub(super) fn f_680027950(m: &mut M, s: &mut dyn Svc) {
                 // 180027b7b mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180027b80 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180027b80");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180027b84 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180027b88 jb 0x180027bb0
@@ -115449,7 +115449,7 @@ pub(super) fn f_680027d30(m: &mut M, s: &mut dyn Svc) {
                 // 180027ec3 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 180027ec8 lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 180027ec8");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 180027ecc bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180027ed0 jb 0x180027eff
@@ -116533,7 +116533,7 @@ pub(super) fn f_680028140(m: &mut M, s: &mut dyn Svc) {
                 // 1800284cc mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800284d1 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800284d1");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800284d5 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800284d9 jb 0x180028501
@@ -116906,7 +116906,7 @@ pub(super) fn f_680028590(m: &mut M, s: &mut dyn Svc) {
                 // 1800286ce mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 1800286d3 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 1800286d3");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 1800286d7 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 1800286db jb 0x180028703
@@ -117046,7 +117046,7 @@ pub(super) fn f_680028720(m: &mut M, s: &mut dyn Svc) {
                 // 18002878f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 180028794 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 180028794");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 180028798 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002879c jb 0x1800287c4
@@ -117178,7 +117178,7 @@ pub(super) fn f_6800287e0(m: &mut M, s: &mut dyn Svc) {
                 // 180028846 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002884b lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002884b");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002884f bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 180028853 jb 0x18002887b
@@ -122930,7 +122930,7 @@ pub(super) fn f_68002a5a0(m: &mut M, s: &mut dyn Svc) {
                 // 18002a6c7 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002a6cc lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002a6cc");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002a6d0 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002a6d4 jb 0x18002a6fc
@@ -123373,7 +123373,7 @@ pub(super) fn f_68002a720(m: &mut M, s: &mut dyn Svc) {
                 // 18002a8e9 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 18002a8ee lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 18002a8ee");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 18002a8f2 bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002a8f6 jb 0x18002a925
@@ -123811,7 +123811,7 @@ pub(super) fn f_68002a950(m: &mut M, s: &mut dyn Svc) {
                 // 18002aad9 mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 18002aade lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 18002aade");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 18002aae2 bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002aae6 jb 0x18002ab15
@@ -124141,7 +124141,7 @@ pub(super) fn f_68002ac20(m: &mut M, s: &mut dyn Svc) {
                 // 18002acab mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002acb0 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002acb0");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002acb4 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002acb8 jb 0x18002acd9
@@ -124265,7 +124265,7 @@ pub(super) fn f_68002acf0(m: &mut M, s: &mut dyn Svc) {
                 // 18002ad4f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002ad54 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002ad54");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002ad58 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002ad5c jb 0x18002ad7d
@@ -124733,7 +124733,7 @@ pub(super) fn f_68002ad90(m: &mut M, s: &mut dyn Svc) {
                 // 18002afd6 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002afdb lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002afdb");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002afdf bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002afe3 jb 0x18002b011
@@ -125852,7 +125852,7 @@ pub(super) fn f_68002b220(m: &mut M, s: &mut dyn Svc) {
                 // 18002b5ef mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 18002b5f4 lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 18002b5f4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 18002b5f8 bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002b5fc jb 0x18002b625
@@ -126429,7 +126429,7 @@ pub(super) fn f_68002b650(m: &mut M, s: &mut dyn Svc) {
                 // 18002b8d1 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002b8d6 lock xadd dword ptr [rdi], eax
-                m.fail("xadd dword ptr [rdi], eax at 18002b8d6");
+                { let x = m.ld(m.ea(7, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(7, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002b8da bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002b8de jb 0x18002b906
@@ -127020,7 +127020,7 @@ pub(super) fn f_68002b930(m: &mut M, s: &mut dyn Svc) {
                 // 18002bbe9 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002bbee lock xadd dword ptr [rdi], eax
-                m.fail("xadd dword ptr [rdi], eax at 18002bbee");
+                { let x = m.ld(m.ea(7, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(7, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002bbf2 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002bbf6 jb 0x18002bc1e
@@ -127584,7 +127584,7 @@ pub(super) fn f_68002bc40(m: &mut M, s: &mut dyn Svc) {
                 // 18002bee9 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002beee lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002beee");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002bef2 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002bef6 jb 0x18002bf1e
@@ -127750,7 +127750,7 @@ pub(super) fn f_68002bf40(m: &mut M, s: &mut dyn Svc) {
                 // 18002bfc0 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002bfc5 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002bfc5");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002bfc9 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002bfcd jb 0x18002bff5
@@ -127884,7 +127884,7 @@ pub(super) fn f_68002c010(m: &mut M, s: &mut dyn Svc) {
                 // 18002c089 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002c08e lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002c08e");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002c092 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002c096 jb 0x18002c0be
@@ -128016,7 +128016,7 @@ pub(super) fn f_68002c0e0(m: &mut M, s: &mut dyn Svc) {
                 // 18002c146 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002c14b lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002c14b");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002c14f bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002c153 jb 0x18002c17b
@@ -128298,7 +128298,7 @@ pub(super) fn f_68002c190(m: &mut M, s: &mut dyn Svc) {
                 // 18002c297 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002c29c lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002c29c");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002c2a0 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002c2a4 jb 0x18002c2cc
@@ -128491,7 +128491,7 @@ pub(super) fn f_68002c2f0(m: &mut M, s: &mut dyn Svc) {
                 // 18002c37b mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002c380 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002c380");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002c384 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002c388 jb 0x18002c3b0
@@ -128771,7 +128771,7 @@ pub(super) fn f_68002c3c0(m: &mut M, s: &mut dyn Svc) {
                 // 18002c4eb mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002c4f0 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002c4f0");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002c4f4 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002c4f8 jb 0x18002c520
@@ -132607,7 +132607,7 @@ pub(super) fn f_68002d9a0(m: &mut M, s: &mut dyn Svc) {
                 // 18002db3b mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002db40 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002db40");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002db44 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002db48 jb 0x18002db70
@@ -132980,7 +132980,7 @@ pub(super) fn f_68002dba0(m: &mut M, s: &mut dyn Svc) {
                 // 18002dd3f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002dd44 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002dd44");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002dd48 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002dd4c jb 0x18002dd7a
@@ -133101,7 +133101,7 @@ pub(super) fn f_68002dda0(m: &mut M, s: &mut dyn Svc) {
                 // 18002dde0 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002dde5 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002dde5");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002dde9 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002dded jb 0x18002de0e
@@ -133182,7 +133182,7 @@ pub(super) fn f_68002de20(m: &mut M, s: &mut dyn Svc) {
                 // 18002de46 movsd xmm6, qword ptr [rdi + 0x48]
                 m.set_xl_zero(6, m.ld(m.ea(7, -1, 1, 72), 8));
                 // 18002de4b lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002de4b");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002de4f bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002de53 jb 0x18002de74
@@ -133282,7 +133282,7 @@ pub(super) fn f_68002de90(m: &mut M, s: &mut dyn Svc) {
                 // 18002ded6 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002dedb lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002dedb");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002dedf bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002dee3 jb 0x18002df0b
@@ -133416,7 +133416,7 @@ pub(super) fn f_68002de90(m: &mut M, s: &mut dyn Svc) {
                 // 18002df71 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002df76 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002df76");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002df7a bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002df7e jb 0x18002dfa6
@@ -133686,7 +133686,7 @@ pub(super) fn f_68002dfc0(m: &mut M, s: &mut dyn Svc) {
                 // 18002e0c1 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002e0c6 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002e0c6");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002e0ca bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e0ce jb 0x18002e11e
@@ -133891,7 +133891,7 @@ pub(super) fn f_68002e170(m: &mut M, s: &mut dyn Svc) {
                 // 18002e1a2 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002e1a7 lock xadd dword ptr [rdi + 0x10], eax
-                m.fail("xadd dword ptr [rdi + 0x10], eax at 18002e1a7");
+                { let x = m.ld(m.ea(7, -1, 1, 16), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(7, -1, 1, 16); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002e1ac bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e1b0 jb 0x18002e1d3
@@ -134026,7 +134026,7 @@ pub(super) fn f_68002e1e0(m: &mut M, s: &mut dyn Svc) {
                 // 18002e23b mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002e240 lock xadd dword ptr [rdi + 0x10], eax
-                m.fail("xadd dword ptr [rdi + 0x10], eax at 18002e240");
+                { let x = m.ld(m.ea(7, -1, 1, 16), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(7, -1, 1, 16); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002e245 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e249 jb 0x18002e26c
@@ -134438,7 +134438,7 @@ pub(super) fn f_68002e350(m: &mut M, s: &mut dyn Svc) {
                 // 18002e43d mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002e442 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002e442");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002e446 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e44a jb 0x18002e472
@@ -134573,7 +134573,7 @@ pub(super) fn f_68002e490(m: &mut M, s: &mut dyn Svc) {
                 // 18002e4e3 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002e4e8 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002e4e8");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002e4ec bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e4f0 jb 0x18002e518
@@ -134770,7 +134770,7 @@ pub(super) fn f_68002e530(m: &mut M, s: &mut dyn Svc) {
                 // 18002e5d8 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002e5dd lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002e5dd");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002e5e1 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e5e5 jb 0x18002e606
@@ -134949,7 +134949,7 @@ pub(super) fn f_68002e630(m: &mut M, s: &mut dyn Svc) {
                 // 18002e6e2 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002e6e7 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002e6e7");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002e6eb bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e6ef jb 0x18002e717
@@ -135395,7 +135395,7 @@ pub(super) fn f_68002e850(m: &mut M, s: &mut dyn Svc) {
                 // 18002e8ef mov ecx, 0x80000000
                 { let v = 0x80000000u64; m.sr(1, 4, false, v); }
                 // 18002e8f4 lock xadd dword ptr [rbx], ecx
-                m.fail("xadd dword ptr [rbx], ecx at 18002e8f4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(1, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(1, 4, false, v); } }
                 // 18002e8f8 bt ecx, 0x1e
                 { let old = m.gr(1, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e8fc jb 0x18002e925
@@ -135533,7 +135533,7 @@ pub(super) fn f_68002e950(m: &mut M, s: &mut dyn Svc) {
                 // 18002e99c mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002e9a1 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002e9a1");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002e9a5 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002e9a9 jb 0x18002e9ca
@@ -135757,7 +135757,7 @@ pub(super) fn f_68002ea60(m: &mut M, s: &mut dyn Svc) {
                 // 18002ea9f mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002eaa4 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002eaa4");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002eaa8 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002eaac jb 0x18002eacd
@@ -135968,7 +135968,7 @@ pub(super) fn f_68002eb60(m: &mut M, s: &mut dyn Svc) {
                 // 18002ebaa mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002ebaf lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002ebaf");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002ebb3 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002ebb7 jb 0x18002ebd8
@@ -136116,7 +136116,7 @@ pub(super) fn f_68002ebf0(m: &mut M, s: &mut dyn Svc) {
                 // 18002ec60 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002ec65 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002ec65");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002ec69 bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002ec6d jb 0x18002ec8e
@@ -136213,7 +136213,7 @@ pub(super) fn f_68002ecb0(m: &mut M, s: &mut dyn Svc) {
                 // 18002ece6 or edi, ecx
                 { let v = m.or(m.gr(7, 4, false), m.gr(1, 4, false), 4); m.sr(7, 4, false, v); }
                 // 18002ece8 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002ece8");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002ecec bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002ecf0 jb 0x18002ed11
@@ -136292,7 +136292,7 @@ pub(super) fn f_68002ed20(m: &mut M, s: &mut dyn Svc) {
                 // 18002ed43 mov eax, 0x80000000
                 { let v = 0x80000000u64; m.sr(0, 4, false, v); }
                 // 18002ed48 lock xadd dword ptr [rbx], eax
-                m.fail("xadd dword ptr [rbx], eax at 18002ed48");
+                { let x = m.ld(m.ea(3, -1, 1, 0), 4); let y = m.gr(0, 4, false); { let v = m.add(x, y, 4); let a = m.ea(3, -1, 1, 0); m.st(a, 4, v); } { let v = x; m.sr(0, 4, false, v); } }
                 // 18002ed4c bt eax, 0x1e
                 { let old = m.gr(0, 4, false); let bit = (0x1eu64) % 32; m.cf = old >> bit & 1 != 0;  }
                 // 18002ed50 jb 0x18002ed71

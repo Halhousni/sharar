@@ -39,7 +39,7 @@ pub(super) fn f_e80001010(m: &mut M, s: &mut dyn Svc) {
                 // 18000101c mov rdi, rcx
                 { let v = m.gr(1, 8, false); m.sr(7, 8, false, v); }
                 // 18000101f call qword ptr [rip + 0x442b]
-                s.import(m, 1074);
+                s.import(m, 1093);
                 // 180001025 test bl, 1
                 m.and(m.gr(3, 1, false), 0x1u64, 1);
                 // 180001028 je 0x180001033
@@ -82,7 +82,7 @@ pub(super) fn f_e80001050(m: &mut M, s: &mut dyn Svc) {
                 // 180001050 sub rsp, 0x28
                 { let v = m.sub(m.gr(4, 8, false), 0x28u64, 8); m.sr(4, 8, false, v); }
                 // 180001054 call qword ptr [rip + 0x43ee]
-                s.import(m, 1078);
+                s.import(m, 1097);
                 // 18000105a call 0x180001350
                 m.push(0); f_e80001350(m, s);
                 // 18000105f mov eax, 1
@@ -2574,7 +2574,7 @@ fn f_e80001c00_run(m: &mut M, s: &mut dyn Svc, start: u64) {
                 // 180002060 lea rcx, [rsp + 0x20]
                 { let v = m.ea(4, -1, 1, 32); m.sr(1, 8, false, v); }
                 // 180002065 call qword ptr [rip + 0x3305]
-                s.import(m, 1467);
+                s.import(m, 1482);
                 // 18000206b mov r8, rdi
                 { let v = m.gr(7, 8, false); m.sr(8, 8, false, v); }
                 // 18000206e mov rdx, qword ptr [rax]
@@ -3950,7 +3950,7 @@ fn f_e80002690_run(m: &mut M, s: &mut dyn Svc, start: u64) {
                 // 180002710 lea rcx, [rsp + 0x58]
                 { let v = m.ea(4, -1, 1, 88); m.sr(1, 8, false, v); }
                 // 180002715 call qword ptr [rip + 0x2c55]
-                s.import(m, 1467);
+                s.import(m, 1482);
                 // 18000271b mov rdx, qword ptr [rax]
                 { let v = m.ld(m.ea(0, -1, 1, 0), 8); m.sr(2, 8, false, v); }
                 // 18000271e mov rcx, qword ptr [rip + 0x6f7b]
@@ -6121,7 +6121,7 @@ pub(super) fn f_e80003804(m: &mut M, s: &mut dyn Svc) {
                 // 180003894 mov qword ptr [rbp + 0x50], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(5, -1, 1, 80); m.st(a, 8, v); }
                 // 180003898 call qword ptr [rip + 0x1762]
-                s.import(m, 1468);
+                s.import(m, 1483);
                 // 18000389e xor eax, eax
                 { let v = m.xor(m.gr(0, 4, false), m.gr(0, 4, false), 4); m.sr(0, 4, false, v); }
                 // 1800038a0 jmp 0x180003a8a
@@ -6251,7 +6251,7 @@ pub(super) fn f_e80003804(m: &mut M, s: &mut dyn Svc) {
                 // 18000393a xor edx, edx
                 { let v = m.xor(m.gr(2, 4, false), m.gr(2, 4, false), 4); m.sr(2, 4, false, v); }
                 // 18000393c call qword ptr [rip + 0x16de]
-                s.import(m, 1391);
+                s.import(m, 1407);
                 // 180003942 mov rdi, rax
                 { let v = m.gr(0, 8, false); m.sr(7, 8, false, v); }
                 // 180003945 test rax, rax
@@ -6305,7 +6305,7 @@ pub(super) fn f_e80003804(m: &mut M, s: &mut dyn Svc) {
                 // 180003983 mov qword ptr [rbp + 0x58], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(5, -1, 1, 88); m.st(a, 8, v); }
                 // 180003987 call qword ptr [rip + 0x1673]
-                s.import(m, 1468);
+                s.import(m, 1483);
                 // 18000398d mov rax, qword ptr [rbp - 0x20]
                 { let v = m.ld(m.ea(5, -1, 1, -32), 8); m.sr(0, 8, false, v); }
                 // 180003991 jmp 0x180003a8a
@@ -6482,7 +6482,7 @@ pub(super) fn f_e80003804(m: &mut M, s: &mut dyn Svc) {
                 // 180003a52 mov qword ptr [rbp + 0x60], rax
                 { let v = m.gr(0, 8, false); let a = m.ea(5, -1, 1, 96); m.st(a, 8, v); }
                 // 180003a56 call qword ptr [rip + 0x15a4]
-                s.import(m, 1468);
+                s.import(m, 1483);
                 // 180003a5c mov rbx, qword ptr [rbp - 0x20]
                 { let v = m.ld(m.ea(5, -1, 1, -32), 8); m.sr(3, 8, false, v); }
                 pc = 0xe80003a60; continue;
@@ -6561,7 +6561,7 @@ pub(super) fn f_e80003aa2(m: &mut M, s: &mut dyn Svc) {
             0xe80003aa2 => {
                 m.block(0xe80003aa2);
                 // 180003aa2 jmp qword ptr [rip + 0x19b8]
-                s.import(m, 1272); m.pop(); return;
+                s.import(m, 1288); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6576,7 +6576,7 @@ pub(super) fn f_e80003aa8(m: &mut M, s: &mut dyn Svc) {
             0xe80003aa8 => {
                 m.block(0xe80003aa8);
                 // 180003aa8 jmp qword ptr [rip + 0x1992]
-                s.import(m, 1312); m.pop(); return;
+                s.import(m, 1328); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6606,7 +6606,7 @@ pub(super) fn f_e80003ab4(m: &mut M, s: &mut dyn Svc) {
             0xe80003ab4 => {
                 m.block(0xe80003ab4);
                 // 180003ab4 jmp qword ptr [rip + 0x1976]
-                s.import(m, 1282); m.pop(); return;
+                s.import(m, 1298); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6741,7 +6741,7 @@ pub(super) fn f_e80003aea(m: &mut M, s: &mut dyn Svc) {
             0xe80003aea => {
                 m.block(0xe80003aea);
                 // 180003aea jmp qword ptr [rip + 0x18f8]
-                s.import(m, 1176); m.pop(); return;
+                s.import(m, 1192); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6831,7 +6831,7 @@ pub(super) fn f_e80003b0e(m: &mut M, s: &mut dyn Svc) {
             0xe80003b0e => {
                 m.block(0xe80003b0e);
                 // 180003b0e jmp qword ptr [rip + 0x18a4]
-                s.import(m, 1313); m.pop(); return;
+                s.import(m, 1329); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6846,7 +6846,7 @@ pub(super) fn f_e80003b14(m: &mut M, s: &mut dyn Svc) {
             0xe80003b14 => {
                 m.block(0xe80003b14);
                 // 180003b14 jmp qword ptr [rip + 0x1896]
-                s.import(m, 1314); m.pop(); return;
+                s.import(m, 1330); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6861,7 +6861,7 @@ pub(super) fn f_e80003b1a(m: &mut M, s: &mut dyn Svc) {
             0xe80003b1a => {
                 m.block(0xe80003b1a);
                 // 180003b1a jmp qword ptr [rip + 0x1888]
-                s.import(m, 1315); m.pop(); return;
+                s.import(m, 1331); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6876,7 +6876,7 @@ pub(super) fn f_e80003b20(m: &mut M, s: &mut dyn Svc) {
             0xe80003b20 => {
                 m.block(0xe80003b20);
                 // 180003b20 jmp qword ptr [rip + 0x187a]
-                s.import(m, 1093); m.pop(); return;
+                s.import(m, 1112); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6891,7 +6891,7 @@ pub(super) fn f_e80003b26(m: &mut M, s: &mut dyn Svc) {
             0xe80003b26 => {
                 m.block(0xe80003b26);
                 // 180003b26 jmp qword ptr [rip + 0x186c]
-                s.import(m, 1316); m.pop(); return;
+                s.import(m, 1332); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6906,7 +6906,7 @@ pub(super) fn f_e80003b2c(m: &mut M, s: &mut dyn Svc) {
             0xe80003b2c => {
                 m.block(0xe80003b2c);
                 // 180003b2c jmp qword ptr [rip + 0x185e]
-                s.import(m, 1092); m.pop(); return;
+                s.import(m, 1111); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6921,7 +6921,7 @@ pub(super) fn f_e80003b32(m: &mut M, s: &mut dyn Svc) {
             0xe80003b32 => {
                 m.block(0xe80003b32);
                 // 180003b32 jmp qword ptr [rip + 0x1850]
-                s.import(m, 1317); m.pop(); return;
+                s.import(m, 1333); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6936,7 +6936,7 @@ pub(super) fn f_e80003b38(m: &mut M, s: &mut dyn Svc) {
             0xe80003b38 => {
                 m.block(0xe80003b38);
                 // 180003b38 jmp qword ptr [rip + 0x1842]
-                s.import(m, 1318); m.pop(); return;
+                s.import(m, 1334); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6951,7 +6951,7 @@ pub(super) fn f_e80003b3e(m: &mut M, s: &mut dyn Svc) {
             0xe80003b3e => {
                 m.block(0xe80003b3e);
                 // 180003b3e jmp qword ptr [rip + 0x1834]
-                s.import(m, 1319); m.pop(); return;
+                s.import(m, 1335); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6966,7 +6966,7 @@ pub(super) fn f_e80003b44(m: &mut M, s: &mut dyn Svc) {
             0xe80003b44 => {
                 m.block(0xe80003b44);
                 // 180003b44 jmp qword ptr [rip + 0x1756]
-                s.import(m, 1320); m.pop(); return;
+                s.import(m, 1336); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6981,7 +6981,7 @@ pub(super) fn f_e80003b4a(m: &mut M, s: &mut dyn Svc) {
             0xe80003b4a => {
                 m.block(0xe80003b4a);
                 // 180003b4a jmp qword ptr [rip + 0x16f8]
-                s.import(m, 1274); m.pop(); return;
+                s.import(m, 1290); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -6996,7 +6996,7 @@ pub(super) fn f_e80003b50(m: &mut M, s: &mut dyn Svc) {
             0xe80003b50 => {
                 m.block(0xe80003b50);
                 // 180003b50 jmp qword ptr [rip + 0x16fa]
-                s.import(m, 1275); m.pop(); return;
+                s.import(m, 1291); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7011,7 +7011,7 @@ pub(super) fn f_e80003b56(m: &mut M, s: &mut dyn Svc) {
             0xe80003b56 => {
                 m.block(0xe80003b56);
                 // 180003b56 jmp qword ptr [rip + 0x16fc]
-                s.import(m, 1278); m.pop(); return;
+                s.import(m, 1294); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7026,7 +7026,7 @@ pub(super) fn f_e80003b5c(m: &mut M, s: &mut dyn Svc) {
             0xe80003b5c => {
                 m.block(0xe80003b5c);
                 // 180003b5c jmp qword ptr [rip + 0x16fe]
-                s.import(m, 1279); m.pop(); return;
+                s.import(m, 1295); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7041,7 +7041,7 @@ pub(super) fn f_e80003b62(m: &mut M, s: &mut dyn Svc) {
             0xe80003b62 => {
                 m.block(0xe80003b62);
                 // 180003b62 jmp qword ptr [rip + 0x1700]
-                s.import(m, 1321); m.pop(); return;
+                s.import(m, 1337); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7056,7 +7056,7 @@ pub(super) fn f_e80003b68(m: &mut M, s: &mut dyn Svc) {
             0xe80003b68 => {
                 m.block(0xe80003b68);
                 // 180003b68 jmp qword ptr [rip + 0x1702]
-                s.import(m, 1322); m.pop(); return;
+                s.import(m, 1338); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7071,7 +7071,7 @@ pub(super) fn f_e80003b6e(m: &mut M, s: &mut dyn Svc) {
             0xe80003b6e => {
                 m.block(0xe80003b6e);
                 // 180003b6e jmp qword ptr [rip + 0x1704]
-                s.import(m, 1323); m.pop(); return;
+                s.import(m, 1339); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7086,7 +7086,7 @@ pub(super) fn f_e80003b74(m: &mut M, s: &mut dyn Svc) {
             0xe80003b74 => {
                 m.block(0xe80003b74);
                 // 180003b74 jmp qword ptr [rip + 0x1706]
-                s.import(m, 1324); m.pop(); return;
+                s.import(m, 1340); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7101,7 +7101,7 @@ pub(super) fn f_e80003b7a(m: &mut M, s: &mut dyn Svc) {
             0xe80003b7a => {
                 m.block(0xe80003b7a);
                 // 180003b7a jmp qword ptr [rip + 0x1708]
-                s.import(m, 1325); m.pop(); return;
+                s.import(m, 1341); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7116,7 +7116,7 @@ pub(super) fn f_e80003b80(m: &mut M, s: &mut dyn Svc) {
             0xe80003b80 => {
                 m.block(0xe80003b80);
                 // 180003b80 jmp qword ptr [rip + 0x170a]
-                s.import(m, 1326); m.pop(); return;
+                s.import(m, 1342); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7131,7 +7131,7 @@ pub(super) fn f_e80003b86(m: &mut M, s: &mut dyn Svc) {
             0xe80003b86 => {
                 m.block(0xe80003b86);
                 // 180003b86 jmp qword ptr [rip + 0x170c]
-                s.import(m, 1103); m.pop(); return;
+                s.import(m, 1122); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7146,7 +7146,7 @@ pub(super) fn f_e80003b8c(m: &mut M, s: &mut dyn Svc) {
             0xe80003b8c => {
                 m.block(0xe80003b8c);
                 // 180003b8c jmp qword ptr [rip + 0x1966]
-                s.import(m, 1327); m.pop(); return;
+                s.import(m, 1343); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7161,7 +7161,7 @@ pub(super) fn f_e80003b92(m: &mut M, s: &mut dyn Svc) {
             0xe80003b92 => {
                 m.block(0xe80003b92);
                 // 180003b92 jmp qword ptr [rip + 0x1710]
-                s.import(m, 1328); m.pop(); return;
+                s.import(m, 1344); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7176,7 +7176,7 @@ pub(super) fn f_e80003b98(m: &mut M, s: &mut dyn Svc) {
             0xe80003b98 => {
                 m.block(0xe80003b98);
                 // 180003b98 jmp qword ptr [rip + 0x1712]
-                s.import(m, 1329); m.pop(); return;
+                s.import(m, 1345); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7191,7 +7191,7 @@ pub(super) fn f_e80003b9e(m: &mut M, s: &mut dyn Svc) {
             0xe80003b9e => {
                 m.block(0xe80003b9e);
                 // 180003b9e jmp qword ptr [rip + 0x1714]
-                s.import(m, 1330); m.pop(); return;
+                s.import(m, 1346); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7206,7 +7206,7 @@ pub(super) fn f_e80003ba4(m: &mut M, s: &mut dyn Svc) {
             0xe80003ba4 => {
                 m.block(0xe80003ba4);
                 // 180003ba4 jmp qword ptr [rip + 0x1716]
-                s.import(m, 1331); m.pop(); return;
+                s.import(m, 1347); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7221,7 +7221,7 @@ pub(super) fn f_e80003baa(m: &mut M, s: &mut dyn Svc) {
             0xe80003baa => {
                 m.block(0xe80003baa);
                 // 180003baa jmp qword ptr [rip + 0x1718]
-                s.import(m, 1102); m.pop(); return;
+                s.import(m, 1121); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7236,7 +7236,7 @@ pub(super) fn f_e80003bb0(m: &mut M, s: &mut dyn Svc) {
             0xe80003bb0 => {
                 m.block(0xe80003bb0);
                 // 180003bb0 jmp qword ptr [rip + 0x171a]
-                s.import(m, 1332); m.pop(); return;
+                s.import(m, 1348); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7251,7 +7251,7 @@ pub(super) fn f_e80003bb6(m: &mut M, s: &mut dyn Svc) {
             0xe80003bb6 => {
                 m.block(0xe80003bb6);
                 // 180003bb6 jmp qword ptr [rip + 0x171c]
-                s.import(m, 1333); m.pop(); return;
+                s.import(m, 1349); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7266,7 +7266,7 @@ pub(super) fn f_e80003bbc(m: &mut M, s: &mut dyn Svc) {
             0xe80003bbc => {
                 m.block(0xe80003bbc);
                 // 180003bbc jmp qword ptr [rip + 0x171e]
-                s.import(m, 1334); m.pop(); return;
+                s.import(m, 1350); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7281,7 +7281,7 @@ pub(super) fn f_e80003bc2(m: &mut M, s: &mut dyn Svc) {
             0xe80003bc2 => {
                 m.block(0xe80003bc2);
                 // 180003bc2 jmp qword ptr [rip + 0x1720]
-                s.import(m, 1335); m.pop(); return;
+                s.import(m, 1351); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7296,7 +7296,7 @@ pub(super) fn f_e80003bc8(m: &mut M, s: &mut dyn Svc) {
             0xe80003bc8 => {
                 m.block(0xe80003bc8);
                 // 180003bc8 jmp qword ptr [rip + 0x1722]
-                s.import(m, 1336); m.pop(); return;
+                s.import(m, 1352); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7311,7 +7311,7 @@ pub(super) fn f_e80003bce(m: &mut M, s: &mut dyn Svc) {
             0xe80003bce => {
                 m.block(0xe80003bce);
                 // 180003bce jmp qword ptr [rip + 0x1724]
-                s.import(m, 1337); m.pop(); return;
+                s.import(m, 1353); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7326,7 +7326,7 @@ pub(super) fn f_e80003bd4(m: &mut M, s: &mut dyn Svc) {
             0xe80003bd4 => {
                 m.block(0xe80003bd4);
                 // 180003bd4 jmp qword ptr [rip + 0x1726]
-                s.import(m, 1469); m.pop(); return;
+                s.import(m, 1484); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7341,7 +7341,7 @@ pub(super) fn f_e80003bda(m: &mut M, s: &mut dyn Svc) {
             0xe80003bda => {
                 m.block(0xe80003bda);
                 // 180003bda jmp qword ptr [rip + 0x1728]
-                s.import(m, 1338); m.pop(); return;
+                s.import(m, 1354); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7356,7 +7356,7 @@ pub(super) fn f_e80003be0(m: &mut M, s: &mut dyn Svc) {
             0xe80003be0 => {
                 m.block(0xe80003be0);
                 // 180003be0 jmp qword ptr [rip + 0x172a]
-                s.import(m, 1339); m.pop(); return;
+                s.import(m, 1355); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7371,7 +7371,7 @@ pub(super) fn f_e80003be6(m: &mut M, s: &mut dyn Svc) {
             0xe80003be6 => {
                 m.block(0xe80003be6);
                 // 180003be6 jmp qword ptr [rip + 0x172c]
-                s.import(m, 1340); m.pop(); return;
+                s.import(m, 1356); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7386,7 +7386,7 @@ pub(super) fn f_e80003bec(m: &mut M, s: &mut dyn Svc) {
             0xe80003bec => {
                 m.block(0xe80003bec);
                 // 180003bec jmp qword ptr [rip + 0x172e]
-                s.import(m, 1341); m.pop(); return;
+                s.import(m, 1357); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }
@@ -7713,7 +7713,7 @@ pub(super) fn f_e80004ca0(m: &mut M, s: &mut dyn Svc) {
                 // 180004cab lea rcx, [rip + 0x49fe]
                 { let v = 0xe800096b0u64; m.sr(1, 8, false, v); }
                 // 180004cb2 call qword ptr [rip + 0x7a0]
-                s.import(m, 1075);
+                s.import(m, 1094);
                 // 180004cb8 lea rax, [rip + 0xa39]
                 { let v = 0xe800056f8u64; m.sr(0, 8, false, v); }
                 // 180004cbf lea rcx, [rip + 0xba]
@@ -7740,7 +7740,7 @@ pub(super) fn f_e80004d80(m: &mut M, s: &mut dyn Svc) {
                 // 180004d80 lea rcx, [rip + 0x4929]
                 { let v = 0xe800096b0u64; m.sr(1, 8, false, v); }
                 // 180004d87 jmp qword ptr [rip + 0x6c2]
-                s.import(m, 1074); m.pop(); return;
+                s.import(m, 1093); m.pop(); return;
             }
             _ => unreachable!("jump to {pc:#x}"),
         }

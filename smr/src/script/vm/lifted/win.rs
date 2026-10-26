@@ -611,6 +611,9 @@ impl Win {
                     String::from_utf8_lossy(&v).into_owned()
                 };
                 let t = s.trim_start();
+                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  ({name} of {s:?})");
+                }
                 let mut end = 0;
                 for i in (0..=t.len()).rev() {
                     if t.is_char_boundary(i) && !t[..i].is_empty() && t[..i].bytes().all(|b| b.is_ascii_digit() || b"+-.eE".contains(&b)) && t[..i].parse::<f64>().is_ok() {

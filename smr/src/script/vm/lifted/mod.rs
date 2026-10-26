@@ -869,6 +869,10 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                     let arr = base + m.ld(chd + 12, 4);
                     let name_of = |m: &mut M, td: u64| -> Vec<u8> { (0..64).map(|k| m.ld(td + 16 + k, 1) as u8).take_while(|&b| b != 0).collect() };
                     let want = name_of(m, target);
+                    if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                        let have: Vec<String> = (0..n).map(|k| { let bcd = base + m.ld(arr + 4 * k, 4); let td = base + m.ld(bcd, 4); String::from_utf8_lossy(&name_of(m, td)).into_owned() }).collect();
+                        eprintln!("  (dynamic_cast to {} from {:?})", String::from_utf8_lossy(&want), have);
+                    }
                     let top = obj - m.ld(col + 4, 4);
                     for k in 0..n {
                         let bcd = base + m.ld(arr + 4 * k, 4);
@@ -1094,9 +1098,12 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                             u64::MAX
                         }
                     }
-                    0x15d1 => self.measure(m, view_of(rcx_of(m)), r9),
+                    // (a measurement whose times are expressions is the window's own to make)
+                    0x15d1 if m.ld(r9 + 0x20, 4) != 0 => self.measure(m, view_of(rcx_of(m)), r9),
                     0x15d3 => self.search(m, view_of(rcx_of(m)), r9),
                     0x15a6 => self.chan_value(m, view_of(rcx_of(m)), r9),
+                    // the window's table of channel processing steps is the data file's own here
+                    0x502 | 0x504 => 0,
                     _ => {
                         // the window that gets the message, and the handler its own class has for it
                         let hwnd = rcx_of(m);
@@ -1123,11 +1130,35 @@ impl<'v, 'w> Svc for Run<'v, 'w> {
                                 // copying a time view: the text goes to the clipboard; the pictures (a bitmap and
                                 // a metafile of the drawing) are not made, and are reported as made
                                 let picture = if msg == 0x282a && target.map(|t| t.0) == Some(0) { r8 & 3 } else { 0 };
+                                if (msg == 0x9c0 || msg == 0x9c1) && std::env::var_os("S2LIFT_SERVICES").is_some() {
+                                    let mut found = Vec::new();
+                                    for k in 0..0x200u64 {
+                                        let p = m.ld(r9 + 8 * k, 8);
+                                        if p > 0x6000_0000_0000 && p < 0x6000_1000_0000 {
+                                            let w = win::wide_at(m, p);
+                                            if (2..40).contains(&w.len()) && w.iter().all(|&c| (32..127).contains(&c)) {
+                                                found.push(format!("+{:#x}={}", 8 * k, String::from_utf16_lossy(&w)));
+                                            }
+                                        }
+                                    }
+                                    eprintln!("  (message {msg:#x} state strings: {found:?})");
+                                }
+                                if msg == 0x2638 && std::env::var_os("S2LIFT_SERVICES").is_some() {
+                                    eprintln!("  (set cursor {r8}: position {} flag {})", f64::from_bits(m.ld(r9, 8)), m.ld(r9 + 8, 1));
+                                }
                                 m.r[1] = this;
                                 m.r[2] = r8 & !picture;
                                 m.r[8] = r9;
                                 m.push(0);
                                 commands::call_at(m, self, f);
+                                if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                                    eprintln!("  (message {msg:#x} to {hwnd:#x} returned {:#x})", m.r[0]);
+                                    if msg == 0x2638 {
+                                        let mgr = m.ld(this + 0x5b0, 8);
+                                        let cur = m.ld(mgr + 0x268, 8);
+                                        eprintln!("  (cursor 0 now at {})", f64::from_bits(m.ld(cur + 0x20, 8)));
+                                    }
+                                }
                                 m.r[0] | picture
                             }
                             None => {
@@ -1553,6 +1584,29 @@ impl<'v, 'w> Run<'v, 'w> {
                 // it is a window of its own
                 m.st(mgr + 0x40, 8, 0x30002);
             }
+            // cursor 0 exists from the start, at time zero
+            if mgr != 0 && std::env::var_os("S2NOCURSOR").is_none() {
+                self.world.lenient = true;
+                let sp = m.r[4];
+                let saved = m.r;
+                let saved_x = m.x;
+                m.r[1] = mgr;
+                m.set_xl(1, 0.0f64.to_bits());
+                m.r[8] = 0;
+                m.r[9] = 0;
+                m.push(0);
+                let r0 = catch_unwind(AssertUnwindSafe(|| commands::call_at(m, self, 0x1_4001_75a0 + (7u64 << 32))));
+                self.world.lenient = false;
+                m.r[4] = sp;
+                m.r = saved;
+                m.x = saved_x;
+                if r0.is_err() && std::env::var_os("S2LIFT_SERVICES").is_some() {
+                    eprintln!("  (cursor 0 was not made)");
+                }
+            }
+            if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                eprintln!("  (cursor manager {mgr:#x}; cursors {:#x} {:#x} {:#x})", m.ld(mgr + 0x268, 8), m.ld(mgr + 0x270, 8), m.ld(mgr + 0x278, 8));
+            }
             if r.is_err() && std::env::var_os("S2LIFT_SERVICES").is_some() {
                 let why = match &r {
                     Err(p) => p.downcast_ref::<String>().cloned().or_else(|| p.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default(),
@@ -1562,6 +1616,21 @@ impl<'v, 'w> Run<'v, 'w> {
             }
         }
         m.st(win + 0x880, 8, tf.to_bits());
+        // the end of the data, in ticks, which the window reads for its time range
+        {
+            let sp = m.r[4];
+            let saved = m.r;
+            m.r[1] = file;
+            m.push(0);
+            let target = m.ld(m.ld(file, 8) + 0x58, 8);
+            let r = catch_unwind(AssertUnwindSafe(|| commands::call_at(m, self, target)));
+            let end = m.r[0];
+            m.r[4] = sp;
+            m.r = saved;
+            if r.is_ok() {
+                m.st(win + 0x1f8, 8, end);
+            }
+        }
         self.world.measure_file = file;
         self.world.measure_tf = tf;
         let ptrs = m.alloc(8 * 40);
@@ -1894,6 +1963,7 @@ impl<'v, 'w> Run<'v, 'w> {
         m.r = saved;
         if std::env::var_os("S2LIFT_SERVICES").is_some() {
             let vt = m.ld(obj, 8);
+            eprintln!("  (CSonFile map head at +0x4e0: {:#x})", m.ld(obj + 0x4e0, 8));
             eprintln!("  CSonFile {obj:#x} vtable {vt:#x} slots 0x1a8 {:#x} 0x1b0 {:#x} 0x1b8 {:#x}", m.ld(vt + 0x1a8, 8), m.ld(vt + 0x1b0, 8), m.ld(vt + 0x1b8, 8));
         }
         self.world.sonfiles.insert(h, obj);
@@ -2153,6 +2223,16 @@ impl Vm {
             commands::run(name, &mut m, &mut run);
             // the status Execute returns: zero, or the error code the script stops with
             let status = m.r[0] as u32 as i32;
+            if std::env::var_os("S2LIFT_SERVICES").is_some() {
+                eprintln!("  ({name} returned status {status})");
+                if name.starts_with("Measure") {
+                    for a in [0x1_8004_15f8u64, 0x1_8004_15f0, 0x1_8004_15e8, 0x1_8004_15e0] {
+                        let p = m.ld(a + (6u64 << 32), 8);
+                        let txt = if p == 0 { String::new() } else { String::from_utf16_lossy(&win::wide_at(&m, p)) };
+                        eprintln!("    measure string at {a:#x}: {txt:?} types {} {}", m.ld(0x1_8004_15cc + (6u64 << 32), 4), m.ld(0x1_8004_15d0 + (6u64 << 32), 4));
+                    }
+                }
+            }
             if status < 0 {
                 panic_any(Thrown(status));
             }

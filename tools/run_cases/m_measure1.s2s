@@ -1,0 +1,26 @@
+var res[300], h%, v%, k%, i%, n%, x[20], y[20], c%, xl, yl, xh, yh;
+h% := FileOpen("C:\\Users\\Hilal\\Documents\\Spike8\\data\\Demo.smr", 0, 0);
+k% := 0;
+v% := MeasureToXY(7, 1, 0.05, 0.0, 0.1);
+res[k%] := v%; k% += 1;
+res[k%] := ViewKind(v%); k% += 1;
+res[k%] := MeasureX(2, 1, "Cursor(0)", "Cursor(0)+0.01"); k% += 1;
+res[k%] := MeasureY(14, 1, "Cursor(0)", "Cursor(0)+0.01"); k% += 1;
+res[k%] := MeasureChan(1, "pk"); k% += 1;
+res[k%] := Process(0.0, 2.0); k% += 1;
+n% := XYCount(1);
+res[k%] := n%; k% += 1;
+res[k%] := XYGetData(1, x[], y[]); k% += 1;
+for i% := 0 to 9 do res[k%] := x[i%]; k% += 1; res[k%] := y[i%]; k% += 1; next
+res[k%] := XYRange(1, xl, yl, xh, yh); k% += 1;
+res[k%] := xl; k% += 1; res[k%] := yl; k% += 1; res[k%] := xh; k% += 1; res[k%] := yh; k% += 1;
+c% := MeasureChan(0, "mn", 50);
+res[k%] := c%; k% += 1;
+res[k%] := MeasureY(15, 1, "Cursor(0)", "Cursor(0)+0.01"); k% += 1;
+res[k%] := MeasureChan(2, "mn", 50); k% += 1;
+res[k%] := Process(0.0, 3.0); k% += 1;
+res[k%] := XYCount(1); k% += 1;
+res[k%] := XYCount(2); k% += 1;
+n% := XYGetData(2, x[], y[]);
+res[k%] := n%; k% += 1;
+for i% := 0 to 4 do res[k%] := x[i%]; k% += 1; res[k%] := y[i%]; k% += 1; next
