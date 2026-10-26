@@ -696,6 +696,24 @@ when they agree. The reference file `testdata/run_reference.txt` holds the date 
 be regenerated (`run_oracle.py --only t_date`) when the day changes.
 
 
+### Result views and XY views
+
+A result view (`SetResult`, `SetPSTH`, `SetAverage`, ...) is made the way Spike2 makes it. The command sends
+the main window message `0x94d`; SONVIEW's handler asks the application's document template (a stand-in at
+`app+0x1d0` whose `OpenDocumentFile` is `result_document` in `lifted/mod.rs`) for a document and a window, which
+are built by SONVIEW's own constructors (`CResultDoc`, `CResultWindow`), and then numbers the view with message
+`0x14aa`. `View(h).[i]` reads and writes the bins of the real `CResChan` (`lifted_view_elem`). XY views
+(`FileNew(12)`) come from a second template at `app+0x1f8` (`CXYDoc`, `CXYWindow`; the first channel is made by
+the window's own set-up routine). A result view reads the file of the time view that was current when it was
+made (`Host::result_source`). The commands of the analysis libraries (`spikecmd.dll`) keep their command
+objects as globals, found from the stores of their vtables (`STATIC_OBJECTS` in `commands.rs`); each makes a
+hidden window that the command's own window procedure answers, and `__RTDynamicCast` walks the run-time type
+information. A data window starts with cursor 0 at time zero, as Spike2's does, because the measurement
+commands evaluate `Cursor(0)`.
+
+`testdata/run_reference.txt` is not in git; `tools/run_oracle.py --emit FILE` overwrites FILE with only the
+programs it ran, so record a single program into a scratch file and append its line.
+
 ### Status of the 503 commands
 
 `tools/command_census.py` calls each command once. At the last run, 360 ran, 94 refused the made-up
